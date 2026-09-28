@@ -77,9 +77,36 @@ Plivo must reach your api over HTTPS. A free Cloudflare quick tunnel does this f
 ```powershell
 docker compose -f infra/docker-compose.yml --profile tunnel up -d tunnel
 python scripts\set_public_url.py --from-tunnel    # writes PUBLIC_BASE_URL into .env, checks /health
-docker compose -f infra/docker-compose.yml up -d api
+docker compose -f infra/docker-compose.yml up -d api worker
 ```
 
 Open `<that address>/audio/hi/P01.wav` on your phone with Wi-Fi off. The address changes every
 time the tunnel restarts, so repeat the last two commands after a restart.
 Stop it with `docker compose -f infra/docker-compose.yml --profile tunnel stop tunnel`.
+
+## Missed call and free callback (Step 7)
+
+Flow: someone dials the Plivo number → `POST /pv/answer` checks Plivo's V3 signature, rejects the
+call (so the caller pays nothing) and queues a callback → the worker dials back after
+`CALLBACK_DELAY_SECONDS` → Plivo fetches `/pv/ivr/start` (plays P01 for now; Step 8 adds the menus)
+→ `/pv/hangup` records the duration.
+
+Rules: Indian mobiles only; at most `MAX_TRIGGERS_PER_DAY` per number per IST day;
+`DAILY_CALL_BUDGET` callbacks per day in total; nothing is dialled during `QUIET_HOURS`
+(those callbacks wait until the window ends); blocked numbers are ignored; a repeated
+CallUUID is ignored. Numbers are stored only as an HMAC hash plus a Fernet-encrypted copy,
+and logs show only the last four digits.
+
+Setup once the Plivo account exists:
+
+1. In `.env` fill `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_NUMBER`.
+2. Apply the new column: `docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py`
+3. `docker compose -f infra/docker-compose.yml up -d --build api worker`
+4. In the Plivo console create an Application: Answer URL `POST <PUBLIC_BASE_URL>/pv/answer`,
+   Hangup URL `POST <PUBLIC_BASE_URL>/pv/hangup`, then attach the number to it.
+   The URL must match `PUBLIC_BASE_URL` exactly, or every signature check fails with 403.
+5. Give a missed call from a verified phone and watch
+   `docker compose -f infra/docker-compose.yml logs -f api worker`.
+
+Integration tests use a throwaway Postgres and Redis:
+`TEST_DATABASE_URL=... TEST_REDIS_URL=... pytest` (they wipe that database).

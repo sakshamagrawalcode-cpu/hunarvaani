@@ -69,7 +69,7 @@ def main() -> None:
     ENV.write_text(set_env_value(ENV.read_text(encoding="utf-8"), "PUBLIC_BASE_URL", url))
     print(f"PUBLIC_BASE_URL={url}")
     print(check(url))
-    print("Now run: docker compose -f infra/docker-compose.yml up -d api")
+    print("Now run: docker compose -f infra/docker-compose.yml up -d api worker")
 
 
 if __name__ == "__main__":
