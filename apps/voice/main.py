@@ -1,12 +1,19 @@
+import re
+from pathlib import Path
+
 import psycopg
 import redis
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 
 from core.config import load_settings
 
 settings = load_settings()
 app = FastAPI(title="HunarVaani voice API")
+
+AUDIO_DIR = Path(__file__).resolve().parents[2] / "audio"
+_LANG = re.compile(r"^[a-z]{2,3}$")
+_NAME = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 @app.get("/health")
@@ -38,3 +45,13 @@ def ready():
         checks["redis_error"] = type(exc).__name__
     ok = checks.get("db") and checks.get("pgvector") and checks.get("redis")
     return JSONResponse({"ok": bool(ok), **checks}, status_code=200 if ok else 503)
+
+
+@app.get("/audio/{lang}/{name}.wav")
+def audio(lang: str, name: str):
+    if not (_LANG.match(lang) and _NAME.match(name)):
+        raise HTTPException(404)
+    path = AUDIO_DIR / lang / f"{name}.wav"
+    if not path.is_file():
+        raise HTTPException(404)
+    return FileResponse(path, media_type="audio/wav")

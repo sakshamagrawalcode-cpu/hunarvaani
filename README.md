@@ -52,3 +52,19 @@ infra/         Dockerfile, docker-compose.yml
 tests/         unit tests
 docs/          measurements, honesty table
 ```
+
+## Voice prompts (Step 5)
+
+The 18 Hindi prompts live in `core/dialogue/prompts.py`. Render them on your laptop (needs
+ffmpeg on PATH and `SARVAM_API_KEY` in `.env`; `SARVAM_SPEAKER` is optional):
+
+```powershell
+python scripts\render_prompts.py --dry-run    # prints the text, no API calls
+python scripts\render_prompts.py --only P01   # renders one prompt as a test
+python scripts\render_prompts.py              # renders every missing prompt (16 files)
+docker compose -f infra/docker-compose.yml up -d --build
+curl.exe -o test.wav http://localhost:8000/audio/hi/P01.wav
+```
+
+P13 and P15 contain placeholders and are rendered during the call (Steps 9 and 10).
+Files land in `audio/hi/` and are served at `/audio/hi/<id>.wav`.
