@@ -25,6 +25,8 @@ RUN pip install --no-cache-dir -r requirements-nlp.txt
 
 FROM deps AS api
 
+ENV PYTHONPATH=/app
+
 COPY apps ./apps
 COPY core ./core
 COPY audio ./audio
@@ -36,6 +38,8 @@ CMD ["uvicorn", "apps.voice.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 
 FROM nlp-deps AS worker
+
+ENV PYTHONPATH=/app
 
 COPY apps ./apps
 COPY core ./core
