@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: hv
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - ../db:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -30,6 +30,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
+      target: api
     env_file: ../.env
     ports:
       - "127.0.0.1:8000:8000"
@@ -43,8 +44,10 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile
-    command: ["python", "-m", "apps.worker.main"]
+      target: worker
     env_file: ../.env
+    volumes:
+      - hf_cache:/models
     depends_on:
       db:
         condition: service_healthy
@@ -53,3 +56,4 @@ services:
 
 volumes:
   pgdata:
+  hf_cache:

@@ -23,6 +23,10 @@ def ready():
             row = conn.execute("SELECT 1 FROM pg_extension WHERE extname = 'vector'").fetchone()
             checks["db"] = True
             checks["pgvector"] = row is not None
+            has_nco = conn.execute("SELECT to_regclass('public.nco')").fetchone()[0]
+            checks["nco_rows"] = (
+                conn.execute("SELECT count(*) FROM nco").fetchone()[0] if has_nco else None
+            )
     except Exception as exc:
         checks["db"] = False
         checks["db_error"] = type(exc).__name__
