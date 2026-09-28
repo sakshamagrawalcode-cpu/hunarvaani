@@ -57,6 +57,13 @@ services:
       redis:
         condition: service_healthy
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://api:8000
+    profiles: ["tunnel"]
+    depends_on:
+      - api
+
 volumes:
   pgdata:
   hf_cache:

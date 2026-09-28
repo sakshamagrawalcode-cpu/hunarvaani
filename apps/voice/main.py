@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from core.config import load_settings
 
 settings = load_settings()
-app = FastAPI(title="HunarVaani voice API")
+app = FastAPI(title="HunarVaani voice API", docs_url=None, redoc_url=None, openapi_url=None)
 
 AUDIO_DIR = Path(__file__).resolve().parents[2] / "audio"
 _LANG = re.compile(r"^[a-z]{2,3}$")

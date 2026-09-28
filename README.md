@@ -68,3 +68,18 @@ curl.exe -o test.wav http://localhost:8000/audio/hi/P01.wav
 
 P13 and P15 contain placeholders and are rendered during the call (Steps 9 and 10).
 Files land in `audio/hi/` and are served at `/audio/hi/<id>.wav`.
+
+## Public address for Plivo (Step 6)
+
+Plivo must reach your api over HTTPS. A free Cloudflare quick tunnel does this for testing
+(real callers are served only from the server in Step 12):
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile tunnel up -d tunnel
+python scripts\set_public_url.py --from-tunnel    # writes PUBLIC_BASE_URL into .env, checks /health
+docker compose -f infra/docker-compose.yml up -d api
+```
+
+Open `<that address>/audio/hi/P01.wav` on your phone with Wi-Fi off. The address changes every
+time the tunnel restarts, so repeat the last two commands after a restart.
+Stop it with `docker compose -f infra/docker-compose.yml --profile tunnel stop tunnel`.
