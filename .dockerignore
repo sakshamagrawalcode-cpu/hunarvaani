@@ -6,3 +6,5 @@ __pycache__
 recordings
 tests
 docs
+apps/console/node_modules
+apps/console/dist

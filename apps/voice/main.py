@@ -15,11 +15,12 @@ from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
+    RedirectResponse,
     Response,
 )
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from apps.voice import calls, calls_page
+from apps.voice import calls, calls_page, console_api
 from apps.voice.exotel import ExotelSession, PromptAudio
 from core import interview_store, plivo_sig
 from core.config import load_settings
@@ -199,3 +200,32 @@ def calls_list():
         calls_page.render(settings),
         headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"},
     )
+
+
+# The team console: a React app (apps/console) built into apps/console/dist, plus its JSON API.
+# Both live under /console/ so the browser reuses the password it was asked for once.
+app.include_router(
+    console_api.build_router(lambda: settings),
+    prefix="/console/api",
+    dependencies=[Depends(_team_only)],
+)
+CONSOLE_DIR = Path(__file__).resolve().parents[1] / "console" / "dist"
+_NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
+
+
+@app.get("/console", dependencies=[Depends(_team_only)])
+def console_root():
+    return RedirectResponse("/console/")
+
+
+@app.get("/console/{path:path}", dependencies=[Depends(_team_only)])
+def console_files(path: str):
+    index = CONSOLE_DIR / "index.html"
+    if not index.is_file():
+        raise HTTPException(503, "The console is not built: run npm run build in apps/console")
+    if path.startswith("api/"):
+        raise HTTPException(404)
+    file = (CONSOLE_DIR / path).resolve()
+    if path and file.is_file() and CONSOLE_DIR.resolve() in file.parents:
+        return FileResponse(file)
+    return FileResponse(index, headers=_NO_STORE)  # the app's own pages, e.g. /console/calls

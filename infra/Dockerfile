@@ -23,11 +23,21 @@ COPY requirements-nlp.txt .
 RUN pip install --no-cache-dir -r requirements-nlp.txt
 
 
+FROM node:22-alpine AS console
+
+WORKDIR /console
+COPY apps/console/package.json apps/console/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY apps/console ./
+RUN npm run build
+
+
 FROM deps AS api
 
 ENV PYTHONPATH=/app
 
 COPY apps ./apps
+COPY --from=console /console/dist ./apps/console/dist
 COPY core ./core
 COPY audio ./audio
 COPY data ./data

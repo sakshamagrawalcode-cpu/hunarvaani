@@ -752,3 +752,82 @@ def test_caller_picks_marathi_at_the_start(client, settings, monkeypatch):
     assert rows("SELECT language FROM call") == [("mr-IN",)]
     [(h,)] = rows("SELECT hash FROM consent WHERE kind = 'recording'")
     assert h == prompt_hash("P06", "mr-IN") != prompt_hash("P06", "hi-IN")
+
+
+def _console(client, settings, monkeypatch):
+    import dataclasses
+
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, calls_page_password="pw"))
+    return lambda path: client.get(f"/console/api{path}", auth=("admin", "pw"))
+
+
+def test_console_api_shows_a_whole_call(client, settings, audio_dir, monkeypatch):
+    with psycopg.connect(DB, autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO nco (nco_code, title_en, title_hi, title_mr, aliases) VALUES "
+            "('7531', 'Tailor', 'दर्ज़ी', 'शिंपी', 'silai | सिलाई'), "
+            "('7411', 'Electrician', 'बिजली मिस्त्री', 'इलेक्ट्रिशियन', 'bijli') "
+            "ON CONFLICT DO NOTHING"
+        )
+    worker = fake_worker(audio_dir, ["7531", "7411"])
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear(READBACK)
+        p.press("1")
+        p.until_hangup()
+    worker.join(2)
+    get = _console(client, settings, monkeypatch)
+
+    [row] = get("/calls").json()
+    assert row["number"] == "xxxxxx3210" and row["status"] == "completed"
+    assert row["answers"]["q_age"] == "26_35" and row["answers"]["q_gender"] == "female"
+    assert row["occupation"]["title_hi"] == "दर्ज़ी" and row["occupation_via"] == "read-back"
+    assert row["transcripts"] == ["मैं सिलाई का काम करती हूं"]
+
+    detail = get(f"/calls/{row['id']}").json()
+    [story] = detail["stories"]
+    assert story["top1"]["code"] == "7531" and story["confirmed"] == "7531" and story["audio"]
+    assert {c["kind"] for c in detail["consents"]} == {"recording", "share", "research"}
+    kinds = [e["kind"] for e in detail["events"]]
+    assert kinds[0] == "inbound_call" and "readback" in kinds and kinds[-1] == "call_ended"
+    assert all("path" not in (e["payload"] or {}) for e in detail["events"])
+    audio = get(f"/calls/{row['id']}/audio/0")
+    assert audio.status_code == 200 and audio.content[:4] == b"RIFF"
+    assert get(f"/calls/{row['id']}/audio/5").status_code == 404
+    assert get("/calls/not-a-uuid").status_code == 404
+
+    [person] = get("/people").json()
+    assert person["calls"] == 1 and person["occupation"]["code"] == "7531"
+    summary = get("/summary").json()
+    assert summary["calls"] == 1 and summary["occupations"][0]["code"] == "7531"
+    tailor = next(o for o in get("/occupations").json() if o["code"] == "7531")
+    assert tailor["callers"] == 1 and "सिलाई" in tailor["aliases"]
+
+    everything = " ".join(get(p).text for p in ("/calls", "/people", "/summary"))
+    assert "9876543210" not in everything
+
+
+def test_console_needs_the_password(client, settings, monkeypatch):
+    _console(client, settings, monkeypatch)
+    assert client.get("/console/api/calls").status_code == 401
+    assert client.get("/console/api/calls", auth=("admin", "nope")).status_code == 401
+    assert client.get("/console/").status_code == 401
+
+
+def test_console_serves_the_app_and_never_files_outside_it(client, settings, monkeypatch, tmp_path):
+    get = _console(client, settings, monkeypatch)
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<div id=root></div>")
+    (dist / "assets" / "app.js").write_text("console.log(1)")
+    (tmp_path / "secret.txt").write_text("secret")
+    monkeypatch.setattr(main, "CONSOLE_DIR", dist)
+    auth = ("admin", "pw")
+    assert client.get("/console/assets/app.js", auth=auth).text == "console.log(1)"
+    assert "root" in client.get("/console/calls/123", auth=auth).text  # the app's own route
+    assert "secret" not in client.get("/console/..%2Fsecret.txt", auth=auth).text
+    assert "secret" not in client.get("/console/../secret.txt", auth=auth).text
+    assert get("/nothing-here").status_code == 404
