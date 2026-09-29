@@ -216,7 +216,7 @@ The console shows both tries.
 | A5 | **Team console** (React): overview, calls, call detail with recording + timeline, people, occupations | `44dd869` |
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
-| B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English translation shown; translation API off unless `TRANSLATE_FOR_CONSOLE=true`); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
+| B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English shown in the console); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -304,6 +304,15 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
 | Wrong token → refused | ✅ Exotel secret URL token; Plivo signatures |
 | `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
+
+### English translation: only when a model needs it
+None of our models needs English today: the occupation search works on Hindi, Marathi and English
+directly (word lists + multilingual meaning model), the recommender (A9) uses saved profile
+values and codes, and Sarvam's LLM understands Indian languages. When an English-only model is
+added (e.g. B10 learned ranking, or training on callers' words), set `TRANSLATE_TO_ENGLISH=true`:
+the worker then saves an English copy of each story in `story.transcript_en` (Sarvam translate,
+in parallel with the read-back voice, so callers do not wait). Training data may only use callers
+who said yes to P08 (train our AI). The console never shows the translation.
 
 ### Review of what the call asks (29 Sep)
 - **Questions are enough, not too many** (about 3–4 minutes): language, OK to talk, 3 consents,

@@ -103,8 +103,9 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
         encode,
         transcribe_file,
         render,
-        # English copy of the caller's words costs Sarvam credits: off unless asked for
-        translate=to_english if settings.translate_for_console else None,
+        # English copy of the caller's words (story.transcript_en) for models that work in
+        # English; costs Sarvam credits, so off until such a model exists
+        translate=to_english if settings.translate_to_english else None,
     )
     try:
         with store.connect(settings.database_url) as conn:
