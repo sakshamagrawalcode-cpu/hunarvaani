@@ -61,11 +61,17 @@ def main() -> None:
             ):
                 print(f"  {k['kind']:<10} {'yes' if k['granted'] else 'no'}")
             for st in conn.execute(
-                "SELECT recording_url, transcript FROM story WHERE call_id = %s", (cid,)
+                "SELECT recording_url, transcript, top1, top2, confirmed FROM story "
+                "WHERE call_id = %s ORDER BY created_at",
+                (cid,),
             ):
                 print(f"-- story file: {st['recording_url']}")
                 if st["transcript"]:
                     print(f"   transcript: {st['transcript']}")
+                if st["top1"]:
+                    print(
+                        f"   understood: {st['top1']} / {st['top2']}, confirmed: {st['confirmed']}"
+                    )
 
 
 if __name__ == "__main__":

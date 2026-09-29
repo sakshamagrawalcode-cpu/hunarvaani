@@ -136,7 +136,8 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
         store.save_story(conn, call_id, e.data["path"], **fields)
     elif e.kind == "readback":
         conn.execute(
-            "UPDATE story SET confirmed = %s WHERE call_id = %s",
+            "UPDATE story SET confirmed = %s WHERE recording_url = ("
+            "SELECT recording_url FROM story WHERE call_id = %s ORDER BY created_at DESC LIMIT 1)",
             (e.data["confirmed"] or "none", call_id),
         )
     elif e.kind == "callback_tomorrow":

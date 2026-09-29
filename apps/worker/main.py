@@ -113,7 +113,7 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
         result.get("search_ms"),
         result.get("tts_ms"),
         result.get("scores"),
-        "yes" if result.get("prompt") else "no",
+        "yes" if result.get("readback") else "no",
         f", error: {result['error']}" if result.get("error") else "",
     )
 

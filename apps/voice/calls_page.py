@@ -74,9 +74,9 @@ def render(settings: Settings, limit: int = 50) -> str:
                     "SELECT step, value FROM answer WHERE call_id = %s ORDER BY created_at", (cid,)
                 )
             }
-            story = conn.execute(
-                "SELECT * FROM story WHERE call_id = %s ORDER BY created_at DESC LIMIT 1", (cid,)
-            ).fetchone()
+            stories = conn.execute(
+                "SELECT * FROM story WHERE call_id = %s ORDER BY created_at", (cid,)
+            ).fetchall()
             consents = ", ".join(
                 f"{k['kind']}:{'yes' if k['granted'] else 'no'}"
                 for k in conn.execute(
@@ -84,7 +84,7 @@ def render(settings: Settings, limit: int = 50) -> str:
                     (cid,),
                 )
             )
-            rows.append((c, answers, story, consents))
+            rows.append((c, answers, stories, consents))
 
     def cell(value) -> str:
         if value in (None, ""):
@@ -92,7 +92,9 @@ def render(settings: Settings, limit: int = 50) -> str:
         return f"<td>{escape(str(value))}</td>"
 
     out = []
-    for c, answers, story, consents in rows:
+    for c, answers, stories, consents in rows:
+        story = stories[-1] if stories else None
+        own_words = " / ".join(s["transcript"] for s in stories if s["transcript"])
         occupation = answers.get("occupation") or answers.get("trades")
         via = "read-back" if answers.get("occupation") else ("keypad list" if occupation else "")
         heard = []
@@ -119,7 +121,7 @@ def render(settings: Settings, limit: int = 50) -> str:
             + cell(LANGUAGE_NAMES.get(c["language"], c["language"]))
             + cell(f"{c['duration_seconds']} s" if c["duration_seconds"] is not None else "")
             + "".join(cell(LABELS.get(answers.get(s), answers.get(s))) for s in STEPS)
-            + cell(story["transcript"] if story else "")
+            + cell(own_words)
             + cell(" / ".join(heard))
             + cell(f"{occupation} {titles.get(occupation, '')} ({via})" if occupation else "")
             + cell(", ".join(timings + ([f"callback {callback}"] if callback else [])))

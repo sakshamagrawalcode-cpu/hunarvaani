@@ -84,6 +84,18 @@ class PromptAudio:
             return b""
         return self._read(path, rate)
 
+    def forget(self, prompt_id: str) -> None:
+        """Delete a generated prompt that holds the caller's own words ("you said ...")."""
+        name = prompt_id[len(dynprompt.PREFIX) :]
+        if not (prompt_id.startswith(dynprompt.PREFIX) and _DYN_NAME.match(name)):
+            return
+        for key in [k for k in self._cache if k[0] == prompt_id]:
+            del self._cache[key]
+        try:
+            (self.dir / "dyn" / f"{name}.wav").unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("could not delete a generated prompt: %s", type(exc).__name__)
+
     @staticmethod
     def _read(path: Path, rate: int) -> bytes:
         with wave.open(str(path)) as w:
@@ -113,6 +125,7 @@ class ExotelSession:
         self.last_voice: float | None = None
         self.player: asyncio.Task | None = None
         self._send_lock = asyncio.Lock()
+        self.heard_prompts: list[str] = []
 
     async def send(self, obj: dict) -> None:
         if self.ended.is_set():
@@ -395,6 +408,7 @@ class ExotelSession:
                 result = {}
                 if path and not hung_up:
                     result = await self._understand(call_id, path, engine.language) or {}
+                    self.heard_prompts += result.get("heard") or []
                 details = {
                     **story_job.story_fields(result),
                     "wait_ms": result.get("wait_ms"),
@@ -402,7 +416,14 @@ class ExotelSession:
                     "error": result.get("error"),
                 }
                 action, effects = engine.on_recording(
-                    path, seconds, result.get("candidates"), result.get("prompt"), details
+                    path,
+                    seconds,
+                    candidates=result.get("candidates"),
+                    readback=result.get("readback"),
+                    details=details,
+                    heard=result.get("heard") or (),
+                    # no answer in time, or an error: not the caller's fault, so no retelling
+                    understood=result.get("transcript") is not None,
                 )
                 await self._apply(call_id, effects)
                 if hung_up:
@@ -416,6 +437,8 @@ class ExotelSession:
             if self.player and not self.player.done():
                 self.player.cancel()
             reader.cancel()
+            for pid in self.heard_prompts:
+                self.audio.forget(pid)
             if call_id:
                 log.info("call %s: ended", call_id[:8])
                 try:

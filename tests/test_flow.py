@@ -24,7 +24,7 @@ def test_happy_path_with_recording():
     consents = [(e.data["kind"], e.data["granted"]) for e in effects if e.kind == "consent"]
     assert consents == [("recording", True), ("share", True), ("research", False)]
 
-    action, effects = iv.on_recording("/rec/a.wav", 12.34)
+    action, effects = iv.on_recording("/rec/a.wav", 12.34, understood=False)
     assert kinds(effects) == ["story_recorded"] and effects[0].data["seconds"] == 12.3
     assert action.prompts == ("P14",)
     action, effects = iv.on_key("2")
@@ -150,24 +150,32 @@ def test_state_survives_serialisation():
     assert copy.on_key("1")[0] == iv.on_key("1")[0]
 
 
-def test_empty_story_records_nothing_and_offers_the_trade_list():
+def test_no_speech_asks_once_more_then_offers_the_trade_list():
     iv = Interview()
     run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
     action, effects = iv.on_recording(None, 0.0)
-    assert kinds(effects) == ["story_empty"] and action.prompts == ("P14",)
+    assert kinds(effects) == ["story_empty"]
+    assert isinstance(action, Record) and action.prompts == ("P22", "P23")
+    action, effects = iv.on_recording(None, 0.0)
+    assert kinds(effects) == ["story_empty"] and action.prompts == ("P22", "P14")
 
 
 def _story(iv):
     run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
 
 
-def test_confident_story_reads_back_two_occupations():
+def test_confident_story_says_what_we_heard_and_reads_back_two_occupations():
     iv = Interview()
     _story(iv)
     action, effects = iv.on_recording(
-        "/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22", {"top1": "7531"}
+        "/r.wav",
+        5,
+        ["7531", "7411"],
+        readback=["DYN:bb"],
+        details={"top1": "7531"},
+        heard=["DYN:aa"],
     )
-    assert action.step == "readback" and action.prompts == ("DYN:aa11bb22",)
+    assert action.step == "readback" and action.prompts == ("DYN:aa", "DYN:bb")
     assert effects[0].data["top1"] == "7531"
     action, effects = iv.on_key("2")
     assert action == Hangup(("P15",)) and iv.occupation == "7411"
@@ -175,29 +183,53 @@ def test_confident_story_reads_back_two_occupations():
     assert effects[1].data == {"step": "occupation", "key": "2", "value": "7411"}
 
 
-def test_neither_goes_to_the_trade_list():
+def test_neither_lets_the_caller_tell_it_again_once():
     iv = Interview()
     _story(iv)
-    iv.on_recording("/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22")
+    iv.on_recording("/r.wav", 5, ["7531", "7411"], readback=["DYN:bb"], heard=["DYN:aa"])
     action, effects = iv.on_key("3")
-    assert action.prompts == ("P14",) and effects[0].data["confirmed"] is None
+    assert isinstance(action, Record) and action.prompts == ("P23",)
+    assert effects[0].data["confirmed"] is None
+    iv.on_recording("/r2.wav", 5, ["7531", "7411"], readback=["DYN:dd"], heard=["DYN:cc"])
+    action, _ = iv.on_key("3")
+    assert action.prompts == ("P14",)
 
 
 def test_read_back_timeouts_repeat_then_fall_back():
     iv = Interview()
     _story(iv)
-    iv.on_recording("/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22")
+    iv.on_recording("/r.wav", 5, ["7531", "7411"], readback=["DYN:bb"], heard=["DYN:aa"])
     action, _ = iv.on_timeout()
-    assert action.prompts == ("P16", "DYN:aa11bb22")
+    assert action.prompts == ("P16", "DYN:aa", "DYN:bb")
     action, effects = iv.on_timeout()
     assert action.prompts == ("P14",) and kinds(effects) == ["skipped"]
 
 
-def test_unconfident_story_goes_to_the_trade_list():
+def test_unclear_story_says_what_we_heard_and_asks_for_more_detail():
     iv = Interview()
     _story(iv)
-    action, effects = iv.on_recording("/r.wav", 5, [], None, {"top1": "5142"})
-    assert action.prompts == ("P14",) and kinds(effects) == ["story_recorded"]
+    action, effects = iv.on_recording("/r.wav", 5, [], None, {"top1": "5142"}, heard=["DYN:aa"])
+    assert kinds(effects) == ["story_recorded"]
+    assert isinstance(action, Record) and action.prompts == ("DYN:aa", "P24", "P23")
+    action, _ = iv.on_recording("/r2.wav", 5, [], None, heard=["DYN:cc"])
+    assert action.prompts == ("DYN:cc", "P24", "P14")
+
+
+def test_second_story_can_be_confirmed():
+    iv = Interview()
+    _story(iv)
+    iv.on_recording("/r.wav", 5, [], None, heard=["DYN:aa"])
+    action, _ = iv.on_recording("/r2.wav", 5, ["7231", "7233"], readback=["DYN:dd"])
+    assert action.step == "readback"
+    action, _ = iv.on_key("1")
+    assert action == Hangup(("P15",)) and iv.occupation == "7231"
+
+
+def test_slow_or_failed_processing_goes_straight_to_the_trade_list():
+    iv = Interview()
+    _story(iv)
+    action, _ = iv.on_recording("/r.wav", 5, understood=False)
+    assert action.prompts == ("P14",)
 
 
 def test_skipped_trade_list_still_ends_with_the_summary():

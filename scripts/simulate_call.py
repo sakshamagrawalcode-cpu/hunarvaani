@@ -98,7 +98,7 @@ async def main() -> None:
                 print(f"  {full}: {text}")
             if name == "P17":  # "one moment" while the worker listens; not a question
                 continue
-            if name.endswith("P12"):
+            if name.endswith(("P12", "P23")):
                 try:
                     raw = await asyncio.to_thread(input, "seconds to speak (Enter = 3)> ")
                 except EOFError:

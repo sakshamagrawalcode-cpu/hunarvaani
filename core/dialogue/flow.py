@@ -11,7 +11,10 @@ Rules from the build spec:
 - 0 at any menu flags the call for a human (P19) and repeats the question;
 - silence at the opening plays P02 once ("press 9 if you did not call"), then hangs up;
 - right after the opening the caller picks a language (skipped when only one is offered);
-  every later prompt plays in that language.
+  every later prompt plays in that language;
+- after the work story the caller hears what we heard (P21) and what we understood (P13); if we
+  could not understand it, or the caller says neither guess is right, they may tell it once more
+  in more detail (P23) before the keypad trade list (P14).
 """
 
 from dataclasses import asdict, dataclass, field, fields
@@ -19,6 +22,7 @@ from dataclasses import asdict, dataclass, field, fields
 from core.dialogue.prompts import LANGUAGE_KEYS, in_language
 
 GLOBAL_KEYS = "90"
+MAX_STORY_ATTEMPTS = 2
 
 
 @dataclass(frozen=True)
@@ -86,8 +90,9 @@ class Interview:
     opening_warned: bool = False
     keypad_only: bool = False
     language: str = "hi-IN"
-    readback_prompt: str = ""
+    readback_prompts: list[str] = field(default_factory=list)
     candidates: list[str] = field(default_factory=list)
+    story_attempts: int = 0
     education: str = ""
     occupation: str = ""
 
@@ -169,21 +174,33 @@ class Interview:
         path: str | None,
         seconds: float,
         candidates: list[str] | None = None,
-        prompt: str | None = None,
+        readback: list[str] | tuple[str, ...] | None = None,
         details: dict | None = None,
+        heard: list[str] | tuple[str, ...] = (),
+        understood: bool = True,
     ) -> tuple[Action, list[Effect]]:
-        """After the story: read back the top two occupations if the search was confident."""
+        """After the story.
+
+        `heard` plays back what we heard (P21), `readback` asks about the top two occupations.
+        `understood` is False when the story could not be processed in time (not the caller's
+        fault), so the caller is not asked to tell it again.
+        """
         if self.state != "story":
             return self._action(), []
+        self.story_attempts += 1
+        again = "story" if self.story_attempts < MAX_STORY_ATTEMPTS else "trades"
         if not path:
-            return self._goto("trades"), [Effect("story_empty")]
+            return self._goto(again, ("P22",)), [Effect("story_empty")]
         data = {"path": path, "seconds": round(seconds, 1), **(details or {})}
         effects = [Effect("story_recorded", data)]
-        if candidates and prompt:
+        if candidates and readback:
             self.candidates = list(candidates)[:2]
-            self.readback_prompt = prompt
+            self.readback_prompts = list(heard) + list(readback)
             return self._goto("readback"), effects
-        return self._goto("trades"), effects
+        if not understood:
+            return self._goto("trades"), effects
+        unclear = tuple(heard) + ("P24",) if heard else ("P22",)
+        return self._goto(again, unclear), effects
 
     def _readback(self, digit: str) -> tuple[Action, list[Effect]]:
         choice = {"1": 0, "2": 1}.get(digit)
@@ -191,7 +208,8 @@ class Interview:
             effect = Effect(
                 "readback", {"key": "3", "confirmed": None, "candidates": self.candidates}
             )
-            return self._goto("trades"), [effect]
+            again = self.story_attempts < MAX_STORY_ATTEMPTS
+            return self._goto("story" if again else "trades"), [effect]
         if choice is None or choice >= len(self.candidates):
             return self._invalid()
         code = self.candidates[choice]
@@ -231,18 +249,18 @@ class Interview:
             return self._goto("trades" if self.keypad_only else "story")
         return self._goto(QUESTIONS[step][2])
 
-    def _goto(self, state: str) -> Action:
+    def _goto(self, state: str, prefix: tuple[str, ...] = ()) -> Action:
         self.state = state
         self.attempts = 0
         if state == "language" and len(self._menu()) < 2:
             menu = self._menu()
             if menu:
                 self.language = next(iter(menu.values()))
-            return self._goto("safe_to_talk")
+            return self._goto("safe_to_talk", prefix)
         if state == "summary":
             self.state = "ended"
-            return Hangup(("P15",))
-        return self._action()
+            return Hangup(prefix + ("P15",))
+        return self._action(prefix)
 
     def _action(self, prefix: tuple[str, ...] = ()) -> Action:
         s = self.state
@@ -262,8 +280,9 @@ class Interview:
             prompt, options, _ = QUESTIONS[s]
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)
         if s == "story":
-            return Record(s, prefix + ("P12",))
+            return Record(s, prefix + ("P12" if self.story_attempts == 0 else "P23",))
         if s == "readback":
             valid = "123"[: len(self.candidates)] + "3"
-            return Ask(s, prefix + (self.readback_prompt,), valid + GLOBAL_KEYS, self.timeout)
+            prompts = prefix + tuple(self.readback_prompts)
+            return Ask(s, prompts, valid + GLOBAL_KEYS, self.timeout)
         return Hangup()

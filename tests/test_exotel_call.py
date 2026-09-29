@@ -212,7 +212,7 @@ def test_nine_after_the_story_also_deletes_the_recordings(client, settings, audi
         p.start()
         _to_story(p)
         p.speak(1)
-        p.hear("DYN:0123456789abcdef01234567")
+        p.hear(READBACK)
         assert len(list(folder.glob("*.wav"))) == 3
         p.press("9")
         p.hear("P18")
@@ -383,43 +383,56 @@ def test_story_with_no_speech_moves_on(client, settings):
         p = Phone(ws)
         p.start()
         _to_story(p)
-        p.hear("P14")
+        p.hear("P22+P23")
+        p.hear("P22+P14")
         ws.close()
     assert rows("SELECT count(*) FROM story") == [(0,)]
-    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(1,)]
+    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(2,)]
 
 
-def fake_worker(audio_dir, candidates, transcript="मैं सिलाई का काम करती हूं"):
-    """Answer one story job the way the real worker would."""
+HEARD = "DYN:aaaaaaaaaaaaaaaaaaaaaaaa"
+QUESTION = "DYN:bbbbbbbbbbbbbbbbbbbbbbbb"
+READBACK = f"{HEARD}+{QUESTION}"
+
+
+def _dyn_wav(audio_dir, prompt_id):
+    (audio_dir / "dyn").mkdir(exist_ok=True)
+    with wave.open(str(audio_dir / "dyn" / f"{prompt_id[4:]}.wav"), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 400)
+
+
+def fake_worker(audio_dir, candidates, transcript="मैं सिलाई का काम करती हूं", jobs=1):
+    """Answer story jobs the way the real worker would: what we heard, then the read-back."""
     r = redis.Redis.from_url(RD)
+    answers = candidates if jobs > 1 and candidates and isinstance(candidates[0], list) else None
 
     def serve():
-        item = r.blpop(story_job.QUEUE, timeout=10)
-        if not item:
-            return
-        job = json.loads(item[1])
-        prompt = None
-        if candidates:
-            prompt = "DYN:0123456789abcdef01234567"
-            (audio_dir / "dyn").mkdir(exist_ok=True)
-            with wave.open(str(audio_dir / "dyn" / "0123456789abcdef01234567.wav"), "wb") as w:
-                w.setnchannels(1)
-                w.setsampwidth(2)
-                w.setframerate(8000)
-                w.writeframes(b"\x00\x00" * 400)
-        story_job.publish(
-            r,
-            job["call_id"],
-            {
-                "transcript": transcript,
-                "candidates": candidates,
-                "prompt": prompt,
-                "scores": [{"code": c, "score": 0.7} for c in candidates]
-                or [{"code": "5142", "score": 0.1}],
-                "stt_ms": 900,
-                "search_ms": 12,
-            },
-        )
+        for n in range(jobs):
+            item = r.blpop(story_job.QUEUE, timeout=10)
+            if not item:
+                return
+            job = json.loads(item[1])
+            codes = answers[n] if answers else candidates
+            _dyn_wav(audio_dir, HEARD)
+            if codes:
+                _dyn_wav(audio_dir, QUESTION)
+            story_job.publish(
+                r,
+                job["call_id"],
+                {
+                    "transcript": transcript,
+                    "candidates": codes,
+                    "heard": [HEARD],
+                    "readback": [QUESTION] if codes else [],
+                    "scores": [{"code": c, "score": 0.7} for c in codes]
+                    or [{"code": "5142", "score": 0.1}],
+                    "stt_ms": 900,
+                    "search_ms": 12,
+                },
+            )
 
     t = threading.Thread(target=serve, daemon=True)
     t.start()
@@ -433,7 +446,7 @@ def test_story_is_read_back_and_confirmed(client, settings, audio_dir):
         p.start()
         _to_story(p)
         p.speak(1)
-        heard = p.hear("DYN:0123456789abcdef01234567")
+        heard = p.hear(READBACK)
         assert "P17" in heard and "P14" not in heard
         p.press("1")
         p.until_hangup()
@@ -453,18 +466,45 @@ def test_story_is_read_back_and_confirmed(client, settings, audio_dir):
     assert payload == {"key": "1", "confirmed": "7531", "candidates": ["7531", "7411"]}
 
 
-def test_unclear_story_offers_the_trade_list(client, settings, audio_dir):
-    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है")
+def test_unclear_story_is_said_back_then_asked_once_more_then_the_trade_list(
+    client, settings, audio_dir
+):
+    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है", jobs=2)
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
         _to_story(p)
         p.speak(1)
-        p.hear("P14")
+        p.hear(f"{HEARD}+P24+P23")
+        p.speak(1)
+        p.hear(f"{HEARD}+P24+P14")
         ws.close()
     worker.join(2)
-    [(transcript, top1, confirmed)] = rows("SELECT transcript, top1, confirmed FROM story")
-    assert (transcript, top1, confirmed) == ("आज मौसम अच्छा है", "5142", None)
+    stories = rows("SELECT transcript, top1, confirmed FROM story ORDER BY created_at")
+    assert stories == [("आज मौसम अच्छा है", "5142", None)] * 2
+
+
+def test_neither_lets_the_caller_tell_it_again_and_confirm(client, settings, audio_dir):
+    worker = fake_worker(audio_dir, [["7531", "7411"], ["7231", "7233"]], jobs=2)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear(READBACK)
+        p.press("3")
+        p.hear("P23")
+        p.speak(1)
+        p.hear(READBACK)
+        p.press("1")
+        p.until_hangup()
+    worker.join(2)
+    stories = rows("SELECT top1, confirmed FROM story ORDER BY created_at")
+    assert stories == [("7531", "none"), ("7231", "7231")]
+    # "you said ..." holds the caller's own words: deleted when the call ends
+    assert not (audio_dir / "dyn" / f"{HEARD[4:]}.wav").exists()
+    assert (audio_dir / "dyn" / f"{QUESTION[4:]}.wav").exists()
+    assert dict(rows("SELECT step, value FROM answer"))["occupation"] == "7231"
 
 
 def test_no_worker_answer_in_time_offers_the_trade_list(client, settings):
@@ -562,12 +602,12 @@ def test_call_ends_with_the_spoken_summary(client, settings, fake_tts):
         p = Phone(ws)
         p.start()
         _to_story(p)
-        p.hear("P14")
+        p.hear("P22+P14")  # no speech twice
         p.press("5")
         p.hear("DYN:aaaabbbbccccdddd11112222")
         p.until_hangup()
     [text] = fake_tts
-    assert "दसवीं पास, मोबाइल मिस्त्री" in text and "ओटीपी" in text
+    assert "दसवीं पास, और काम: मोबाइल मिस्त्री" in text and "ओटीपी" in text
     [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'summary'")
     assert payload["text"] == text
 
@@ -583,7 +623,7 @@ def test_summary_falls_back_to_p20_when_tts_fails(client, settings, monkeypatch)
         p = Phone(ws)
         p.start()
         _to_story(p)
-        p.hear("P14")
+        p.hear("P22+P14")  # no speech twice
         p.press("2")
         p.hear("P20")
         p.until_hangup()

@@ -15,11 +15,16 @@ SETTINGS = Settings(
     quiet_hours="",
     sarvam_api_key="k",
 )
-INDEX = NcoIndex([Occupation(r.nco_code, r.title_en, r.title_hi, r.aliases) for r in load_seed()])
+INDEX = NcoIndex(
+    [
+        Occupation(r.nco_code, r.title_en, r.title_hi, r.aliases, None, r.title_mr)
+        for r in load_seed()
+    ]
+)
 JOB = {"call_id": "c1", "path": "/x.wav", "language": "hi-IN"}
 
 
-def run(transcript=None, error=None, index=INDEX):
+def run(transcript=None, error=None, index=INDEX, language="hi-IN", fail_tts=False):
     rendered = []
 
     def stt(path, language, key):
@@ -28,30 +33,54 @@ def run(transcript=None, error=None, index=INDEX):
         return transcript
 
     def render(text, language):
+        if fail_tts:
+            raise RuntimeError("tts down")
         rendered.append(text)
-        return "DYN:abcdef012345"
+        return f"DYN:{len(rendered)}" if text.startswith(("आपने", "You", "तुम्ही")) else "DYN:q"
 
-    return story_job.process(JOB, SETTINGS, index, None, stt, render), rendered
+    job = {**JOB, "language": language}
+    return story_job.process(job, SETTINGS, index, None, stt, render), rendered
 
 
-def test_confident_story_gets_a_read_back():
-    out, rendered = run("मैं सिलाई का काम करती हूं")
+def test_confident_story_says_what_we_heard_and_reads_back():
+    out, rendered = run("मैं सिलाई का काम करती हूं।")
     assert out["candidates"][0] == "7531" and len(out["candidates"]) == 2
-    assert out["prompt"] == "DYN:abcdef012345"
-    assert rendered[0].startswith("क्या आप दर्ज़ी का काम करते हैं?")
-    assert "error" not in out and out["stt_ms"] >= 0
+    assert out["readback"] == ["DYN:q"] and len(out["heard"]) == 1
+    assert "आपने बताया: मैं सिलाई का काम करती हूं।" in rendered
+    assert any(r.startswith("हमारी समझ से, आप दर्ज़ी का काम करते हैं।") for r in rendered)
+    assert "error" not in out and out["stt_ms"] >= 0 and out["tts_ms"] >= 0
 
 
-def test_unclear_story_falls_back_to_the_trade_list():
+def test_read_back_in_english_and_marathi():
+    _, rendered = run("I repair motorcycles and scooters at a small garage", language="en-IN")
+    assert "You said: I repair motorcycles and scooters at a small garage." in rendered
+    assert any("We understood that you work as motor vehicle mechanic." in r for r in rendered)
+    _, rendered = run("मी कपडे शिवते, ब्लाउज आणि ड्रेस बनवते", language="mr-IN")
+    assert "तुम्ही सांगितलं: मी कपडे शिवते, ब्लाउज आणि ड्रेस बनवते." in rendered
+    assert any("तुम्ही शिंपी म्हणून काम करता." in r for r in rendered)
+
+
+def test_long_story_is_trimmed_when_read_back():
+    long = " ".join(["सिलाई"] * 40)
+    _, rendered = run(long)
+    heard = next(r for r in rendered if r.startswith("आपने बताया"))
+    assert heard.count("सिलाई") == story_job.HEARD_MAX_WORDS
+
+
+def test_unclear_story_is_still_said_back():
     out, rendered = run("आज मौसम बहुत अच्छा है")
-    assert out["candidates"] == [] and out["prompt"] is None and rendered == []
+    assert out["candidates"] == [] and out["readback"] == []
+    assert rendered == ["आपने बताया: आज मौसम बहुत अच्छा है।"] and len(out["heard"]) == 1
     assert out["scores"][0]["score"] < story_job.THRESHOLD
 
 
 def test_empty_transcript_and_errors_never_raise():
-    out, _ = run("")
-    assert out["candidates"] == [] and out["transcript"] == ""
+    out, rendered = run("")
+    assert out["candidates"] == [] and out["transcript"] == "" and rendered == []
     out, _ = run(error=RuntimeError("sarvam down"))
-    assert out["prompt"] is None and "sarvam down" in out["error"]
+    assert out["readback"] == [] and "sarvam down" in out["error"]
+    assert "transcript" not in out
     out, _ = run("सिलाई", index=None)
     assert "seed_nco" in out["error"]
+    out, _ = run("मैं सिलाई का काम करती हूं", fail_tts=True)
+    assert out["candidates"] == [] and out["heard"] == [] and "tts down" in out["error"]

@@ -4,6 +4,7 @@ the read-back, and the api waits (briefly) for the answer on a per-call Redis li
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import psycopg
 
@@ -72,10 +73,22 @@ def save(conn, job: dict, result: dict) -> bool:
     return True
 
 
+HEARD_MAX_WORDS = 20
+
+
+def heard_text(transcript: str) -> str:
+    """What we heard, trimmed for reading back: at most HEARD_MAX_WORDS words."""
+    words = transcript.split()
+    return " ".join(words[:HEARD_MAX_WORDS]).rstrip(" ।.!?,")
+
+
 def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
-    """Transcribe, search and render the P13 read-back. Never raises."""
+    """Transcribe, search and render what we heard (P21) and the read-back (P13). Never raises.
+
+    The two are rendered at the same time, since text-to-speech is the slowest step.
+    """
     language = job.get("language") or "hi-IN"
-    out: dict = {"candidates": [], "prompt": None}
+    out: dict = {"candidates": [], "readback": [], "heard": []}
     try:
         t0 = time.monotonic()
         transcript = stt(job["path"], language, settings.sarvam_api_key)
@@ -92,16 +105,21 @@ def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
         top = index.search(transcript, query_vec, top_k=2)
         out["search_ms"] = int((time.monotonic() - t1) * 1000)
         out["scores"] = [{"code": c.code, "score": c.score} for c in top]
-        if not top or top[0].score < THRESHOLD or len(top) < 2:
-            return out
+        confident = len(top) == 2 and top[0].score >= THRESHOLD
 
-        names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in top]
-        text = fill(language, "P13", occupation_1=names[0], occupation_2=names[1])
+        texts = [fill(language, "P21", heard=heard_text(transcript))]
+        if confident:
+            names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in top]
+            texts.append(fill(language, "P13", occupation_1=names[0], occupation_2=names[1]))
         t2 = time.monotonic()
-        out["prompt"] = render(text, language)
+        with ThreadPoolExecutor(len(texts)) as pool:
+            rendered = list(pool.map(lambda text: render(text, language), texts))
         out["tts_ms"] = int((time.monotonic() - t2) * 1000)
-        out["candidates"] = [c.code for c in top]
+        out["heard"] = rendered[:1]
+        if confident:
+            out["readback"] = rendered[1:]
+            out["candidates"] = [c.code for c in top]
     except Exception as exc:
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
-        out["candidates"], out["prompt"] = [], None
+        out["candidates"], out["readback"], out["heard"] = [], [], []
     return out

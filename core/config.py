@@ -45,7 +45,7 @@ class Settings:
     vad_threshold: int = 500
     sarvam_api_key: str = ""
     sarvam_speaker: str = ""
-    story_wait_seconds: float = 6.0
+    story_wait_seconds: float = 8.0
     calls_page_user: str = "admin"
     calls_page_password: str = ""
     record_silence_seconds: float = 2.5
@@ -81,7 +81,7 @@ def load_settings() -> Settings:
         vad_threshold=_int("VAD_THRESHOLD", 500),
         sarvam_api_key=_str("SARVAM_API_KEY"),
         sarvam_speaker=_str("SARVAM_SPEAKER"),
-        story_wait_seconds=float(_str("STORY_WAIT_SECONDS", "6")),
+        story_wait_seconds=float(_str("STORY_WAIT_SECONDS", "8")),
         calls_page_user=_str("CALLS_PAGE_USER", "admin"),
         calls_page_password=_str("CALLS_PAGE_PASSWORD"),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),

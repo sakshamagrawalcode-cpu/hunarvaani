@@ -85,7 +85,7 @@ pgvector), `redis`, and `tunnel` (optional profile).
 | `data/nco_seed.csv` | 16 occupations with Hindi and romanised aliases |
 | `db/*.sql` | Schema (applied by `scripts/init_db.py`) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
-| `tests/` | 178 tests (unit + real-Postgres/Redis integration) |
+| `tests/` | 190 tests (unit + real-Postgres/Redis integration) |
 
 ---
 
@@ -104,12 +104,16 @@ flowchart TD
     P08 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 बीप के बाद अपना काम बताइए<br/>(stops on silence, # or 60 s)"]
     P11 -- "recording = no" --> P14
-    P12 --> P17["P17 एक पल रुकिए<br/>worker: Sarvam STT → search → TTS"]
-    P17 -- "score ≥ 0.35" --> P13["P13 क्या आप X का काम करते हैं?<br/>1 = X, 2 = Y, 3 = neither"]
-    P17 -- "unsure / no speech / slow" --> P14["P14 keypad trade list 1–5"]
+    P12 --> P17["P17 धन्यवाद, एक पल रुकिए…<br/>worker: Sarvam STT → search → TTS (two pieces at once)"]
+    P17 -- "score ≥ 0.35" --> P13["P21 आपने बताया: (caller's words) +<br/>P13 हमारी समझ से आप X का काम करते हैं… 1 = X, 2 = Y, 3 = neither"]
+    P17 -- "not understood" --> RETRY["P21 आपने बताया: … + P24 समझ नहीं पाए<br/>(no speech: P22 आवाज़ साफ़ नहीं)"]
+    RETRY -- "first time" --> P23["P23 बीप के बाद थोड़ा और विस्तार से बताइए"] --> P17
+    RETRY -- "second time" --> P14
+    P17 -- "too slow / error" --> P14["P14 keypad trade list 1–5"]
     P13 -- "1 or 2" --> P15
-    P13 -- 3 --> P14
-    P14 --> P15["P15 summary: हमने लिखा है: education, occupation…<br/>…कभी पैसे या ओटीपी नहीं माँगता (P20 if TTS fails)"]
+    P13 -- "3, first time" --> P23
+    P13 -- "3, second time" --> P14
+    P14 --> P15["P15 summary: हमने लिख ली है: education, और काम: occupation…<br/>…कभी पैसे या ओटीपी नहीं माँगता (P20 if TTS fails)"]
     P15 --> END([hang up])
 ```
 
@@ -181,6 +185,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 | Review | `init_db.py` safe to re-run again (it failed on every re-run since Step 8) | `d393857` |
 | Review | Simulator speaks in real time after the beep (simulated stories used to be dropped), skips P17 | `cb3b546` |
 | Fix | Calls no longer drop after the story when the worker needs over 3 s (Redis socket timeout < story wait) | `3652ddf` |
+| 11c | **Read-back says what we heard** ("आपने बताया: …") before what we understood; unclear story or "neither" → tell it once more in more detail (P23); all prompts rewritten to be polite and clear (P01–P24); "you said" audio deleted when the call ends; STORY_WAIT_SECONDS 6 → 8 | see git log |
 | 11b | **Three languages**: Hindi, English, Marathi; menu right after the greeting; all prompts, read-back and summary in the caller's language; English + Marathi occupation words | `32890f5` |
 
 **Measured so far:**
@@ -188,7 +193,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 - Real call understanding: STT 550 ms, search 336 ms, **1.0 s total wait** (target ≤ 6 s).
 - Search: all 24 test sentences right (19 describing work across the 16 occupations, incl. romanised; 5 with no occupation correctly refused, incl. "मैंने नई नौकरी शुरू की है").
 - Real e5 cosines: correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78 → band 0.78–0.90 kept.
-- 178 automated tests pass (1 skipped where ffmpeg is missing).
+- 190 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
