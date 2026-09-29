@@ -57,19 +57,19 @@ conversations in regional languages and local dialects.
 | Regional languages | ✅ Hindi, English, Marathi, picked at the start of the call | More languages Sarvam supports: add prompt text + render |
 | Dialects | ❌ | Needs speech models that support the dialect; out of scope |
 | Educational background | ✅ keypad question | — |
-| Traditional family occupation | ❌ | **Next:** one short question |
-| Current livelihood activity | ✅ caller describes their work in their own words → Sarvam speech-to-text → NCO occupation → read back to confirm | — |
-| Skills and interests | ⚠ current work only | **Next:** "what would you like to learn" question |
-| Mobility and physical constraints | ⚠ travel distance ✅; physical constraints ❌ | **Next:** keypad question on physical difficulty |
+| Traditional family occupation | ❌ | Plan B1: one short spoken question |
+| Current livelihood activity | ✅ caller describes their work in their own words → Sarvam speech-to-text → one of 59 NCO occupations → "you said… we understood…" → confirmed by key; unclear → tell again in more detail | — |
+| Skills and interests | ⚠ current work and what else they can do (asked in P12) | Plan B1: "what would you like to learn" |
+| Mobility and physical constraints | ✅ travel distance and physical difficulty (keypad) | Used by the recommender (A9) |
 | Self-employment or wage employment | ✅ keypad question | — |
-| Age (needed for training eligibility) | ❌ | **Next:** keypad age band |
-| Empathetic, conversational | ⚠ short polite prompts; reads back the caller's own work; human officer on 0 | Later: India-hosted LLM writes the next line from earlier answers |
-| NSQF-aligned training recommendations | ❌ | **Next priority:** rules over sample NSQF qualification data |
+| Age and gender (training and scheme eligibility) | ✅ keypad, with the reason said | — |
+| Empathetic, conversational | ⚠ polite prompts that say why each question is asked; says back the caller's own words; human officer on 0 | Plan B6: India-hosted LLM writes the next line from earlier answers |
+| NSQF-aligned training recommendations | ❌ | **Plan A8–A10 (next):** rules over sample NSQF course data, spoken on the call |
 | Trades and livelihood pathways | ✅ occupation (NCO code) identified | Recommendations build on it |
-| Skill gaps | ❌ | With recommendations: qualification entry needs vs the caller's profile |
-| Region-specific opportunities | ❌ | With recommendations: sample district opportunity data, clearly labelled as sample |
-| WhatsApp voice notes, kiosk | ❌ | Later: the same speech-to-text + search pipeline behind a WhatsApp number |
-| Planning / coordination for officials (GIA issues) | ⚠ `/calls` page for the team | Later: live dashboard and profile pages |
+| Skill gaps | ❌ | Plan A9: skills a course teaches vs what the caller already does |
+| Region-specific opportunities | ❌ | Plan A7–A9: district from PIN code + sample district demand data, labelled as sample |
+| WhatsApp voice notes, kiosk | ❌ | Plan B9: the same pipeline behind a WhatsApp number |
+| Planning / coordination for officials (GIA issues) | ✅ team console: calls, each call in detail, people, occupations | A11 recommendations + export; B2 live view; B5 officer tools |
 
 **Caste:** the scheme is for SC communities, but the call never asks caste (our rule, and a
 privacy risk on a voice line). Beneficiaries reach HunarVaani through the scheme's own outreach;

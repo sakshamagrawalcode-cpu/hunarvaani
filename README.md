@@ -1,4 +1,6 @@
 # HunarVaani
+
+**Status, plan and how everything works: [`docs/HANDOFF.md`](docs/HANDOFF.md).**
 Missed call → free callback → voice/keypad interview → NSQF-based training and job options.
 Team Cognify.
 
@@ -19,7 +21,7 @@ docker compose -f infra/docker-compose.yml down
 ## Database and occupation data (Step 4)
 
 A brand-new database applies `db/*.sql` on first start. If the `pgdata` volume already exists,
-apply them yourself (safe to repeat), then load the 16 seed occupations with embeddings:
+apply them yourself (safe to repeat), then load the 59 seed occupations with embeddings:
 
 ```powershell
 docker compose -f infra/docker-compose.yml build worker
@@ -55,13 +57,13 @@ docs/          measurements, honesty table
 
 ## Voice prompts (Step 5)
 
-The 20 Hindi prompts (P01–P20) live in `core/dialogue/prompts.py`. Render them on your laptop (needs
+The prompts (P01–P27, in Hindi, English and Marathi) live in `core/dialogue/prompts.py`. Render them on your laptop (needs
 ffmpeg on PATH and `SARVAM_API_KEY` in `.env`; `SARVAM_SPEAKER` is optional):
 
 ```powershell
 python scripts\render_prompts.py --dry-run    # prints the text, no API calls
 python scripts\render_prompts.py --only P01   # renders one prompt as a test
-python scripts\render_prompts.py              # renders every missing prompt (18 files)
+python scripts\render_prompts.py              # renders every missing prompt (24 per language)
 docker compose -f infra/docker-compose.yml up -d --build
 curl.exe -o test.wav http://localhost:8000/audio/hi/P01.wav
 ```
@@ -142,7 +144,7 @@ Try the callback: `python scripts\exotel_call_me.py 98XXXXXXXX`
 
 After the beep the caller speaks; recording stops on #, 2.5 s of silence after speech, 12 s with
 no speech, or 60 s. The api plays P17 ("एक पल रुकिए") and queues the recording for the worker,
-which transcribes it with Sarvam Saaras (≤28 s pieces), searches the 16 occupations
+which transcribes it with Sarvam Saaras (≤28 s pieces), searches the occupations
 (alias + BM25 + multilingual-e5 cosine), and renders P13 with Bulbul. If the answer arrives within
 `STORY_WAIT_SECONDS` and the best score is ≥ 0.35, the caller hears the top two and confirms with
 1 or 2 (3 = neither → trade list). Every read-back answer is stored as a labelled pair. The worker
@@ -167,3 +169,11 @@ The team's calls page is at `<PUBLIC_BASE_URL>/calls` (or `http://localhost:8000
 basic auth with `CALLS_PAGE_USER` / `CALLS_PAGE_PASSWORD` from `.env`. It shows the latest 50 calls:
 answers, the caller's own words, the search's top two, the confirmed occupation, timings,
 consents and flags. Numbers show only their last four digits.
+
+## Team console (Step A5)
+
+A React web app (`apps/console`, Vite + TypeScript + Tailwind) at
+`http://localhost:8000/console/` (same user and password as `/calls`): overview, all calls with
+search, one call in detail (profile, the caller's words and recording, what was understood,
+consents, spoken summary, timeline), people and occupations. Docker builds it; for development
+run `npm install` and `npm run dev` in `apps/console` and open `http://localhost:5173/console/`.
