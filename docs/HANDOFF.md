@@ -80,7 +80,7 @@ pgvector), `redis`, and `tunnel` (optional profile).
 | `data/nco_seed.csv` | 16 occupations with Hindi and romanised aliases |
 | `db/*.sql` | Schema (applied by `scripts/init_db.py`) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
-| `tests/` | 154 tests (unit + real-Postgres/Redis integration) |
+| `tests/` | 155 tests (unit + real-Postgres/Redis integration) |
 
 ---
 
@@ -181,7 +181,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 - Real call understanding: STT 550 ms, search 336 ms, **1.0 s total wait** (target ≤ 6 s).
 - Search: all 24 test sentences right (19 describing work across the 16 occupations, incl. romanised; 5 with no occupation correctly refused, incl. "मैंने नई नौकरी शुरू की है").
 - Real e5 cosines: correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78 → band 0.78–0.90 kept.
-- 154 automated tests pass.
+- 155 automated tests pass.
 
 ---
 
