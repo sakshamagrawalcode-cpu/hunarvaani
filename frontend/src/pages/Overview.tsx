@@ -4,7 +4,7 @@ import type { Summary } from "../api";
 import { useApi } from "../api";
 import CallTable from "../CallTable";
 import { LANGUAGE, STATUS, occupationName, seconds } from "../labels";
-import { Card, Empty, Loading, Stat } from "../ui";
+import { Card, Empty, LiveBadge, Loading, Stat } from "../ui";
 
 function Bars({ counts, labels }: { counts: Record<string, number>; labels: Record<string, string> }) {
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -28,10 +28,23 @@ function Bars({ counts, labels }: { counts: Record<string, number>; labels: Reco
 }
 
 export default function Overview() {
-  const { data, error } = useApi<Summary>("/summary", 5000);
+  const { data, error } = useApi<Summary>("/summary", 3000);
   if (!data) return <Loading error={error} />;
   return (
     <div className="space-y-6">
+      {data.live_now.map((c) => (
+        <Link
+          key={c.id}
+          to={`/calls/${c.id}`}
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm shadow-sm hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:hover:bg-rose-950"
+        >
+          <LiveBadge />
+          <span className="font-medium">A call is happening now</span>
+          <span className="font-mono text-slate-600 dark:text-slate-300">{c.number ?? "—"}</span>
+          <span className="text-slate-500">{LANGUAGE[c.language ?? ""] ?? "choosing language"}</span>
+          <span className="ml-auto font-medium text-rose-700 dark:text-rose-300">Watch live →</span>
+        </Link>
+      ))}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <Stat label="Calls" value={data.calls} />
         <Stat label="Today" value={data.today} />

@@ -38,7 +38,7 @@ const TONES = {
 
 export function Badge({ children, tone = "gray" }: { children: ReactNode; tone?: keyof typeof TONES }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TONES[tone]}`}>
+    <span className={`inline-flex shrink-0 items-center self-start whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${TONES[tone]}`}>
       {children}
     </span>
   );
@@ -79,3 +79,15 @@ export function Empty({ children }: { children: ReactNode }) {
 export const th =
   "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400";
 export const td = "px-3 py-2 align-top text-sm";
+
+export function LiveBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+      </span>
+      LIVE
+    </span>
+  );
+}

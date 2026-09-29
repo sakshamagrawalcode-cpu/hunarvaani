@@ -54,6 +54,7 @@ def story_fields(result: dict) -> dict:
     scores = result.get("scores") or []
     return {
         "transcript": result.get("transcript"),
+        "transcript_en": result.get("transcript_en"),
         "top1": scores[0]["code"] if scores else None,
         "top2": scores[1]["code"] if len(scores) > 1 else None,
         "stt_ms": result.get("stt_ms"),
@@ -82,13 +83,15 @@ def heard_text(transcript: str) -> str:
     return " ".join(words[:HEARD_MAX_WORDS]).rstrip(" ।.!?,")
 
 
-def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
+def process(job: dict, settings: Settings, index, encode, stt, render, translate=None) -> dict:
     """Transcribe, search and render what we heard (P21) and the read-back (P13). Never raises.
 
-    The two are rendered at the same time, since text-to-speech is the slowest step.
+    Text-to-speech is the slowest step, so the two sentences are rendered at the same time, and
+    the English translation for the team console (`translate`, optional) runs alongside them.
+    `texts` maps each rendered prompt id to its words and their English version.
     """
     language = job.get("language") or "hi-IN"
-    out: dict = {"candidates": [], "readback": [], "heard": []}
+    out: dict = {"candidates": [], "readback": [], "heard": [], "texts": {}}
     try:
         t0 = time.monotonic()
         transcript = stt(job["path"], language, settings.sarvam_api_key)
@@ -104,7 +107,10 @@ def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
         query_vec = encode(transcript) if encode else None
         top = index.search(transcript, query_vec, top_k=2)
         out["search_ms"] = int((time.monotonic() - t1) * 1000)
-        out["scores"] = [{"code": c.code, "score": c.score} for c in top]
+        out["scores"] = [
+            {"code": c.code, "score": c.score, "title_en": c.title_en, "title_hi": c.title_hi}
+            for c in top
+        ]
         confident = len(top) == 2 and top[0].score >= THRESHOLD
 
         texts = [fill(language, "P21", heard=heard_text(transcript))]
@@ -112,9 +118,28 @@ def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
             names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in top]
             texts.append(fill(language, "P13", occupation_1=names[0], occupation_2=names[1]))
         t2 = time.monotonic()
-        with ThreadPoolExecutor(len(texts)) as pool:
+        with ThreadPoolExecutor(len(texts) + 1) as pool:
+            english = pool.submit(_english, translate, transcript, language, settings, out)
             rendered = list(pool.map(lambda text: render(text, language), texts))
-        out["tts_ms"] = int((time.monotonic() - t2) * 1000)
+            out["tts_ms"] = int((time.monotonic() - t2) * 1000)
+            transcript_en = english.result()
+        out["transcript_en"] = transcript_en
+        english_texts = [
+            fill("en-IN", "P21", heard=heard_text(transcript_en)) if transcript_en else None
+        ]
+        if confident:
+            english_texts.append(
+                fill(
+                    "en-IN",
+                    "P13",
+                    occupation_1=top[0].title_en.lower(),
+                    occupation_2=top[1].title_en.lower(),
+                )
+            )
+        out["texts"] = {
+            pid: {"text": text, "text_en": text_en}
+            for pid, text, text_en in zip(rendered, texts, english_texts, strict=True)
+        }
         out["heard"] = rendered[:1]
         if confident:
             out["readback"] = rendered[1:]
@@ -123,3 +148,19 @@ def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
         out["candidates"], out["readback"], out["heard"] = [], [], []
     return out
+
+
+def _english(translate, transcript: str, language: str, settings: Settings, out: dict):
+    """The transcript in English for the console; None if there is no translator or it fails."""
+    if language == "en-IN":
+        return transcript
+    if translate is None:
+        return None
+    t = time.monotonic()
+    try:
+        return translate(transcript, language, settings.sarvam_api_key)
+    except Exception as exc:
+        out["translate_error"] = f"{type(exc).__name__}: {exc}"[:200]
+        return None
+    finally:
+        out["translate_ms"] = int((time.monotonic() - t) * 1000)

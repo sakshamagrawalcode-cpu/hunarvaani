@@ -215,6 +215,7 @@ The console shows both tries.
 | A5 | **Team console** (React): overview, calls, call detail with recording + timeline, people, occupations | `44dd869` |
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
+| B2 | **Live call view** (done early): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -271,7 +272,7 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | # | Feature | Why it matters | Effort | Risk / blocker |
 |---|---|---|---|---|
 | B1 | **Traditional family occupation + "what would you like to learn?"** (two short spoken questions, same understanding pipeline) | the problem statement asks for both | 1 day | low |
-| B2 | **Live call view** on the console (server-sent events): each prompt, key, words, understanding and timing appear as they happen, with English in brackets | great demo; you asked for it | 1 day | low |
+| B2 | ✅ **Live call view** (done early, polling every 1.5 s): each prompt, key, words, understanding and timing, with English | — | — | done |
 | B3 | **Speak or press for every answer** ("पच्चीस साल" → age band) | more natural for callers | 1.5 days | medium (speech errors) |
 | B4 | More languages (e.g. Bengali, Tamil, Telugu, Gujarati) | reach | 0.5 day each | needs a native speaker check |
 | B5 | Officer tools: mark follow-up done, notes, filters by district/occupation | the GIA "coordination" issue | 1 day | low |

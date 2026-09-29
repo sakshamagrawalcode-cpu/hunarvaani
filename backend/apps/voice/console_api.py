@@ -5,7 +5,7 @@ never leave the server whole: only the last four digits.
 """
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -18,6 +18,12 @@ from core.phone import decrypt, last4
 from core.timeutil import IST, utcnow
 
 STEPS = ("q_age", "q_gender", "q_education", "q_travel", "q_physical", "q_lean")
+LIVE_FOR = timedelta(minutes=30)  # an "in call" row older than this is a crashed call, not live
+
+
+def _live(c: dict) -> bool:
+    started = c["answered_at"]
+    return c["status"] == "in_call" and bool(started) and utcnow() - started < LIVE_FOR
 
 
 def _when(c: dict) -> datetime | None:
@@ -111,6 +117,7 @@ def _row(settings: Settings, db: _Db, c: dict, answers: list[dict], stories: lis
         "transcripts": [s["transcript"] for s in stories if s["transcript"]],
         "human_flag": c["human_flag"],
         "keypad_only": c["keypad_only"],
+        "live": _live(c),
     }
 
 
@@ -159,6 +166,7 @@ def build_router(get_settings: Callable[[], Settings]) -> APIRouter:
                 {**by_code[code], "count": n} for code, n in occupations.most_common(8)
             ],
             "recent": recent[:6],
+            "live_now": [r for r in recent if r["live"]],
         }
 
     @router.get("/calls")
@@ -195,6 +203,7 @@ def build_router(get_settings: Callable[[], Settings]) -> APIRouter:
                 {
                     "n": n,
                     "transcript": s["transcript"],
+                    "transcript_en": s["transcript_en"],
                     "top1": db.occupation(s["top1"]),
                     "top2": db.occupation(s["top2"]),
                     "confirmed": s["confirmed"],
@@ -206,11 +215,16 @@ def build_router(get_settings: Callable[[], Settings]) -> APIRouter:
                 for n, s in enumerate(stories)
             ]
             events = conn.execute(
-                "SELECT kind, payload, created_at FROM event WHERE call_id = %s ORDER BY id",
+                "SELECT id, kind, payload, created_at FROM event WHERE call_id = %s ORDER BY id",
                 (c["id"],),
             ).fetchall()
             out["events"] = [
-                {"kind": e["kind"], "payload": _public(e["payload"]), "at": _iso(e["created_at"])}
+                {
+                    "id": e["id"],
+                    "kind": e["kind"],
+                    "payload": _public(e["payload"]),
+                    "at": _iso(e["created_at"]),
+                }
                 for e in events
             ]
             out["summary_text"] = next(

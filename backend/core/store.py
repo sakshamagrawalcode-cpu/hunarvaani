@@ -60,7 +60,7 @@ def update_call(conn, call_id: str, **fields: Any) -> None:
     conn.execute(f"UPDATE call SET {assignments} WHERE id = %s", (*fields.values(), call_id))
 
 
-STORY_FIELDS = ("transcript", "top1", "top2", "stt_ms", "search_ms")
+STORY_FIELDS = ("transcript", "transcript_en", "top1", "top2", "stt_ms", "search_ms")
 
 
 def save_story(conn, call_id: str, recording_url: str, **fields: Any) -> None:
@@ -73,7 +73,8 @@ def save_story(conn, call_id: str, recording_url: str, **fields: Any) -> None:
     updates = ", ".join(f"{k} = COALESCE(EXCLUDED.{k}, story.{k})" for k in STORY_FIELDS)
     conn.execute(
         f"INSERT INTO story (call_id, recording_url, {', '.join(STORY_FIELDS)}) "
-        f"VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (recording_url) DO UPDATE SET {updates}",
+        f"VALUES (%s, %s, {', '.join('%s' for _ in STORY_FIELDS)}) "
+        f"ON CONFLICT (recording_url) DO UPDATE SET {updates}",
         (call_id, recording_url, *values),
     )
 

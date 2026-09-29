@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { CallDetail as Detail, Story } from "../api";
 import { audioUrl, useApi } from "../api";
-import { CONSENT, LANGUAGE, STATUS, describeEvent, occupationName, seconds, value, when } from "../labels";
-import { Badge, Card, Empty, Field, Loading, statusTone } from "../ui";
+import { CONSENT, LANGUAGE, STATUS, occupationName, seconds, value, when } from "../labels";
+import LiveLog from "../LiveLog";
+import { buildLog } from "../liveLog";
+import { Badge, Card, Empty, Field, LiveBadge, Loading, statusTone } from "../ui";
 
 function confirmedText(s: Story): string {
   if (!s.confirmed) return "not asked (unclear or too slow)";
@@ -16,21 +19,23 @@ function confirmedText(s: Story): string {
 function StoryBlock({ callId, s, total }: { callId: string; s: Story; total: number }) {
   return (
     <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-        <span>
-          {total > 1 ? `Try ${s.n + 1} of ${total}` : "Work story"} · {when(s.at)}
-        </span>
-        <span className="tabular-nums">
-          speech-to-text {s.stt_ms ?? "—"} ms · search {s.search_ms ?? "—"} ms
-        </span>
+      <div className="text-xs text-slate-500">
+        {total > 1 ? `Try ${s.n + 1} of ${total}` : "Work story"} · {when(s.at)}
       </div>
       {s.audio && <audio controls preload="none" src={audioUrl(callId, s.n)} className="w-full" />}
-      <blockquote className="border-l-4 border-brand-500 pl-3 text-base">
-        {s.transcript ? `“${s.transcript}”` : <span className="text-slate-500">no words recognised</span>}
+      <blockquote className="border-l-4 border-emerald-500 pl-3">
+        <div>
+          {s.transcript ? `“${s.transcript}”` : <span className="text-slate-500">no words recognised</span>}
+        </div>
+        {s.transcript_en && s.transcript_en !== s.transcript && (
+          <div className="mt-1 text-sm italic text-slate-500">EN: “{s.transcript_en}”</div>
+        )}
       </blockquote>
-      <dl className="grid gap-3 sm:grid-cols-3">
-        <Field label="Understood (1st)">{occupationName(s.top1)}</Field>
-        <Field label="Understood (2nd)">{occupationName(s.top2)}</Field>
+      <dl className="grid gap-2">
+        <Field label="Understood">
+          {occupationName(s.top1)}
+          {s.top2 && <span className="font-normal text-slate-500"> · or {occupationName(s.top2)}</span>}
+        </Field>
         <Field label="Caller confirmed">{confirmedText(s)}</Field>
       </dl>
     </div>
@@ -39,52 +44,68 @@ function StoryBlock({ callId, s, total }: { callId: string; s: Story; total: num
 
 export default function CallDetail() {
   const { id = "" } = useParams();
-  const { data, error } = useApi<Detail>(`/calls/${id}`, 4000);
+  const [fast, setFast] = useState(true); // refresh every 1.5 s while the call is live
+  const { data, error } = useApi<Detail>(`/calls/${id}`, fast ? 1500 : 10000);
+  useEffect(() => {
+    if (data) setFast(data.live);
+  }, [data]);
   if (!data) return <Loading error={error} />;
   const a = data.answers;
   const names = new Map<string, string>();
   for (const o of [data.occupation, ...data.stories.flatMap((s) => [s.top1, s.top2])]) {
     if (o) names.set(o.code, occupationName(o));
   }
-  const name = (code: string) => names.get(code) ?? code;
+  const entries = buildLog(data.events, (code) => names.get(code) ?? code);
+  const started = data.answered_at ?? data.callback_at ?? data.when;
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Link to="/calls" className="text-sm text-brand-600 hover:underline dark:text-blue-400">
           ← All calls
         </Link>
         <h1 className="text-xl font-semibold">Call {data.short}</h1>
-        <Badge tone={statusTone(data.status)}>{STATUS[data.status ?? ""] ?? data.status ?? "—"}</Badge>
+        {data.live ? (
+          <LiveBadge />
+        ) : (
+          <Badge tone={statusTone(data.status)}>{STATUS[data.status ?? ""] ?? data.status ?? "—"}</Badge>
+        )}
         {data.human_flag && <Badge tone="red">wants a human</Badge>}
         {data.keypad_only && <Badge tone="amber">keypad only</Badge>}
+        <span className="text-sm text-slate-500">
+          {LANGUAGE[data.language ?? ""] ?? "language not chosen yet"} ·{" "}
+          <span className="font-mono">{data.number ?? "—"}</span> · started {when(started)}
+          {data.duration !== null && ` · ${seconds(data.duration)}`}
+        </span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card title="Live log: everything that happened, step by step">
+            <LiveLog entries={entries} live={data.live} startedAt={started} />
+          </Card>
+        </div>
+
+        <div className="space-y-5">
           <Card title="Profile">
-            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <Field label="Number">
-                <span className="font-mono">{data.number ?? "—"}</span>
-              </Field>
-              <Field label="Language">{LANGUAGE[data.language ?? ""] ?? "—"}</Field>
-              <Field label="When (IST)">{when(data.when)}</Field>
+            <dl className="grid grid-cols-2 gap-3">
               <Field label="Age">{value(a.q_age)}</Field>
               <Field label="Gender">{value(a.q_gender)}</Field>
               <Field label="Education">{value(a.q_education)}</Field>
               <Field label="Can travel">{value(a.q_travel)}</Field>
               <Field label="Physical difficulty">{value(a.q_physical)}</Field>
               <Field label="Wants">{value(a.q_lean)}</Field>
-              <Field label="Occupation">
-                {occupationName(data.occupation)}
-                {data.occupation_via && (
-                  <span className="ml-1 text-xs font-normal text-slate-500">({data.occupation_via})</span>
-                )}
-              </Field>
-              <Field label="Call length">{seconds(data.duration)}</Field>
+              <div className="col-span-2">
+                <Field label="Occupation">
+                  {occupationName(data.occupation)}
+                  {data.occupation_via && (
+                    <span className="ml-1 text-xs font-normal text-slate-500">({data.occupation_via})</span>
+                  )}
+                </Field>
+              </div>
             </dl>
           </Card>
 
-          <Card title="What the caller said, and what we understood">
+          <Card title="Work story: said, understood, confirmed">
             {data.stories.length ? (
               <div className="space-y-3">
                 {data.stories.map((s) => (
@@ -92,18 +113,10 @@ export default function CallDetail() {
                 ))}
               </div>
             ) : (
-              <Empty>No work story in this call{data.keypad_only ? " (no recording consent)" : ""}.</Empty>
+              <Empty>No work story yet{data.keypad_only ? " (no recording consent)" : ""}.</Empty>
             )}
           </Card>
 
-          {data.summary_text && (
-            <Card title="Summary spoken at the end">
-              <p className="text-sm">{data.summary_text}</p>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
           <Card title="Consents">
             {data.consents.length ? (
               <ul className="space-y-2 text-sm">
@@ -115,20 +128,8 @@ export default function CallDetail() {
                 ))}
               </ul>
             ) : (
-              <Empty>No consents recorded.</Empty>
+              <Empty>No consents yet.</Empty>
             )}
-          </Card>
-
-          <Card title="Timeline">
-            <ol className="relative space-y-3 border-l border-slate-200 pl-4 dark:border-slate-800">
-              {data.events.map((e, i) => (
-                <li key={i} className="text-sm">
-                  <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-white bg-brand-500 dark:border-slate-900" />
-                  <div className="text-xs tabular-nums text-slate-500">{when(e.at)}</div>
-                  <div>{describeEvent(e, name)}</div>
-                </li>
-              ))}
-            </ol>
           </Card>
         </div>
       </div>

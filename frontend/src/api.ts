@@ -16,11 +16,13 @@ export type CallRow = {
   transcripts: string[];
   human_flag: boolean;
   keypad_only: boolean;
+  live: boolean;
 };
 
 export type Story = {
   n: number;
   transcript: string | null;
+  transcript_en: string | null;
   top1: Occupation | null;
   top2: Occupation | null;
   confirmed: string | null;
@@ -30,7 +32,7 @@ export type Story = {
   audio: boolean;
 };
 
-export type CallEvent = { kind: string; payload: Record<string, unknown> | null; at: string };
+export type CallEvent = { id: number; kind: string; payload: Record<string, unknown> | null; at: string };
 
 export type CallDetail = CallRow & {
   answer_log: { step: string; key: string | null; value: string | null; at: string }[];
@@ -57,6 +59,7 @@ export type Summary = {
   statuses: Record<string, number>;
   occupations: (Occupation & { count: number })[];
   recent: CallRow[];
+  live_now: CallRow[];
 };
 
 export type Person = {
@@ -86,7 +89,7 @@ export async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** Load `path` and reload it every `everyMs` (0 = once). */
+/** Load `path` and reload it every `everyMs` (0 = once); `everyMs` may change (e.g. faster while live). */
 export function useApi<T>(path: string, everyMs = 0) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +107,9 @@ export function useApi<T>(path: string, everyMs = 0) {
 
   useEffect(() => {
     setData(null);
+  }, [path]);
+
+  useEffect(() => {
     void load();
     if (!everyMs) return;
     const timer = window.setInterval(() => {

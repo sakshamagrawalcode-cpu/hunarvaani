@@ -833,3 +833,48 @@ def test_console_serves_the_app_and_never_files_outside_it(client, settings, mon
     assert "secret" not in client.get("/console/..%2Fsecret.txt", auth=auth).text
     assert "secret" not in client.get("/console/../secret.txt", auth=auth).text
     assert get("/nothing-here").status_code == 404
+
+
+def test_live_log_events_say_what_was_spoken_in_both_languages(
+    client, settings, audio_dir, monkeypatch
+):
+    worker = fake_worker(audio_dir, ["7531", "7411"])
+    get = _console(client, settings, monkeypatch)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        [live] = get("/calls").json()
+        assert live["live"] is True and get("/summary").json()["live_now"][0]["id"] == live["id"]
+        p.speak(1)
+        p.hear(READBACK)
+        p.press("1")
+        p.until_hangup()
+    worker.join(2)
+    detail = get(f"/calls/{live['id']}").json()
+    assert detail["live"] is False
+    says = [e["payload"] for e in detail["events"] if e["kind"] == "say"]
+    first = says[0]["prompts"][0]
+    assert first["id"] == "P01" and first["text"] == PROMPTS["hi-IN"]["P01"]
+    assert first["text_en"] == PROMPTS["en-IN"]["P01"]
+    story = next(s for s in says if s["step"] == "story" and s.get("beep"))
+    assert story["prompts"][0]["id"] == "P12"
+    assert any(s["prompts"][0]["id"] == "P17" for s in says)
+    [rec] = [e["payload"] for e in detail["events"] if e["kind"] == "recording"]
+    assert rec["stopped_by"] == "silence" and rec["seconds"] > 0
+    ids = [e["id"] for e in detail["events"]]
+    assert ids == sorted(ids)
+
+
+def test_worker_timeout_is_logged_as_a_problem(client, settings, monkeypatch):
+    get = _console(client, settings, monkeypatch)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    [row] = get("/calls").json()
+    problems = [e for e in get(f"/calls/{row['id']}").json()["events"] if e["kind"] == "problem"]
+    assert problems and "No answer from the worker" in problems[0]["payload"]["what"]

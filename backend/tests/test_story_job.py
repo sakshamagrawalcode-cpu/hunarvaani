@@ -84,3 +84,41 @@ def test_empty_transcript_and_errors_never_raise():
     assert "seed_nco" in out["error"]
     out, _ = run("मैं सिलाई का काम करती हूं", fail_tts=True)
     assert out["candidates"] == [] and out["heard"] == [] and "tts down" in out["error"]
+
+
+def test_english_translation_and_spoken_texts_for_the_console():
+    def translate(text, language, key):
+        assert language == "hi-IN"
+        return "I stitch clothes."
+
+    out = story_job.process(
+        JOB,
+        SETTINGS,
+        INDEX,
+        None,
+        lambda *a: "मैं कपड़े सिलती हूं।",
+        lambda text, language: f"DYN:{len(text):024x}",
+        translate=translate,
+    )
+    assert out["transcript_en"] == "I stitch clothes." and out["translate_ms"] >= 0
+    assert out["scores"][0]["title_en"] == "Tailor, dressmaker"
+    heard, question = out["texts"][out["heard"][0]], out["texts"][out["readback"][0]]
+    assert heard == {"text": "आपने बताया: मैं कपड़े सिलती हूं।", "text_en": "You said: I stitch clothes."}
+    assert question["text_en"].startswith("We understood that you work as tailor, dressmaker.")
+
+
+def test_translation_failure_never_breaks_the_call():
+    def broken(*a):
+        raise RuntimeError("translate down")
+
+    out = story_job.process(
+        JOB,
+        SETTINGS,
+        INDEX,
+        None,
+        lambda *a: "मैं सिलाई का काम करती हूं",
+        lambda text, language: "DYN:1",
+        translate=broken,
+    )
+    assert out["candidates"] and out["transcript_en"] is None
+    assert "translate down" in out["translate_error"] and "error" not in out

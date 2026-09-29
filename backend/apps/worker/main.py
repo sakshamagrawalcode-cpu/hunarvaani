@@ -12,6 +12,7 @@ from core.phone import decrypt, last4
 from core.search.nco_search import NcoIndex, load_occupations
 from core.stt import transcribe_file
 from core.timeutil import in_quiet_hours, ist_day, next_allowed, utcnow
+from core.translate import to_english
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s worker %(message)s")
 log = logging.getLogger("worker")
@@ -95,7 +96,9 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
             text, language, settings.sarvam_api_key, settings.sarvam_speaker, AUDIO_DIR
         )
 
-    result = story_job.process(job, settings, index, encode, transcribe_file, render)
+    result = story_job.process(
+        job, settings, index, encode, transcribe_file, render, translate=to_english
+    )
     try:
         with store.connect(settings.database_url) as conn:
             kept = story_job.save(conn, job, result)

@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { CallRow } from "./api";
 import { LANGUAGE, STATUS, occupationName, seconds, value, when } from "./labels";
-import { Badge, Empty, statusTone, td, th } from "./ui";
+import { Badge, Empty, LiveBadge, statusTone, td, th } from "./ui";
 
 export default function CallTable({ calls }: { calls: CallRow[] }) {
   const navigate = useNavigate();
@@ -19,7 +19,11 @@ export default function CallTable({ calls }: { calls: CallRow[] }) {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-sm">{c.number ?? "—"}</span>
-              <Badge tone={statusTone(c.status)}>{STATUS[c.status ?? ""] ?? c.status ?? "—"}</Badge>
+              {c.live ? (
+                <LiveBadge />
+              ) : (
+                <Badge tone={statusTone(c.status)}>{STATUS[c.status ?? ""] ?? c.status ?? "—"}</Badge>
+              )}
             </div>
             <div className="mt-1 text-xs text-slate-500">
               {when(c.when)} · {LANGUAGE[c.language ?? ""] ?? "—"} · {seconds(c.duration)}
@@ -63,7 +67,11 @@ export default function CallTable({ calls }: { calls: CallRow[] }) {
                 <td className={`${td} whitespace-nowrap`}>{when(c.when)}</td>
                 <td className={`${td} whitespace-nowrap font-mono`}>{c.number ?? "—"}</td>
                 <td className={td}>
-                  <Badge tone={statusTone(c.status)}>{STATUS[c.status ?? ""] ?? c.status ?? "—"}</Badge>
+                  {c.live ? (
+                    <LiveBadge />
+                  ) : (
+                    <Badge tone={statusTone(c.status)}>{STATUS[c.status ?? ""] ?? c.status ?? "—"}</Badge>
+                  )}
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{LANGUAGE[c.language ?? ""] ?? "—"}</td>
                 <td className={`${td} whitespace-nowrap`}>{seconds(c.duration)}</td>

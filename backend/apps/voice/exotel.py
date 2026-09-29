@@ -24,7 +24,7 @@ from fastapi.concurrency import run_in_threadpool
 from core import dynprompt, interview_store, story_job
 from core.config import Settings
 from core.dialogue.flow import Ask, Hangup, Interview
-from core.dialogue.prompts import audio_dir_name, split_language
+from core.dialogue.prompts import PROMPTS, audio_dir_name, split_language
 from core.dialogue.summary import summary_text
 from core.phone import last4
 
@@ -126,6 +126,8 @@ class ExotelSession:
         self.player: asyncio.Task | None = None
         self._send_lock = asyncio.Lock()
         self.heard_prompts: list[str] = []
+        # words (and English) of generated prompts, for the team console's live log
+        self.texts: dict[str, dict] = {}
 
     async def send(self, obj: dict) -> None:
         if self.ended.is_set():
@@ -294,6 +296,10 @@ class ExotelSession:
                 interview_store.occupation_title, self.settings, engine.occupation, engine.language
             )
             text = summary_text(engine.language, engine.education, title)
+            title_en = await run_in_threadpool(
+                interview_store.occupation_title, self.settings, engine.occupation, "en-IN"
+            )
+            words = {"text": text, "text_en": summary_text("en-IN", engine.education, title_en)}
             pid = await run_in_threadpool(
                 dynprompt.ensure,
                 text,
@@ -302,10 +308,12 @@ class ExotelSession:
                 self.settings.sarvam_speaker,
                 self.audio.dir,
             )
+            self.texts[pid] = words
             await self._log(call_id, "summary", {"text": text})
             return (pid,)
         except Exception as exc:
             log.warning("call %s: summary not rendered (%s); using P20", call_id[:8], exc)
+            await self._problem(call_id, f"Summary voice could not be made ({exc}); played P20")
             return ("P20",)
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
@@ -314,12 +322,14 @@ class ExotelSession:
         started = loop.time()
         try:
             await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
+            await self._say(call_id, "story", ("P17",))
             await self.play(("P17",))
             result = await run_in_threadpool(
                 story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
             )
         except redis.RedisError as exc:
             log.warning("call %s: story queue failed (%s); using the trade list", call_id[:8], exc)
+            await self._problem(call_id, f"Story queue failed ({exc}); used the trade list")
             return None
         waited = loop.time() - started
         if result is not None:
@@ -328,8 +338,12 @@ class ExotelSession:
             log.info(
                 "call %s: no search result after %.1f s; using the trade list", call_id[:8], waited
             )
+            await self._problem(
+                call_id, f"No answer from the worker after {waited:.1f} s; used the trade list"
+            )
         elif result.get("error"):
             log.warning("call %s: story processing failed: %s", call_id[:8], result["error"])
+            await self._problem(call_id, f"Story processing failed: {result['error']}")
         else:
             log.info(
                 "call %s: understood in %.1f s, %d words, top %s",
@@ -353,6 +367,37 @@ class ExotelSession:
 
     async def _log(self, call_id: str, kind: str, payload: dict) -> None:
         await run_in_threadpool(interview_store.log_event, self.settings, call_id, kind, payload)
+
+    async def _problem(self, call_id: str, what: str) -> None:
+        await self._log(call_id, "problem", {"what": what[:300]})
+
+    def spoken(self, prompt_ids: tuple[str, ...]) -> list[dict]:
+        """The words of each prompt about to play, with the English version when different."""
+        out = []
+        for full in prompt_ids:
+            pid, pinned = split_language(full)
+            language = pinned or self.language
+            if pid.startswith(dynprompt.PREFIX):
+                known = self.texts.get(pid) or {}
+                text, text_en = known.get("text"), known.get("text_en")
+            else:
+                text = PROMPTS.get(language, PROMPTS["hi-IN"]).get(pid)
+                text_en = PROMPTS["en-IN"].get(pid)
+            out.append(
+                {
+                    "id": full,
+                    "language": language,
+                    "text": text,
+                    "text_en": text_en if language != "en-IN" and text_en != text else None,
+                }
+            )
+        return out
+
+    async def _say(self, call_id: str, step: str, prompt_ids: tuple[str, ...], beep=False):
+        payload = {"step": step, "prompts": self.spoken(prompt_ids)}
+        if beep:
+            payload["beep"] = True
+        await self._log(call_id, "say", payload)
 
     async def _apply(self, call_id: str, effects) -> None:
         await run_in_threadpool(
@@ -383,12 +428,15 @@ class ExotelSession:
                     if "P15" in prompts:
                         prompts = await self._summary(call_id, engine)
                     log.info("call %s: goodbye %s", short, "+".join(prompts) or "(silent)")
+                    if prompts:
+                        await self._say(call_id, "goodbye", prompts)
                     await self._sleep_unless_ended(await self.play(prompts) + 0.5)
                     break
                 if isinstance(action, Ask):
                     log.info(
                         "call %s: asking %s (%s)", short, action.step, "+".join(action.prompts)
                     )
+                    await self._say(call_id, action.step, action.prompts)
                     key = await self.ask(action)
                     if key is None:
                         log.info("call %s: %s timed out", short, action.step)
@@ -400,8 +448,12 @@ class ExotelSession:
                         action, effects = engine.on_key(key)
                     await self._apply(call_id, effects)
                     continue
+                await self._say(call_id, action.step, action.prompts, beep=True)
                 pcm, hung_up, why = await self.record(action)
                 seconds = len(pcm) / (2 * self.rate)
+                await self._log(
+                    call_id, "recording", {"seconds": round(seconds, 1), "stopped_by": why}
+                )
                 keep = pcm and why != "no_speech"
                 path = await run_in_threadpool(self._save_recording, call_id, pcm) if keep else None
                 log.info("call %s: story recorded, %.1f s, stopped by %s", short, seconds, why)
@@ -409,11 +461,15 @@ class ExotelSession:
                 if path and not hung_up:
                     result = await self._understand(call_id, path, engine.language) or {}
                     self.heard_prompts += result.get("heard") or []
+                    self.texts.update(result.get("texts") or {})
                 details = {
                     **story_job.story_fields(result),
                     "wait_ms": result.get("wait_ms"),
                     "scores": result.get("scores") or [],
                     "error": result.get("error"),
+                    "tts_ms": result.get("tts_ms"),
+                    "translate_ms": result.get("translate_ms"),
+                    "translate_error": result.get("translate_error"),
                 }
                 action, effects = engine.on_recording(
                     path,
