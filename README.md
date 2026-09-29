@@ -10,8 +10,8 @@ Team Cognify.
 copy .env.example .env          # first time only, then fill in your keys
 python scripts\gen_secrets.py   # fills PHONE_HASH_SECRET and PHONE_ENC_KEY in .env
 docker compose -f infra/docker-compose.yml up -d --build
-curl.exe http://localhost:8000/health   # {"ok":true}
-curl.exe http://localhost:8000/ready    # db, pgvector and redis all true
+curl.exe http://localhost:5000/health   # {"ok":true}
+curl.exe http://localhost:5000/ready    # db, pgvector and redis all true
 docker compose -f infra/docker-compose.yml logs worker
 docker compose -f infra/docker-compose.yml down
 ```
@@ -27,7 +27,7 @@ apply them yourself (safe to repeat), then load the 59 seed occupations with emb
 docker compose -f infra/docker-compose.yml build worker
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
-curl.exe http://localhost:8000/ready    # nco_rows should be 16
+curl.exe http://localhost:5000/ready    # nco_rows should be 16
 ```
 
 The first `seed_nco.py` run downloads the multilingual-e5-base model (about 1 GB) into a
@@ -71,7 +71,7 @@ python scripts\render_prompts.py --dry-run    # prints the text, no API calls
 python scripts\render_prompts.py --only P01   # renders one prompt as a test
 python scripts\render_prompts.py              # renders every missing prompt (24 per language)
 docker compose -f infra/docker-compose.yml up -d --build
-curl.exe -o test.wav http://localhost:8000/audio/hi/P01.wav
+curl.exe -o test.wav http://localhost:5000/audio/hi/P01.wav
 ```
 
 P13 and P15 contain placeholders and are rendered during the call (Steps 9 and 10).
@@ -171,7 +171,7 @@ Every completed interview ends with P15, rendered during the call from what was 
 rendering fails the fixed P20 closing plays instead. Render P20 once with
 `python scripts\render_prompts.py`.
 
-The team's calls page is at `<PUBLIC_BASE_URL>/calls` (or `http://localhost:8000/calls`), behind
+The team's calls page is at `<PUBLIC_BASE_URL>/calls` (or `http://localhost:5000/calls`), behind
 basic auth with `CALLS_PAGE_USER` / `CALLS_PAGE_PASSWORD` from `.env`. It shows the latest 50 calls:
 answers, the caller's own words, the search's top two, the confirmed occupation, timings,
 consents and flags. Numbers show only their last four digits.
@@ -179,7 +179,7 @@ consents and flags. Numbers show only their last four digits.
 ## Team console (Step A5)
 
 A React web app (`frontend/`, Vite + TypeScript + Tailwind) at
-`http://localhost:8000/console/` (same user and password as `/calls`): overview, all calls with
+`http://localhost:5000/console/` (same user and password as `/calls`): overview, all calls with
 search, one call in detail (profile, the caller's words and recording, what was understood,
 consents, spoken summary, timeline), people and occupations. Docker builds it; for development
 run `npm install` and `npm run dev` in `frontend/` and open `http://localhost:5173/console/`.

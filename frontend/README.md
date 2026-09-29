@@ -17,4 +17,4 @@ the team password. Docker builds it for you; no Node needed on the laptop.
 | `src/ui.tsx`, `src/CallTable.tsx` | shared pieces |
 
 Development (Node 22): `npm install`, `npm run dev`, open `http://localhost:5173/console/` while
-the backend runs on port 8000. `npm run build` must pass (strict TypeScript).
+the backend runs on port 5000. `npm run build` must pass (strict TypeScript).

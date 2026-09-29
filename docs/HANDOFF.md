@@ -41,7 +41,7 @@ section 6.
 |---|---|
 | Code (this repo) | https://github.com/sakshamagrawalcode-cpu/hunarvaani (private, branch `main`) |
 | Code on the laptop | `C:\Projects\hunarvaani` (Windows 11, Docker Desktop, VS Code) |
-| Team console | `http://localhost:8000/console/` on the laptop (user `admin`, password = `CALLS_PAGE_PASSWORD`); the older one-table page is `/calls` |
+| Team console | `http://localhost:5000/console/` on the laptop (user `admin`, password = `CALLS_PAGE_PASSWORD`); the older one-table page is `/calls` |
 | Design doc (File 3 of 3) | Claude Docs page "HunarVaani — Prototype Build Guide (File 3 of 3)" |
 | Problem statement | `docs/PROBLEM_STATEMENT.md` (SIH 26097) |
 | SkillCall (teammate idea, earlier prototype) | https://github.com/sakshamagrawalcode-cpu/SIH (React + FastAPI; `backend/app/engine.py` has recommendation / skill-gap logic to port in step A9) |
@@ -378,7 +378,7 @@ docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_d
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
 
 # watch and inspect
-# team console: http://localhost:8000/console/  (user admin, password = CALLS_PAGE_PASSWORD)
+# team console: http://localhost:5000/console/  (user admin, password = CALLS_PAGE_PASSWORD)
 docker compose -f infra/docker-compose.yml logs -f api worker
 docker compose -f infra/docker-compose.yml exec api python scripts/show_call.py -n 3
 docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py   # no phone needed
@@ -392,7 +392,7 @@ restart the api. Simulator: answer within 8 s; at P12 give seconds to "speak" (a
 has no words and the retell / trade list follows).
 
 Console development (optional, needs Node 22): `cd frontend`, `npm install`, `npm run dev`,
-open `http://localhost:5173/console/` while the api runs on port 8000.
+open `http://localhost:5173/console/` while the api runs (laptop port 5000).
 
 ---
 

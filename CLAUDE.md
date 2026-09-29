@@ -67,4 +67,6 @@ cd frontend && npm ci && npm run build      # strict TypeScript must pass
 - Sarvam credits ran out on 29 Sep (HTTP 402). Without credits, calls still run but skip speech-to-text, the read-back and the spoken summary (keypad list + fixed goodbye). Add credits in the Sarvam dashboard before real-call tests.
 - Schema or occupations changed → `init_db.py` then `seed_nco.py` (in the worker container).
 - Tunnel restarted → `python scripts\set_public_url.py --from-tunnel`, paste the URL in Exotel.
+- The api is on laptop port **5000** (`http://localhost:5000/console/`); inside Docker it is still
+  8000 (tunnel, simulator). Port 5000 taken → `netstat -ano | findstr :5000`.
 - Console "not built" → `docker compose -f infra/docker-compose.yml up -d --build`.
