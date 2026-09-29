@@ -59,8 +59,12 @@ async def main() -> None:
                 pass
             await events.put(("end", None))
 
-        async def send(obj):
-            await ws.send(json.dumps(obj))
+        async def send(obj) -> bool:
+            try:
+                await ws.send(json.dumps(obj))
+                return True
+            except websockets.ConnectionClosed:
+                return False
 
         reader = asyncio.create_task(receive())
         sid = f"sim-{uuid.uuid4()}"
@@ -77,7 +81,8 @@ async def main() -> None:
                 },
             }
         )
-        print(f"call connected as {args.caller[-4:].rjust(10, 'x')}\n")
+        print(f"call connected as {args.caller[-4:].rjust(10, 'x')}")
+        print("answer each question within the IVR timeout (8 s by default)\n")
 
         while True:
             kind, name = await events.get()
@@ -103,7 +108,10 @@ async def main() -> None:
                 break
             for digit in line:
                 if digit in "0123456789*#":
-                    await send({"event": "dtmf", "dtmf": {"digit": digit}})
+                    if not await send({"event": "dtmf", "dtmf": {"digit": digit}}):
+                        print("\n[call already ended: the server timed out waiting for a key]")
+                        reader.cancel()
+                        return
         reader.cancel()
 
 
