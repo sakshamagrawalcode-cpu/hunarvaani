@@ -1,6 +1,6 @@
 # HunarVaani: project handoff (status, plan, how it works)
 
-Last updated: 29 Sep 2026, after Step 10 (commit `1c092b7`).
+Last updated: 29 Sep 2026, after the code review fixes (commit `a22910d`), starting Step 11.
 Read this first if you are a new teammate or a new Claude chat picking up the work.
 
 ---
@@ -80,7 +80,7 @@ pgvector), `redis`, and `tunnel` (optional profile).
 | `data/nco_seed.csv` | 16 occupations with Hindi and romanised aliases |
 | `db/*.sql` | Schema (applied by `scripts/init_db.py`) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
-| `tests/` | 147 tests (unit + real-Postgres/Redis integration) |
+| `tests/` | 154 tests (unit + real-Postgres/Redis integration) |
 
 ---
 
@@ -145,14 +145,15 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 5. P10: silence → P16 + P10 again → silence → `q_travel = skipped`.
 6. P11: 1 (job). Recording was refused, so P12 is skipped → P14 trade list → 3 (बिजली का काम, 7411).
 7. P15: "…हमने लिखा है: आईटीआई या डिप्लोमा, बिजली मिस्त्री…". On `/calls` the row shows the red
-   flags **human, keypad only**, travel "—".
+   flags **human, keypad only**, travel "skipped".
 
 ### Example 3: short endings
 
 - **Not now:** P03 → 2 → P04 "कल फिर कॉल करेंगे". A new callback row is queued for the same time
   tomorrow (moved out of 21:00–09:00 quiet hours).
 - **Delete me:** any menu → 9 → P18. Every call row for that number is deleted, the number's hash
-  goes on the block list, and it will never be called back.
+  goes on the block list, and it will never be called back. Their story recordings (WAV files)
+  are deleted too.
 - **Unclear story:** "मैं पढ़ाई करता हूँ" (real test call): best score 0.05 < 0.35 → P14 trade list,
   no wrong guess is read out.
 
@@ -173,13 +174,14 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 | 8b | Recording stops on silence; per-call logs; `show_call.py` | `49d145a`, `c9f3af8` |
 | 9 | Story → Sarvam STT → occupation search → spoken read-back (P13) | `ff5e1d6`, `279c8d2` |
 | 10 | Spoken summary (P15/P20); `/calls` page | `1c092b7` |
+| Review | 9 also deletes recordings; slow stories keep their transcript (worker saves it); "नई" no longer read back as नाई; callback matched by number if Exotel's call id differs | `a22910d` |
 
 **Measured so far:**
 - Real Exotel calls: prompts play, keys work, story recorded.
 - Real call understanding: STT 550 ms, search 336 ms, **1.0 s total wait** (target ≤ 6 s).
-- Search: all 22 test sentences right (18 describing work across the 16 occupations, incl. romanised; 4 with no occupation correctly refused).
+- Search: all 24 test sentences right (19 describing work across the 16 occupations, incl. romanised; 5 with no occupation correctly refused, incl. "मैंने नई नौकरी शुरू की है").
 - Real e5 cosines: correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78 → band 0.78–0.90 kept.
-- 147 automated tests pass.
+- 154 automated tests pass.
 
 ---
 
