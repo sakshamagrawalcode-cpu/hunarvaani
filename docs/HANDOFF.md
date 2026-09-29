@@ -41,7 +41,7 @@ section 6.
 |---|---|
 | Code (this repo) | https://github.com/sakshamagrawalcode-cpu/hunarvaani (private, branch `main`) |
 | Code on the laptop | `C:\Projects\hunarvaani` (Windows 11, Docker Desktop, VS Code) |
-| Team console | `http://localhost:5000/console/` on the laptop (user `admin`, password = `CALLS_PAGE_PASSWORD`); the older one-table page is `/calls` |
+| Team console | `http://localhost:8000/console/` on the laptop (user `admin`, password = `CALLS_PAGE_PASSWORD`); the older one-table page is `/calls` |
 | Design doc (File 3 of 3) | Claude Docs page "HunarVaani — Prototype Build Guide (File 3 of 3)" |
 | Problem statement | `docs/PROBLEM_STATEMENT.md` (SIH 26097) |
 | SkillCall (teammate idea, earlier prototype) | https://github.com/sakshamagrawalcode-cpu/SIH (React + FastAPI; `backend/app/engine.py` has recommendation / skill-gap logic to port in step A9) |
@@ -224,7 +224,7 @@ The console shows both tries.
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
 | B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English shown in the console); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
 | A7 | **District from the PIN code**: P31/P32 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
-| Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port 5000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
+| Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port back to 8000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
 | Story | **Waits for Sarvam** (P17, then P30 "please stay on the line" every 8 s, up to 90 s); the caller's words are **translated to English** and the search uses both; read-back offers the **3 closest occupations** (1–3, next key = none); unclear or too short → tell it again, up to 3 tries, then the trade list; `story.top3` (schema 07); new prompt P30 | see git log |
 | Exotel | **Talks to Exotel like the team's SIH bridge** (which works on every call): audio 1 s ahead (was 2 s), `clear` before every prompt and on every key press, log lines for `connected` / `start` / accepted socket; an Exotel URL on SIH's `…/exotel` or with a wrong token is refused with a log line saying how to fix it; smoke test with a real uvicorn server + fake Exotel client passed (menu → PIN → trade list → goodbye) | see git log |
 | A8 | **Sample dataset** (`database/sample/`, all labelled sample): 59 occupation profiles (sector, usual skills, near trades, loan route, RPL yes/no), 115 courses (59 upskill + 54 RPL certificates + PM Vishwakarma training/toolkit + "Start your own work" at RSETI), 124 centres (4 types in each of the 31 PIN-table districts, distance, hostel, women-only batches), demand per district, 16 sectors with wages, 9 real schemes described simply (verify before real use); loader `core/sample_data.py`. Course ids are ours, not real QP codes | see git log |
@@ -399,7 +399,7 @@ docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_d
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
 
 # watch and inspect
-# team console: http://localhost:5000/console/  (user admin, password = CALLS_PAGE_PASSWORD)
+# team console: http://localhost:8000/console/  (user admin, password = CALLS_PAGE_PASSWORD)
 docker compose -f infra/docker-compose.yml logs -f api worker
 docker compose -f infra/docker-compose.yml exec api python scripts/show_call.py -n 3
 docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py   # no phone needed
@@ -418,7 +418,7 @@ restart the api. Simulator: answer within 8 s; at P12 give seconds to "speak" (a
 has no words and the retell / trade list follows).
 
 Console development (optional, needs Node 22): `cd frontend`, `npm install`, `npm run dev`,
-open `http://localhost:5173/console/` while the api runs (laptop port 5000).
+open `http://localhost:5173/console/` while the api runs (laptop port 8000).
 
 ---
 

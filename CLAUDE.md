@@ -73,13 +73,13 @@ cd frontend && npm ci && npm run build      # strict TypeScript must pass
 
 ## Things that bite on the laptop
 - Prompt text changed → `python scripts\render_prompts.py` (re-renders only changed prompts; `--force` re-renders all and wastes Sarvam credits).
-- The api is on laptop port 5000; old `.env` lines `STORY_WAIT_SECONDS` and `TRANSLATE_TO_ENGLISH`
+- Old `.env` lines `STORY_WAIT_SECONDS` and `TRANSLATE_TO_ENGLISH`
   are ignored now (the wait setting is `STORY_MAX_WAIT_SECONDS`, default 90; translation is always on).
 - Sarvam credits ran out on 29 Sep (HTTP 402). Without credits, calls still run but skip speech-to-text, the read-back and the spoken summary (keypad list + fixed goodbye). Add credits in the Sarvam dashboard before real-call tests.
 - Schema or occupations changed → `init_db.py` then `seed_nco.py` (in the worker container).
 - Tunnel restarted → `python scripts\set_public_url.py --from-tunnel`, paste the URL in Exotel.
 - Exotel flow "sih idea" is shared with the SIH bridge: HunarVaani's URL ends with `/exotel/ws/<token>`,
   SIH's with `/exotel`. The api log says which one Exotel used when it refuses a call.
-- The api is on laptop port **5000** (`http://localhost:5000/console/`); inside Docker it is still
-  8000 (tunnel, simulator). Port 5000 taken → `netstat -ano | findstr :5000`.
+- The api is on laptop port **8000** (`http://localhost:8000/console/`; another port for one run:
+  `$env:API_PORT="5000"` before `docker compose up`). Port taken → `netstat -ano | findstr :8000`.
 - Console "not built" → `docker compose -f infra/docker-compose.yml up -d --build`.
