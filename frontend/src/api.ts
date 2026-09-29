@@ -24,6 +24,7 @@ export type Story = {
   transcript: string | null;
   top1: Occupation | null;
   top2: Occupation | null;
+  top3: Occupation | null;
   confirmed: string | null;
   stt_ms: number | null;
   search_ms: number | null;
@@ -74,6 +75,23 @@ export type Person = {
 };
 
 export type OccupationRow = Occupation & { aliases: string[]; callers: number };
+
+export type PromptFile = {
+  text: string | null;
+  audio?: string;
+  missing?: boolean;
+  seconds?: number;
+  level_db?: number | null;
+  peak_db?: number | null;
+  silence_start?: number;
+  silence_end?: number;
+  issues?: string[];
+};
+
+export type PromptCheck = {
+  languages: string[];
+  prompts: { id: string; used_for: string; dynamic: boolean; languages: Record<string, PromptFile> }[];
+};
 
 export const API = "/console/api";
 

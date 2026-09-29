@@ -12,6 +12,7 @@ the team password. Docker builds it for you; no Node needed on the laptop.
 | `src/App.tsx` | sidebar layout, page titles, live-call indicator |
 | `src/pages/People.tsx` | one row per caller with their latest answers |
 | `src/pages/Occupations.tsx` | the 59 occupations and the words callers use |
+| `src/pages/Prompts.tsx` | Voice prompts: every rendered file per language with a player, length, loudness, problems, "play all" |
 | `src/api.ts` | calls the backend's `/console/api/*` (types + auto-refresh hook) |
 | `src/labels.ts` | readable names for stored values and timeline events |
 | `src/ui.tsx`, `src/CallTable.tsx` | shared pieces |

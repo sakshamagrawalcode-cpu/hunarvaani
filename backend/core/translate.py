@@ -1,6 +1,8 @@
-"""Sarvam translation, used to show the team the caller's words in English.
+"""Sarvam translation of the caller's words into English.
 
-Only for the console: a failure never affects the call.
+The occupation search runs on the English as well as the original words, and the English is
+kept (story.transcript_en) for models that work in English. A failure never stops the call:
+the search then uses the original words only.
 """
 
 import requests

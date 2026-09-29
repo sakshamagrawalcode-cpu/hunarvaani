@@ -6,19 +6,22 @@ comes with a list of effects for the adapter to persist. Nothing here touches I/
 
 Rules from the build spec:
 - the call starts with the language menu (P05, one line per language; skipped when only one is
-  offered); the greeting (P01) and everything after it play in the chosen language; no choice
-  after two tries keeps Hindi;
+  offered); the greeting (P01) and everything after it play in the chosen language;
 - every question waits `timeout` seconds; after a timeout (P16 "no answer") or a wrong key
-  (P29 "that key is not an option") it asks once more, then records "skipped" and moves on
-  (a skipped consent counts as "no");
+  (P29 "that key is not an option") it asks the same question again, as often as needed: the
+  call never skips a question and never hangs up for lack of an answer (the language menu just
+  plays again, because no language is chosen yet);
 - 9 at any menu deletes the caller's data, blocks the number, plays P18 and hangs up;
-- the PIN code question (P30) collects up to 6 digits ended by # (or * to skip); 9 and 0 are
-  ordinary digits there, so they do not delete or flag while a PIN is typed;
+- the PIN code question (P31) collects up to 6 digits ended by # (a wrong entry is asked again
+  with P32, like any other question); the caller may press * to skip it. 9 and 0 are ordinary
+  digits there, so they do not delete or flag while a PIN is typed;
 - 0 at any menu flags the call for a human (P19) and repeats the question;
-- silence at the greeting plays P02 once ("press 9 if you did not call"), then hangs up;
-- after the work story the caller hears what we heard (P21) and what we understood (P13); if we
-  could not understand it, or the caller says neither guess is right, they may tell it once more
-  in more detail (P23) before the keypad trade list (P14).
+- silence at the greeting plays P02 ("can you hear us? press 1; press 9 if you did not call"),
+  then P16 + P02 until the caller answers or hangs up;
+- after the work story the caller hears what we heard (P21) and up to three occupations we
+  think it is (P13: keys 1-3, the next key = none of these); if the story was unclear or too
+  short, or none is right, they tell it again in more detail (P23), up to MAX_STORY_ATTEMPTS
+  tries in all, then choose from the keypad trade list (P14).
 """
 
 from dataclasses import asdict, dataclass, field, fields
@@ -27,7 +30,7 @@ from core.dialogue.prompts import LANGUAGE_KEYS, in_language
 from core.geo import valid_pin
 
 GLOBAL_KEYS = "90"
-MAX_STORY_ATTEMPTS = 2
+MAX_STORY_ATTEMPTS = 3
 
 
 @dataclass(frozen=True)
@@ -137,7 +140,7 @@ class Interview:
             return self._action(prefix=("P19",)), [Effect("human_flag", {"step": self.state})]
 
         if self.state == "opening":
-            return (self._goto("safe_to_talk"), []) if digit == "1" else self.on_timeout()
+            return (self._goto("safe_to_talk"), []) if digit == "1" else self._invalid(True)
 
         if self.state == "safe_to_talk":
             if digit == "1":
@@ -177,26 +180,21 @@ class Interview:
         return self._action(), []
 
     def on_digits(self, entry: str) -> tuple[Action, list[Effect]]:
-        """The whole PIN code entry ("*" skips it); anything but 6 digits is asked once more."""
+        """The whole PIN code entry ("*" skips it); anything but 6 digits is asked again."""
         if self.state != "q_pin":
             return self._action(), []
         if entry == "*":
             return self._after_question("q_pin"), [Effect("skipped", {"step": "q_pin"})]
         if not valid_pin(entry):
-            if self.attempts == 0:
-                self.attempts = 1
-                return self._action(prefix=("P31",)), []
-            return self._after_question("q_pin"), [Effect("skipped", {"step": "q_pin"})]
+            self.attempts += 1
+            return self._action(prefix=("P32",)), []
         effect = Effect("answer", {"step": "q_pin", "key": "", "value": entry})
         return self._after_question("q_pin"), [effect]
 
     def on_timeout(self) -> tuple[Action, list[Effect]]:
-        if self.state == "opening":
-            if not self.opening_warned:
-                self.opening_warned = True
-                return self._action(), []
-            self.state = "ended"
-            return Hangup(), [Effect("no_response")]
+        if self.state == "opening" and not self.opening_warned:
+            self.opening_warned = True  # first silence: "can you hear us?" (P02)
+            return self._action(), []
         return self._invalid()
 
     def on_recording(
@@ -224,7 +222,7 @@ class Interview:
         data = {"path": path, "seconds": round(seconds, 1), **(details or {})}
         effects = [Effect("story_recorded", data)]
         if candidates and readback:
-            self.candidates = list(candidates)[:2]
+            self.candidates = list(candidates)[:3]
             self.readback_prompts = list(heard) + list(readback)
             return self._goto("readback"), effects
         if not understood:
@@ -232,15 +230,18 @@ class Interview:
         unclear = tuple(heard) + ("P24",) if heard else ("P22",)
         return self._goto(again, unclear), effects
 
+    def _none_key(self) -> str:
+        return str(len(self.candidates) + 1)
+
     def _readback(self, digit: str) -> tuple[Action, list[Effect]]:
-        choice = {"1": 0, "2": 1}.get(digit)
-        if digit == "3":
+        choice = int(digit) - 1 if digit.isdigit() and digit != "0" else None
+        if digit == self._none_key():
             effect = Effect(
-                "readback", {"key": "3", "confirmed": None, "candidates": self.candidates}
+                "readback", {"key": digit, "confirmed": None, "candidates": self.candidates}
             )
             again = self.story_attempts < MAX_STORY_ATTEMPTS
             return self._goto("story" if again else "trades"), [effect]
-        if choice is None or choice >= len(self.candidates):
+        if choice is None or not 0 <= choice < len(self.candidates):
             return self._invalid(wrong_key=True)
         code = self.candidates[choice]
         self.occupation = code
@@ -250,23 +251,11 @@ class Interview:
         ]
 
     def _invalid(self, wrong_key: bool = False) -> tuple[Action, list[Effect]]:
-        if self.attempts == 0:
-            self.attempts = 1
-            if self.state == "language":  # no language yet: just play the menu again
-                return self._action(), []
-            return self._action(prefix=("P29",) if wrong_key else ("P16",)), []
-        step = self.state
-        skipped = [Effect("skipped", {"step": step})]
-        if step == "safe_to_talk":
-            return self._goto("consent_recording"), skipped
-        if step == "language":
-            return self._goto("opening"), skipped
-        if step == "readback":
-            return self._goto("trades"), skipped
-        if step in CONSENTS:
-            action, effects = self._consent(granted=False)
-            return action, skipped + effects
-        return self._after_question(step), skipped
+        """No key or a wrong key: say so and ask the same question again, however many times."""
+        self.attempts += 1
+        if self.state == "language":  # no language yet: just play the menu again
+            return self._action(), []
+        return self._action(prefix=("P29",) if wrong_key else ("P16",)), []
 
     def _consent(self, granted: bool) -> tuple[Action, list[Effect]]:
         prompt, kind, nxt = CONSENTS[self.state]
@@ -314,14 +303,14 @@ class Interview:
             return Ask(s, prefix + (CONSENTS[s][0],), "12" + GLOBAL_KEYS, self.timeout)
         if s == "q_pin":
             valid = "0123456789*#"
-            return Ask(s, prefix + ("P30",), valid, self.timeout, digits=PIN_DIGITS)
+            return Ask(s, prefix + ("P31",), valid, self.timeout, digits=PIN_DIGITS)
         if s in QUESTIONS:
             prompt, options, _ = QUESTIONS[s]
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)
         if s == "story":
             return Record(s, prefix + ("P12" if self.story_attempts == 0 else "P23",))
         if s == "readback":
-            valid = "123"[: len(self.candidates)] + "3"
+            valid = "123"[: len(self.candidates)] + self._none_key()
             prompts = prefix + tuple(self.readback_prompts)
             return Ask(s, prompts, valid + GLOBAL_KEYS, self.timeout)
         return Hangup()

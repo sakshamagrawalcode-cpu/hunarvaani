@@ -36,7 +36,7 @@ PROFILE = (
     ("P09", "4"),
     ("P10", "2"),
     ("P27", "1"),
-    ("P30", "411001"),
+    ("P31", "411001"),
     ("P11", "1"),
 )
 
@@ -245,7 +245,7 @@ def test_nine_after_the_story_also_deletes_the_recordings(client, settings, audi
     assert redis.Redis.from_url(RD).exists(story_job.result_key(str(old_id))) == 0
 
 
-def test_timeouts_repeat_then_skip(client, settings):
+def test_timeouts_repeat_the_question_until_answered(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
@@ -257,23 +257,27 @@ def test_timeouts_repeat_then_skip(client, settings):
             p.press(key)
         p.hear("P09")
         p.hear("P16+P09")
+        p.hear("P16+P09")
+        p.press("8")
+        p.hear("P29+P09")
+        p.press("4")
         p.hear("P10")
         p.press("3")
         p.hear("P27")
         p.press("1")
-        p.hear("P30")
+        p.hear("P31")
         p.press("*")
         p.hear("P11")
         p.press("2")
         p.hear("P12")
         ws.close()
     answers = dict(rows("SELECT step, value FROM answer"))
-    assert answers["q_education"] == "skipped" and answers["q_travel"] == "30km"
-    assert answers["q_pin"] == "skipped" and "q_district" not in answers
+    assert answers["q_education"] == "10th" and answers["q_travel"] == "30km"
+    assert answers["q_pin"] == "skipped" and "q_district" not in answers  # * = the caller's skip
     assert rows("SELECT count(*) FROM event WHERE kind = 'timeout'") == [(2,)]
 
 
-def test_pin_code_is_asked_again_once_then_gives_a_district(client, settings):
+def test_pin_code_is_asked_again_then_gives_a_district(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
@@ -283,9 +287,9 @@ def test_pin_code_is_asked_again_once_then_gives_a_district(client, settings):
         for prompt, key in PROFILE[:5]:
             p.hear(prompt)
             p.press(key)
-        p.hear("P30")
+        p.hear("P31")
         p.press("4110#")  # too short
-        p.hear("P31+P30")
+        p.hear("P32+P31")
         p.press("999999")  # digits 9 and 0 are digits here, and this PIN is not in the table
         p.hear("P11")
         p.press("3")
@@ -334,14 +338,18 @@ def test_not_now_schedules_tomorrow(client, settings):
     assert redis.Redis.from_url(RD).zcard(callbacks.QUEUE) == 1
 
 
-def test_silent_opening_hangs_up(client, settings):
+def test_silent_opening_keeps_asking_until_the_caller_answers(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
         p.hear("P01")
         p.hear("P02")
-        p.until_hangup()
-    assert rows("SELECT kind FROM event WHERE kind = 'no_response'") == [("no_response",)]
+        p.hear("P16+P02")
+        p.hear("P16+P02")
+        p.press("1")
+        p.hear("P03")
+        ws.close()
+    assert rows("SELECT count(*) FROM event WHERE kind = 'no_response'") == [(0,)]
 
 
 def test_callback_row_is_matched_by_provider_call_id(client, settings):
@@ -436,10 +444,11 @@ def test_story_with_no_speech_moves_on(client, settings):
         p.start()
         _to_story(p)
         p.hear("P22+P23")
+        p.hear("P22+P23")
         p.hear("P22+P14")
         ws.close()
     assert rows("SELECT count(*) FROM story") == [(0,)]
-    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(2,)]
+    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(3,)]
 
 
 HEARD = "DYN:aaaaaaaaaaaaaaaaaaaaaaaa"
@@ -518,10 +527,10 @@ def test_story_is_read_back_and_confirmed(client, settings, audio_dir):
     assert payload == {"key": "1", "confirmed": "7531", "candidates": ["7531", "7411"]}
 
 
-def test_unclear_story_is_said_back_then_asked_once_more_then_the_trade_list(
+def test_unclear_story_is_said_back_and_asked_again_then_the_trade_list(
     client, settings, audio_dir
 ):
-    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है", jobs=2)
+    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है", jobs=3)
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
@@ -529,11 +538,13 @@ def test_unclear_story_is_said_back_then_asked_once_more_then_the_trade_list(
         p.speak(1)
         p.hear(f"{HEARD}+P24+P23")
         p.speak(1)
+        p.hear(f"{HEARD}+P24+P23")
+        p.speak(1)
         p.hear(f"{HEARD}+P24+P14")
         ws.close()
     worker.join(2)
     stories = rows("SELECT transcript, top1, confirmed FROM story ORDER BY created_at")
-    assert stories == [("आज मौसम अच्छा है", "5142", None)] * 2
+    assert stories == [("आज मौसम अच्छा है", "5142", None)] * 3
 
 
 def test_neither_lets_the_caller_tell_it_again_and_confirm(client, settings, audio_dir):
@@ -928,3 +939,59 @@ def test_key_press_formats_exotel_may_send():
     assert _digit({"event": "dtmf", "digit": "#"}) == "#"
     assert _digit({"event": "dtmf", "dtmf": {}}) == ""
     assert _digit({"event": "dtmf", "dtmf": {"digit": "x"}}) == ""
+
+
+def test_console_lists_every_voice_prompt(client, settings, monkeypatch):
+    get = _console(client, settings, monkeypatch)
+    out = get("/prompts").json()
+    assert out["languages"] == ["hi-IN"]
+    ids = [p["id"] for p in out["prompts"]]
+    assert sorted(ids) == sorted(PROMPTS["hi-IN"])
+    p01 = next(p for p in out["prompts"] if p["id"] == "P01")["languages"]["hi-IN"]
+    assert p01["audio"] == "/audio/hi/P01.wav" and p01["seconds"] == 0.05
+    assert client.get("/console/api/prompts").status_code == 401
+
+
+def test_caller_hears_please_stay_on_the_line_while_the_worker_is_busy(
+    client, settings, audio_dir, monkeypatch
+):
+    import dataclasses
+
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel, "STILL_WORKING_EVERY", 0.3)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, story_wait_seconds=6))
+    r = redis.Redis.from_url(RD)
+
+    def slow_worker():
+        item = r.blpop(story_job.QUEUE, timeout=10)
+        time.sleep(1.5)  # Sarvam is slow today
+        _dyn_wav(audio_dir, HEARD)
+        _dyn_wav(audio_dir, QUESTION)
+        story_job.publish(
+            r,
+            json.loads(item[1])["call_id"],
+            {
+                "transcript": "मैं सिलाई का काम करती हूं",
+                "candidates": ["7531", "7411", "7231"],
+                "heard": [HEARD],
+                "readback": [QUESTION],
+                "scores": [{"code": "7531", "score": 0.7}],
+            },
+        )
+
+    worker = threading.Thread(target=slow_worker, daemon=True)
+    worker.start()
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        heard = p.hear(READBACK)
+        assert "P17" in heard and "P30" in heard
+        p.press("3")
+        p.until_hangup()
+    worker.join(2)
+    assert dict(rows("SELECT step, value FROM answer"))["occupation"] == "7231"
+    problems = [p["what"] for (p,) in rows("SELECT payload FROM event WHERE kind = 'problem'")]
+    assert not [w for w in problems if "worker" in w]  # it waited; nothing was given up

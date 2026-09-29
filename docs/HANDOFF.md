@@ -57,7 +57,7 @@ section 6.
 `PHONE_HASH_SECRET`, `PHONE_ENC_KEY`, `EXOTEL_WS_TOKEN`, `CALLS_PAGE_PASSWORD`,
 `EXOTEL_SID / EXOTEL_API_KEY / EXOTEL_API_TOKEN / EXOTEL_CALLER_ID / EXOTEL_APP_ID`.
 `scripts/gen_secrets.py` fills the generated ones. Other settings: `LANGUAGES=hi-IN,en-IN,mr-IN`,
-`STORY_WAIT_SECONDS=8`.
+`STORY_MAX_WAIT_SECONDS=90` (longest wait for the worker during a call).
 
 ---
 
@@ -70,8 +70,8 @@ flowchart LR
     Tunnel --> API["api (FastAPI)<br/>backend/apps/voice"]
     API -- "prompts (8 kHz WAV)" --> Exotel
     API -- "story job (Redis list)" --> Worker["worker<br/>backend/apps/worker"]
-    Worker -- "speech-to-text, TTS" --> Sarvam["Sarvam (India)"]
-    Worker -- "transcript, top 2, 'you said' + read-back audio" --> API
+    Worker -- "speech-to-text, translate, TTS" --> Sarvam["Sarvam (India)"]
+    Worker -- "transcript (+ English), top 3, 'you said' + read-back audio" --> API
     API --> DB[("Postgres + pgvector<br/>calls, answers, consents,<br/>stories, events, 59 occupations")]
     Worker --> DB
     Team["Team browser"] -- "/console (password)" --> API
@@ -89,20 +89,21 @@ has its own README.
 | Folder / file | Job |
 |---|---|
 | `backend/core/dialogue/flow.py` | **The interview** as a pure state machine (no I/O). Provider-neutral |
-| `backend/core/dialogue/prompts.py` | 28 prompts × 3 languages (P13, P15, P21 are filled in during the call) |
+| `backend/core/dialogue/prompts.py` | 30 prompts × 3 languages (P13, P15, P21 are filled in during the call) |
 | `backend/core/dialogue/summary.py` | The closing summary text in each language |
 | `backend/apps/voice/exotel.py` | Exotel Voicebot WebSocket: plays prompts, reads keys, records the story |
 | `backend/apps/voice/main.py` | Routes: `/health`, `/ready`, `/audio/..`, `/exotel/ws/<token>`, `/exotel/status/<token>`, `/pv/*` (Plivo), `/calls`, `/console/…` |
-| `backend/apps/voice/console_api.py` | Read-only JSON for the console (`/console/api/summary`, `/calls`, `/calls/<id>`, `/calls/<id>/audio/<n>`, `/people`, `/occupations`) |
+| `backend/apps/voice/console_api.py` | Read-only JSON for the console (`/console/api/summary`, `/calls`, `/calls/<id>`, `/calls/<id>/audio/<n>`, `/people`, `/occupations`, `/prompts`) |
 | `backend/apps/voice/calls_page.py` | The older one-table calls page |
 | `backend/apps/worker/main.py` | Background worker: story understanding + callbacks |
 | `backend/core/stt.py`, `tts.py`, `dynprompt.py` | Sarvam speech-to-text / text-to-speech, cached generated prompts |
-| `backend/core/story_job.py` | Worker job: transcribe → search → render "you said" + read-back (in parallel) |
+| `backend/core/story_job.py` | Worker job: transcribe → English (Sarvam translate) → search both wordings → render "you said" + read-back of the top 3 (in parallel) |
+| `backend/core/prompt_check.py` | Checks every rendered prompt file (length, loudness, silence, text changed) for the console's Voice prompts page |
 | `backend/core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
 | `backend/core/geo.py` | PIN code → district (first 3 digits, sample table) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 277 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 286 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -115,38 +116,39 @@ has its own README.
 
 ```mermaid
 flowchart TD
-    A([Caller dials 09513886363 + PIN]) --> P05["P05 language first: 1 हिंदी / 2 English / 3 मराठी<br/>(no choice after two tries = Hindi)"]
+    A([Caller dials 09513886363 + PIN]) --> P05["P05 language first: 1 हिंदी / 2 English / 3 मराठी<br/>(no choice: the menu plays again)"]
     P05 --> P01["P01 greeting in the chosen language … आगे बढ़ने के लिए 1"]
     P01 -- "silence 8 s" --> P02["P02 क्या आप सुन पा रहे हैं? 1 / कॉल नहीं किया तो 9"]
     P02 -- 1 --> P03
-    P02 -- "silence" --> END0([hang up, no data])
+    P02 -- "silence" --> P02
     P01 -- 1 --> P03["P03 बात करने का समय है? (~4 min) 1 हाँ / 2 बाद में"]
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
     P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: use without name/number to train our AI"]
     P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
-    P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P30["P30 PIN code: 6 digits (# to end, * to skip)"] --> P11["P11 job / own work / unsure"]
+    P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P31["P31 PIN code: 6 digits (# to end, * to skip)"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 अपने शब्दों में काम बताइए<br/>(stops on silence, # or 60 s)"]
     P11 -- "recording = no" --> P14
-    P12 --> P17["P17 धन्यवाद, एक पल रुकिए…<br/>worker: Sarvam STT → search → TTS"]
-    P17 -- "understood" --> P13["P21 आपने बताया: (caller's words) +<br/>P13 हमारी समझ से आप X का काम करते हैं… 1 = X, 2 = Y, 3 = neither"]
-    P17 -- "not understood" --> RETRY["P21 आपने बताया: … + P24 समझ नहीं पाए<br/>(no speech: P22 आवाज़ साफ़ नहीं)"]
-    RETRY -- "first time" --> P23["P23 बीप के बाद थोड़ा और विस्तार से बताइए"] --> P17
-    RETRY -- "second time" --> P14
-    P17 -- "too slow / error" --> P14["P14 keypad trade list 1–5"]
-    P13 -- "1 or 2" --> P15
-    P13 -- "3, first time" --> P23
-    P13 -- "3, second time" --> P14
+    P12 --> P17["P17 धन्यवाद, एक पल रुकिए…<br/>worker: Sarvam STT → English → search → TTS<br/>every 8 s: P30 कृपया लाइन पर बने रहिए (up to 90 s)"]
+    P17 -- "understood" --> P13["P21 आपने बताया: (caller's words) +<br/>P13 आपका काम इनमें से एक है: X के लिए 1, Y के लिए 2, Z के लिए 3; कोई नहीं = 4"]
+    P17 -- "unclear / too short" --> RETRY["P21 आपने बताया: … + P24 समझ नहीं पाए<br/>(no speech: P22 आवाज़ साफ़ नहीं)"]
+    RETRY -- "tries 1–2" --> P23["P23 बीप के बाद थोड़ा और विस्तार से बताइए"] --> P17
+    RETRY -- "3rd try" --> P14
+    P17 -- "worker error / no answer in 90 s" --> P14["P14 keypad trade list 1–5"]
+    P13 -- "1, 2 or 3" --> P15
+    P13 -- "none (tries 1–2)" --> P23
+    P13 -- "none (3rd try)" --> P14
     P14 --> P15["P15 summary: हमने लिख ली है: education, और काम: occupation…<br/>…कभी पैसे या ओटीपी नहीं माँगता (P20 if TTS fails)"]
     P15 --> END([hang up])
 ```
 
-**PIN code (P30):** the caller types the 6 digits (they end by themselves; `#` ends early, `*` skips). Too short or wrong → P31 and once more, then skipped. The first 3 digits give the district from `database/sample/pin_districts.csv` (approximate sample table); saved as answers `q_pin` and `q_district`. While typing the PIN, 9 and 0 are ordinary digits (they do not delete or flag).
+**PIN code (P31):** the caller types the 6 digits (they end by themselves; `#` ends early). Too short or wrong → P32 and the question again, as for every question; only `*` (said in P31) skips it. The first 3 digits give the district from `database/sample/pin_districts.csv` (approximate sample table); saved as answers `q_pin` and `q_district`. While typing the PIN, 9 and 0 are ordinary digits (they do not delete or flag).
 
 **Anywhere in a menu (except while typing the PIN):** `9` = delete all my data (calls, answers, recordings) + block my number
 (P18, hang up); `0` = flag the call for a human officer (P19) and repeat the question.
 **No key:** P16 "माफ़ कीजिए, हमें आपका जवाब नहीं मिला…"; **wrong key:** P29 "माफ़ कीजिए, यह बटन इस सवाल
-के लिए नहीं है…"; then the question once more, then it is recorded as `skipped` and the call moves
-on. A skipped consent counts as **no**.
+के लिए नहीं है…"; then the **same question again, as often as needed**. Nothing is skipped and the
+call never hangs up for silence; it ends only when the caller hangs up, presses 9, or finishes.
+(At the language menu the menu itself replays; at the greeting P02 "can you hear us?" repeats.)
 
 After step A10 (section 6), P15 will be followed by the recommendations: "आपके लिए दो रास्ते हैं: …"
 with 1/2 to choose.
@@ -162,8 +164,8 @@ with 1/2 to choose.
 | 5 | P28 (why we ask, once) + P25 age, P26 gender | 3, 1 | `26_35`, `female` |
 | 6 | P09, P10, P27, P11 | 3, 2, 1, 2 | up to 8th, 10 km, no difficulty, own work |
 | 7 | P12 + beep | "मैं घर पर ब्लाउज़ और सूट सिलती हूं, दस साल से" | recording stops 2.5 s after she goes quiet |
-| 8 | P17 धन्यवाद, एक पल रुकिए… | waits ~2–4 s | worker: transcript → 7531 दर्ज़ी (0.8) / 7533 कढ़ाई → renders two audio pieces at once |
-| 9 | "आपने बताया: मैं घर पर ब्लाउज़ और सूट सिलती हूं, दस साल से। हमारी समझ से, आप दर्ज़ी का काम करते हैं। …" | presses 1 | `occupation = 7531`, story confirmed |
+| 8 | P17 धन्यवाद, एक पल रुकिए… (P30 every 8 s if Sarvam is slow) | waits ~2–5 s | worker: transcript → English "I stitch blouses and suits at home…" → search both → 7531 दर्ज़ी (0.8) / 7533 कढ़ाई / 7318 बुनकर → renders two audio pieces at once |
+| 9 | "आपने बताया: मैं घर पर ब्लाउज़ और सूट सिलती हूं, दस साल से। हमारी समझ से, आपका काम इनमें से एक है। दर्ज़ी के लिए 1 दबाइए। कढ़ाई … 2 … अगर इनमें से कोई नहीं, तो 4 दबाइए।" | presses 1 | `occupation = 7531`, story confirmed |
 | 10 | P15 summary … | | call `completed`; the "you said" audio is deleted |
 
 On the console: her row on Overview and Calls; the call page shows her profile, her words with the
@@ -176,15 +178,15 @@ the full timeline.
 2. P06 (recording): **2 = no** → keypad-only mode, no story will be recorded. P07: 2, P08: 2.
 3. P25: he presses **0** → P19 "हमारे एक अधिकारी जल्दी ही आपसे बात करेंगे…" + P25 again; call
    flagged `wants a human`. He presses 4 (36–45). P26: 2.
-4. P09: 6 (ITI). P10: silence → P16 + P10 again → silence → `q_travel = skipped`. P27: 2, P11: 1.
+4. P09: 6 (ITI). P10: silence → P16 + P10 again → silence → P16 + P10 again → he presses 2. P27: 2, P11: 1.
 5. Recording was refused → P14 trade list → 3 (electrical work, 7411) → P15.
-   On the console: badges **wants a human**, **keypad only**; travel "Skipped".
+   On the console: badges **wants a human**, **keypad only**; two "No answer" warnings at travel.
 
 ### Example 3: Meena, Marathi, not understood the first time
 
 P05: 3 (Marathi) → all questions in Marathi → story: "आज हवामान चांगलं आहे" (small talk) →
 "तुम्ही सांगितलं: आज हवामान चांगलं आहे. माफ करा, आम्हाला तुमचं काम नीट समजलं नाही." + P23 →
-she tells again: "मी शेतात मजुरी करते" → "…तुम्ही शेतमजूर म्हणून काम करता…" → 1 → summary in Marathi.
+she tells again: "मी शेतात मजुरी करते" → "…शेतमजूर साठी 1 दाबा…" → 1 → summary in Marathi.
 The console shows both tries.
 
 ### Example 4: short endings
@@ -220,7 +222,9 @@ The console shows both tries.
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
 | B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English shown in the console); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
-| A7 | **District from the PIN code**: P30/P31 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
+| A7 | **District from the PIN code**: P31/P32 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
+| Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port 5000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
+| Story | **Waits for Sarvam** (P17, then P30 "please stay on the line" every 8 s, up to 90 s); the caller's words are **translated to English** and the search uses both; read-back offers the **3 closest occupations** (1–3, next key = none); unclear or too short → tell it again, up to 3 tries, then the trade list; `story.top3` (schema 07); new prompt P30 | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -229,7 +233,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 277 automated tests pass (1 skipped where ffmpeg is missing).
+- 286 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -257,7 +261,7 @@ hours, the rest is testing on real calls.
 | A4 | 59 occupations | better matching of what callers say | Claude | — | ✅ `710657e` |
 | A5 | Team console v1 | calls, call detail, people, occupations | Claude | — | ✅ `44dd869` |
 | A6 | **Test A1–A5 on real calls** | prompts already rendered (needs Sarvam credits for calls), rebuild, 3 calls (one per language), check the console | You | 0.5 day | ⏳ next |
-| A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ✅ (needs `render_prompts.py` for P30, P31) |
+| A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ✅ (needs `render_prompts.py` for P31, P32) |
 | A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ☐ |
 | A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ☐ |
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ☐ |
@@ -303,20 +307,20 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | Language, consents, answers saved with keys and timestamps | ✅ real calls; visible on the console |
 | No to recording → keypad trade list | ✅ tests; ⏳ real call |
 | 45 s story → transcribed and read back within ~6 s | ✅ 1–4 s on short stories; ⏳ try a 45 s one |
-| 3 at read-back → tell again, then trade list | ✅ tests; ⏳ real call |
+| "none" at read-back → tell again (up to 3 tries), then trade list | ✅ tests; ⏳ real call |
 | Spoken summary; console shows answers, words, occupation, timings | ✅ built; ⏳ confirm on a real call |
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
 | Wrong token → refused | ✅ Exotel secret URL token; Plivo signatures |
 | `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
 
-### English translation: only when a model needs it
-None of our models needs English today: the occupation search works on Hindi, Marathi and English
-directly (word lists + multilingual meaning model), the recommender (A9) uses saved profile
-values and codes, and Sarvam's LLM understands Indian languages. When an English-only model is
-added (e.g. B10 learned ranking, or training on callers' words), set `TRANSLATE_TO_ENGLISH=true`:
-the worker then saves an English copy of each story in `story.transcript_en` (Sarvam translate,
-in parallel with the read-back voice, so callers do not wait). Training data may only use callers
-who said yes to P08 (train our AI). The console never shows the translation.
+### English translation: part of understanding the story
+Every Hindi or Marathi story is translated to English (Sarvam translate) **before** the search, and
+the search runs on both the caller's words and the English, keeping each occupation's best score.
+This helps when the caller's words are not in our word lists, and the English copy is saved in
+`story.transcript_en` for English-only models later (B10, training). It adds about 0.5–1 s; if it
+fails, the search uses the caller's words only and the console shows a warning. Training data
+may only use callers who said yes to P08 (train our AI). The console never shows the English
+words themselves (only the timing).
 
 ### Review of what the call asks (29 Sep)
 - **Questions are enough, not too many** (about 3–4 minutes): language, OK to talk, 3 consents,
@@ -386,6 +390,7 @@ docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_n
 docker compose -f infra/docker-compose.yml logs -f api worker
 docker compose -f infra/docker-compose.yml exec api python scripts/show_call.py -n 3
 docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py   # no phone needed
+# listen to every rendered prompt: console → Voice prompts
 docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py
 ```
 

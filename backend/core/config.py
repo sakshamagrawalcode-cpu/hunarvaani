@@ -45,13 +45,13 @@ class Settings:
     vad_threshold: int = 500
     sarvam_api_key: str = ""
     sarvam_speaker: str = ""
-    story_wait_seconds: float = 8.0
+    # the longest the call waits for the worker (speech-to-text, search, voice); the caller
+    # hears "please stay on the line" every few seconds meanwhile
+    story_wait_seconds: float = 90.0
     calls_page_user: str = "admin"
     calls_page_password: str = ""
     record_silence_seconds: float = 2.5
     record_no_speech_seconds: float = 12.0
-    # English copy of the caller's words, only for models that need English text (off: none do yet)
-    translate_to_english: bool = False
 
 
 def load_settings() -> Settings:
@@ -83,10 +83,9 @@ def load_settings() -> Settings:
         vad_threshold=_int("VAD_THRESHOLD", 500),
         sarvam_api_key=_str("SARVAM_API_KEY"),
         sarvam_speaker=_str("SARVAM_SPEAKER"),
-        story_wait_seconds=float(_str("STORY_WAIT_SECONDS", "8")),
+        story_wait_seconds=float(_str("STORY_MAX_WAIT_SECONDS", "90")),
         calls_page_user=_str("CALLS_PAGE_USER", "admin"),
         calls_page_password=_str("CALLS_PAGE_PASSWORD"),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
         record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
-        translate_to_english=_str("TRANSLATE_TO_ENGLISH", "false").lower() in ("1", "true", "yes"),
     )

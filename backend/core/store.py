@@ -60,7 +60,15 @@ def update_call(conn, call_id: str, **fields: Any) -> None:
     conn.execute(f"UPDATE call SET {assignments} WHERE id = %s", (*fields.values(), call_id))
 
 
-STORY_FIELDS = ("transcript", "transcript_en", "top1", "top2", "stt_ms", "search_ms")
+STORY_FIELDS = (
+    "transcript",
+    "transcript_en",
+    "top1",
+    "top2",
+    "top3",
+    "stt_ms",
+    "search_ms",
+)
 
 
 def save_story(conn, call_id: str, recording_url: str, **fields: Any) -> None:

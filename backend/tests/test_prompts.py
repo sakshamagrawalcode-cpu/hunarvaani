@@ -8,7 +8,7 @@ from core.tts import MAX_CHARS
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
 
-IDS = [f"P{i:02d}" for i in range(1, 32)]
+IDS = [f"P{i:02d}" for i in range(1, 33)]
 
 
 @pytest.mark.parametrize("language", ["hi-IN", "en-IN", "mr-IN"])
@@ -38,11 +38,11 @@ def test_options_always_name_their_key():
 
 def test_prerendered_ids_exclude_dynamic():
     ids = prerendered_ids("hi-IN")
-    assert len(ids) == 28 and not set(ids) & DYNAMIC
+    assert len(ids) == 29 and not set(ids) & DYNAMIC
 
 
 def test_fill_dynamic_prompts():
-    p13 = fill("hi-IN", "P13", occupation_1="सिलाई", occupation_2="बिजली का काम")
+    p13 = fill("hi-IN", "P13", options="सिलाई के लिए 1 दबाइए।", none_key="2")
     assert "सिलाई" in p13 and "{" not in p13
     p15 = fill("hi-IN", "P15", education="दसवीं", occupation="दर्ज़ी")
     assert "दसवीं" in p15 and "ओटीपी" in p15
@@ -50,7 +50,7 @@ def test_fill_dynamic_prompts():
 
 def test_fill_rejects_missing_values():
     with pytest.raises(KeyError):
-        fill("hi-IN", "P13", occupation_1="सिलाई")
+        fill("hi-IN", "P13", options="सिलाई के लिए 1 दबाइए।")
 
 
 def test_audio_dir_name():

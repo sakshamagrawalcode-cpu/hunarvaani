@@ -3,6 +3,11 @@
 Wire format (proven on the team's SIH bridge): JSON text frames; audio is base64 raw PCM,
 16-bit mono little-endian at the call's sample rate (8000 Hz). We send `media` chunks that are
 multiples of 320 bytes, `clear` to cut playback, and `mark` after each prompt.
+
+Smooth sound: audio is sent up to LEAD_SECONDS ahead of real time, so a slow moment on the
+tunnel or the internet does not leave a gap, and `clear` still stops it at once on a key press.
+Database writes (the console's live log, answers) run on one background thread per call, in
+order, so the next question never waits for them.
 """
 
 import asyncio
@@ -14,6 +19,7 @@ import re
 import struct
 import warnings
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,7 +41,13 @@ with warnings.catch_warnings():
 log = logging.getLogger("exotel")
 _DYN_NAME = re.compile(r"^[0-9a-f]{8,64}$")
 CHUNK_MS = 200
+LEAD_SECONDS = 2.0
 START_TIMEOUT = 15
+STILL_WORKING_EVERY = 8  # seconds between "please stay on the line" (P30) while we wait
+# every prompt is brought to the same loudness, so no sentence is much quieter or louder
+TARGET_RMS = 3000  # about -21 dBFS for speech
+MAX_PEAK = 26000  # stay clear of clipping
+MAX_GAIN = 4.0
 
 
 class CallEnded(Exception):
@@ -58,6 +70,17 @@ def beep(rate: int, seconds: float = 0.4, freq: int = 1000) -> bytes:
     return b"".join(
         struct.pack("<h", int(6000 * math.sin(2 * math.pi * freq * i / rate))) for i in range(n)
     )
+
+
+def even_level(pcm: bytes) -> bytes:
+    """Scale 16-bit speech to TARGET_RMS without letting the loudest sample pass MAX_PEAK."""
+    pcm = pcm[: len(pcm) // 2 * 2]
+    rms = audioop.rms(pcm, 2) if pcm else 0
+    if rms < 50:  # silence or a bad file: leave it alone
+        return pcm
+    peak = audioop.max(pcm, 2) or 1
+    gain = min(TARGET_RMS / rms, MAX_PEAK / peak, MAX_GAIN)
+    return pcm if abs(gain - 1) < 0.05 else audioop.mul(pcm, 2, gain)
 
 
 class PromptAudio:
@@ -116,7 +139,7 @@ class PromptAudio:
             frames, src_rate = w.readframes(w.getnframes()), w.getframerate()
         if src_rate != rate:
             frames = audioop.ratecv(frames, 2, 1, src_rate, rate, None)[0]
-        return frames
+        return even_level(frames)
 
 
 class ExotelSession:
@@ -139,6 +162,7 @@ class ExotelSession:
         self.heard_prompts: list[str] = []
         # words (and English) of generated prompts, for the team console's live log
         self.texts: dict[str, dict] = {}
+        self._db = ThreadPoolExecutor(max_workers=1, thread_name_prefix="call-db")
 
     async def send(self, obj: dict) -> None:
         if self.ended.is_set():
@@ -222,8 +246,8 @@ class ExotelSession:
                 {"event": "media", "stream_sid": self.stream_sid, "media": {"payload": payload}}
             )
             ahead = started + (i + 1) * CHUNK_MS / 1000 - loop.time()
-            if ahead > 1.0:
-                await asyncio.sleep(ahead - 1.0)
+            if ahead > LEAD_SECONDS:
+                await asyncio.sleep(ahead - LEAD_SECONDS)
         await self.send({"event": "mark", "stream_sid": self.stream_sid, "mark": {"name": name}})
 
     async def stop_playback(self) -> None:
@@ -357,16 +381,26 @@ class ExotelSession:
             return ("P20",)
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
-        """Hand the story to the worker, play the 'one moment' filler, wait for the answer."""
+        """Hand the story to the worker and wait for its answer (speech-to-text, English,
+        search, voice). The caller hears "one moment" (P17), then "we are still working on
+        it, please stay on the line" (P30) every STILL_WORKING_EVERY seconds, for up to
+        `story_wait_seconds`."""
         loop = asyncio.get_running_loop()
         started = loop.time()
+        deadline = started + self.settings.story_wait_seconds
+        result = None
         try:
             await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
             await self._say(call_id, "story", ("P17",))
-            await self.play(("P17",))
-            result = await run_in_threadpool(
-                story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
-            )
+            nudge_at = started + await self.play(("P17",)) + STILL_WORKING_EVERY
+            while result is None and loop.time() < deadline:
+                if self.ended.is_set():
+                    raise CallEnded
+                if loop.time() >= nudge_at:
+                    await self._say(call_id, "story", ("P30",))
+                    nudge_at = loop.time() + await self.play(("P30",)) + STILL_WORKING_EVERY
+                wait = min(2.0, max(0.1, min(deadline, nudge_at) - loop.time()))
+                result = await run_in_threadpool(story_job.wait_result, self.r, call_id, wait)
         except redis.RedisError as exc:
             log.warning("call %s: story queue failed (%s); using the trade list", call_id[:8], exc)
             await self._problem(call_id, f"Story queue failed ({exc}); used the trade list")
@@ -405,8 +439,27 @@ class ExotelSession:
             w.writeframes(pcm)
         return str(path)
 
+    def _later(self, fn, *args) -> None:
+        """Queue a database write; the call's one db thread runs them in order."""
+        self._db.submit(self._safely, fn, *args)
+
+    @staticmethod
+    def _safely(fn, *args) -> None:
+        try:
+            fn(*args)
+        except Exception:
+            log.exception("could not save (%s)", getattr(fn, "__name__", "write"))
+
+    async def _finish_writes(self) -> None:
+        """Wait for every queued write. If this task is being cancelled, wait anyway."""
+        try:
+            await asyncio.get_running_loop().run_in_executor(None, self._db.shutdown)
+        except asyncio.CancelledError:
+            self._db.shutdown()
+            raise
+
     async def _log(self, call_id: str, kind: str, payload: dict) -> None:
-        await run_in_threadpool(interview_store.log_event, self.settings, call_id, kind, payload)
+        self._later(interview_store.log_event, self.settings, call_id, kind, payload)
 
     async def _problem(self, call_id: str, what: str) -> None:
         await self._log(call_id, "problem", {"what": what[:300]})
@@ -440,9 +493,8 @@ class ExotelSession:
         await self._log(call_id, "say", payload)
 
     async def _apply(self, call_id: str, effects) -> None:
-        await run_in_threadpool(
-            interview_store.apply_effects, self.settings, self.r, call_id, effects
-        )
+        if effects:
+            self._later(interview_store.apply_effects, self.settings, self.r, call_id, effects)
 
     async def run(self) -> None:
         reader = asyncio.create_task(self.reader())
@@ -540,10 +592,8 @@ class ExotelSession:
                 self.audio.forget(pid)
             if call_id:
                 log.info("call %s: ended", call_id[:8])
-                try:
-                    await run_in_threadpool(interview_store.end_call, self.settings, call_id)
-                except Exception:
-                    log.exception("could not close the call record")
+                self._later(interview_store.end_call, self.settings, call_id)
+            await self._finish_writes()
             try:
                 await self.ws.close()
             except Exception:
