@@ -249,6 +249,14 @@ def build_router(
                 ),
                 None,
             )
+            out["recommendations"] = [
+                {**r["details"], "spoken": r["spoken"], "chosen": r["chosen"]}
+                for r in conn.execute(
+                    "SELECT details, spoken, chosen FROM recommendation WHERE call_id = %s "
+                    "ORDER BY rank",
+                    (c["id"],),
+                )
+            ]
             for key in ("missed_at", "callback_at", "answered_at", "ended_at"):
                 out[key] = _iso(c[key])
             return out

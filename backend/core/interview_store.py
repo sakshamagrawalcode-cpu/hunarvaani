@@ -6,6 +6,8 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
+from psycopg.types.json import Jsonb
+
 from core import callbacks, geo, store, story_job
 from core.config import Settings
 from core.dialogue.flow import Effect
@@ -146,6 +148,27 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
             "UPDATE story SET confirmed = %s WHERE recording_url = ("
             "SELECT recording_url FROM story WHERE call_id = %s ORDER BY created_at DESC LIMIT 1)",
             (e.data["confirmed"] or "none", call_id),
+        )
+    elif e.kind == "recommendations":
+        for option in e.data["options"]:
+            conn.execute(
+                "INSERT INTO recommendation "
+                "(call_id, rank, course_id, centre_id, score, details, spoken) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (
+                    call_id,
+                    option["rank"],
+                    option["course_id"],
+                    option.get("centre_id"),
+                    option.get("score"),
+                    Jsonb(option),
+                    e.data["spoken"],
+                ),
+            )
+    elif e.kind == "interest":
+        conn.execute(
+            "UPDATE recommendation SET chosen = COALESCE(rank = %s, false) WHERE call_id = %s",
+            (e.data["rank"], call_id),
         )
     elif e.kind == "callback_tomorrow":
         _callback_tomorrow(conn, settings, r, call)

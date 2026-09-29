@@ -29,9 +29,10 @@ import redis
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 
-from core import dynprompt, interview_store, story_job
+from core import dynprompt, geo, interview_store, recommend, story_job
 from core.config import Settings
-from core.dialogue.flow import Ask, Hangup, Interview
+from core.dialogue.flow import Ask, Hangup, Interview, Offer
+from core.dialogue.options import options_text
 from core.dialogue.prompts import PROMPTS, audio_dir_name, split_language
 from core.dialogue.summary import summary_text
 from core.phone import last4
@@ -474,6 +475,49 @@ class ExotelSession:
             await self._problem(call_id, f"Summary voice could not be made ({exc}); played P20")
             return ("P20",)
 
+    @staticmethod
+    def _options_for(engine: Interview) -> list:
+        answers = dict(engine.answers)
+        row = geo.district_for_pin(answers.get("q_pin") or "")
+        answers["q_district"] = row["district_code"] if row else None
+        return recommend.recommend(recommend.Profile.from_answers(answers))
+
+    async def _offer(self, call_id: str, engine: Interview):
+        """Find the caller's options (sample dataset) and make the sentence that says them
+        (P34). If either fails, the engine ends the call with the summary instead."""
+        try:
+            options = await run_in_threadpool(self._options_for, engine)
+        except Exception as exc:
+            log.exception("call %s: recommendations failed", call_id[:8])
+            await self._problem(call_id, f"Recommendations failed ({exc})")
+            options = []
+        details = [recommend.as_dict(o) for o in options]
+        courses, prompts = [], []
+        if options:
+            await self.play(("P17",))  # "one moment" while the sentence is made
+            text = options_text(engine.language, engine.education, engine.occupation, options)
+            try:
+                pid = await run_in_threadpool(
+                    dynprompt.ensure,
+                    text,
+                    engine.language,
+                    self.settings.sarvam_api_key,
+                    self.settings.sarvam_speaker,
+                    self.audio.dir,
+                )
+                english = options_text("en-IN", engine.education, engine.occupation, options)
+                self.texts[pid] = {"text": text, "text_en": english}
+                courses, prompts = [o.course.course_id for o in options], [pid]
+                log.info("call %s: offering %s", call_id[:8], ", ".join(courses))
+            except Exception as exc:
+                log.warning("call %s: options voice not made (%s)", call_id[:8], exc)
+                await self._problem(
+                    call_id, f"Options voice could not be made ({exc}); ended with the summary"
+                )
+        else:
+            log.info("call %s: no options fit this caller", call_id[:8])
+        return engine.on_options(courses, prompts, details)
+
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
         """Hand the story to the worker and wait for its answer (speech-to-text, English,
         search, voice). The caller hears "one moment" (P17), then "we are still working on
@@ -617,6 +661,10 @@ class ExotelSession:
             action = engine.start()
             while True:
                 self.language = engine.language
+                if isinstance(action, Offer):
+                    action, effects = await self._offer(call_id, engine)
+                    await self._apply(call_id, effects)
+                    continue
                 if isinstance(action, Hangup):
                     prompts = action.prompts
                     if "P15" in prompts:

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { CallDetail as Detail, Story } from "../api";
+import type { CallDetail as Detail, Recommendation, Story } from "../api";
 import { audioUrl, useApi } from "../api";
 import CallPanels from "../CallPanels";
 import { CONSENT, LANGUAGE, STATUS, occupationName, seconds, value, when } from "../labels";
@@ -15,6 +15,71 @@ function confirmedText(s: Story): string {
   if (s.top2?.code === s.confirmed) return `yes: ${occupationName(s.top2)}`;
   if (s.top3?.code === s.confirmed) return `yes: ${occupationName(s.top3)}`;
   return s.confirmed;
+}
+
+const KIND: Record<string, string> = {
+  upskill: "Upskilling course",
+  certificate: "Certificate (RPL)",
+  startup: "Own work / business",
+};
+
+function Options({ items }: { items: Recommendation[] }) {
+  if (!items.length) return <Empty>No options yet (they come after the occupation is known).</Empty>;
+  const spoken = items.some((r) => r.spoken);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500">
+        {spoken ? "Said on the call" : "Found, but not said on the call (voice could not be made)"}
+        {" · "}all courses, centres and numbers are sample data
+      </p>
+      <div className="grid gap-3 md:grid-cols-3">
+        {items.map((r) => (
+          <div
+            key={r.rank}
+            className={`space-y-2 rounded-lg border p-3 ${
+              r.chosen
+                ? "border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40"
+                : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-sm font-semibold">
+                {r.rank}. {r.title}
+              </div>
+              {r.chosen && <Badge tone="green">caller chose</Badge>}
+            </div>
+            <div className="text-xs text-slate-500">
+              {KIND[r.kind] ?? r.kind} · NSQF {r.nsqf_level} · {r.hours} h ·{" "}
+              {r.fee_inr ? `Rs ${r.fee_inr}` : "free"}
+              {r.placement && " · placement"}
+            </div>
+            <div className="text-xs">
+              {r.centre ? `${r.centre}, about ${r.distance_km} km` : "Centre to be confirmed"}
+              {r.farther && (
+                <>
+                  {" "}
+                  <Badge tone="amber">farther than they said</Badge>
+                </>
+              )}
+            </div>
+            <div className="text-xs text-slate-500">
+              Scheme: {r.scheme}
+              {r.loan && ` · loan: ${r.loan}`}
+            </div>
+            <ul className="list-disc space-y-0.5 pl-4 text-xs">
+              {r.reasons.map((why) => (
+                <li key={why}>{why}</li>
+              ))}
+            </ul>
+            <div className="text-xs">
+              <span className="font-medium">Skill gap: </span>
+              {r.skill_gap.length ? r.skill_gap.join(", ") : "none (certificate for what they know)"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -75,6 +140,10 @@ export default function CallDetail() {
       </div>
 
       <CallPanels streams={streams} live={data.live} startedAt={started} />
+
+      <Card title="Training and livelihood options">
+        <Options items={data.recommendations ?? []} />
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">

@@ -1,6 +1,6 @@
 """Voice prompts for the IVR in Hindi, English and Marathi. Text is sent to Sarvam Bulbul v3.
 
-P13, P15 and P21 contain {placeholders} and are rendered during the call.
+P13, P15, P21 and P34 contain {placeholders} and are rendered during the call.
 Have a native speaker check every line before the demo.
 """
 
@@ -101,6 +101,15 @@ PROMPTS: dict[str, dict[str, str]] = {
             "पिन कोड दबाइए, और फिर हैश का बटन दबाइए। पिन कोड याद नहीं, तो स्टार दबाइए।"
         ),
         "P32": "माफ़ कीजिए, यह पिन कोड सही नहीं लगा। कृपया छह अंकों का पिन कोड फिर से दबाइए।",
+        "P33": (
+            "धन्यवाद जी, हमने आपकी पसंद लिख ली है। हमारी टीम आपको आगे की जानकारी देगी। "
+            "ध्यान रखिए, हुनरवाणी कभी पैसे या ओटीपी नहीं माँगता। आपका दिन शुभ हो।"
+        ),
+        "P34": (
+            "हमने आपकी जानकारी लिख ली है: {education}, और काम: {occupation}। आपके लिए {count} "
+            "रास्ते हैं। {options} जो रास्ता आपको पसंद है, उसका नंबर दबाइए। कोई नहीं, तो "
+            "{none_key} दबाइए।"
+        ),
     },
     "en-IN": {
         "P01": (
@@ -206,6 +215,15 @@ PROMPTS: dict[str, dict[str, str]] = {
             "press star."
         ),
         "P32": "Sorry, that PIN code does not look right. Please press the six digits again.",
+        "P33": (
+            "Thank you, we have noted your choice. Our team will give you the next details. "
+            "Remember, HunarVaani never asks for money or an OTP. Have a good day."
+        ),
+        "P34": (
+            "We have noted your details: {education}, and work: {occupation}. Here are {count} "
+            "options for you. {options} Press the number of the option you like. If none, "
+            "press {none_key}."
+        ),
     },
     "mr-IN": {
         "P01": (
@@ -305,13 +323,22 @@ PROMPTS: dict[str, dict[str, str]] = {
             "शोधता येईल. पिन कोड दाबा आणि नंतर हॅशचे बटण दाबा. पिन कोड आठवत नसेल, तर स्टार दाबा."
         ),
         "P32": "माफ करा, हा पिन कोड बरोबर वाटत नाही. कृपया सहा अंकी पिन कोड पुन्हा दाबा.",
+        "P33": (
+            "धन्यवाद, आम्ही तुमची निवड लिहून घेतली आहे. आमची टीम तुम्हाला पुढची माहिती देईल. "
+            "लक्षात ठेवा, हुनरवाणी कधीही पैसे किंवा ओटीपी मागत नाही. तुमचा दिवस चांगला जावो."
+        ),
+        "P34": (
+            "आम्ही तुमची माहिती लिहून घेतली आहे: {education}, आणि काम: {occupation}. तुमच्यासाठी "
+            "{count} पर्याय आहेत. {options} जो पर्याय आवडला, त्याचा नंबर दाबा. कोणताच नाही, "
+            "तर {none_key} दाबा."
+        ),
     },
 }
 
 # The language menu (P05) plays one line per language; each language keeps its own key.
 LANGUAGE_KEYS = {"1": "hi-IN", "2": "en-IN", "3": "mr-IN"}
 
-DYNAMIC = {"P13", "P15", "P21"}
+DYNAMIC = {"P13", "P15", "P21", "P34"}
 
 
 def prerendered_ids(language: str = "hi-IN") -> list[str]:

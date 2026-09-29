@@ -745,7 +745,36 @@ def _seed_titles():
         )
 
 
-def test_call_ends_with_the_spoken_summary(client, settings, fake_tts):
+def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, fake_tts):
+    """Mobile repairer, 10th pass, woman 26-35, up to 10 km, Pune (PIN 411001), wants a job."""
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P22+P14")  # no speech twice
+        p.press("5")  # mobile phone repair
+        heard = p.hear("DYN:aaaabbbbccccdddd11112222")
+        assert "P17" in heard  # "one moment" while the options sentence is made
+        p.press("1")
+        p.hear("P33")
+        p.until_hangup()
+    [text] = fake_tts
+    assert "दसवीं पास" in text and "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
+    options = rows(
+        "SELECT rank, course_id, spoken, chosen, details->>'sample' FROM recommendation "
+        "ORDER BY rank"
+    )
+    assert [o[0] for o in options] == list(range(1, len(options) + 1)) and options
+    assert all(o[2] and o[4] == "true" for o in options)
+    assert [o[3] for o in options] == [True] + [False] * (len(options) - 1)
+    answers = dict(rows("SELECT step, value FROM answer"))
+    assert answers["interest"] == options[0][1]
+
+
+def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypatch):
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel.recommend, "recommend", lambda profile: [])  # nothing fits
     _seed_titles()
     with dial(client) as ws:
         p = Phone(ws)

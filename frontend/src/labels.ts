@@ -28,6 +28,8 @@ export const STEP: Record<string, string> = {
   readback: "Read-back",
   trades: "Trade list",
   occupation: "Occupation",
+  options: "Training options",
+  interest: "Chosen option",
 };
 
 export const VALUE: Record<string, string> = {

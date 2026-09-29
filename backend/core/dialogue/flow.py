@@ -21,7 +21,11 @@ Rules from the build spec:
 - after the work story the caller hears what we heard (P21) and up to three occupations we
   think it is (P13: keys 1-3, the next key = none of these); if the story was unclear or too
   short, or none is right, they tell it again in more detail (P23), up to MAX_STORY_ATTEMPTS
-  tries in all, then choose from the keypad trade list (P14).
+  tries in all, then choose from the keypad trade list (P14);
+- once the occupation is known the interview asks for the training / livelihood options
+  (`Offer`): the adapter runs the recommender and calls `on_options`. With options, P34 says
+  what we noted and the options (keys 1-3, the next key = none of these), then P33 says goodbye;
+  with none (or if their voice cannot be made), the call ends with the summary (P15).
 """
 
 from dataclasses import asdict, dataclass, field, fields
@@ -55,7 +59,14 @@ class Hangup:
     prompts: tuple[str, ...] = ()
 
 
-Action = Ask | Record | Hangup
+@dataclass(frozen=True)
+class Offer:
+    """Find the caller's options now, then call `Interview.on_options`."""
+
+    step: str = "offer"
+
+
+Action = Ask | Record | Hangup | Offer
 
 
 @dataclass(frozen=True)
@@ -112,6 +123,9 @@ class Interview:
     story_attempts: int = 0
     education: str = ""
     occupation: str = ""
+    answers: dict = field(default_factory=dict)  # step -> value, for the recommender
+    options: list[str] = field(default_factory=list)  # course ids said on the call
+    options_prompts: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -129,7 +143,7 @@ class Interview:
         return self._goto(self.state)
 
     def on_key(self, digit: str) -> tuple[Action, list[Effect]]:
-        if self.state in ("ended", "story"):
+        if self.state in ("ended", "story", "offer"):
             return self._action(), []
         if self.state == "q_pin":
             return self.on_digits(digit)
@@ -160,6 +174,9 @@ class Interview:
         if self.state == "readback":
             return self._readback(digit)
 
+        if self.state == "options":
+            return self._choose(digit)
+
         if self.state in CONSENTS:
             if digit not in "12":
                 return self._invalid(wrong_key=True)
@@ -174,6 +191,7 @@ class Interview:
                 self.education = options[digit]
             elif step == "trades":
                 self.occupation = options[digit]
+            self.answers[step] = options[digit]
             effect = Effect("answer", {"step": step, "key": digit, "value": options[digit]})
             return self._after_question(step), [effect]
 
@@ -188,8 +206,39 @@ class Interview:
         if not valid_pin(entry):
             self.attempts += 1
             return self._action(prefix=("P32",)), []
+        self.answers["q_pin"] = entry
         effect = Effect("answer", {"step": "q_pin", "key": "", "value": entry})
         return self._after_question("q_pin"), [effect]
+
+    def on_options(
+        self, courses: list[str], prompts: list[str] | tuple[str, ...], details: list[dict]
+    ) -> tuple[Action, list[Effect]]:
+        """After `Offer`: the recommended course ids (best first), the prompts that say them,
+        and their details for the database. No courses or no prompts: end with the summary."""
+        if self.state != "offer":
+            return self._action(), []
+        spoken = bool(courses and prompts)
+        effects = [Effect("recommendations", {"options": details, "spoken": spoken})]
+        if not spoken:
+            self.state = "ended"
+            return Hangup(("P15",)), effects if details else []
+        self.options, self.options_prompts = list(courses)[:3], list(prompts)
+        return self._goto("options"), effects
+
+    def _choose(self, digit: str) -> tuple[Action, list[Effect]]:
+        none_key = str(len(self.options) + 1)
+        if digit == none_key:
+            rank, course = None, None
+        elif digit.isdigit() and 1 <= int(digit) <= len(self.options):
+            rank, course = int(digit), self.options[int(digit) - 1]
+        else:
+            return self._invalid(wrong_key=True)
+        self.answers["interest"] = course or "none"
+        self.state = "ended"
+        return Hangup(("P33",)), [
+            Effect("interest", {"rank": rank, "course_id": course}),
+            Effect("answer", {"step": "interest", "key": digit, "value": course or "none"}),
+        ]
 
     def on_timeout(self) -> tuple[Action, list[Effect]]:
         if self.state == "opening" and not self.opening_warned:
@@ -245,6 +294,7 @@ class Interview:
             return self._invalid(wrong_key=True)
         code = self.candidates[choice]
         self.occupation = code
+        self.answers["occupation"] = code
         return self._goto("summary"), [
             Effect("readback", {"key": digit, "confirmed": code, "candidates": self.candidates}),
             Effect("answer", {"step": "occupation", "key": digit, "value": code}),
@@ -280,9 +330,9 @@ class Interview:
             if menu:
                 self.language = next(iter(menu.values()))
             return self._goto("opening", prefix)
-        if state == "summary":
-            self.state = "ended"
-            return Hangup(prefix + ("P15",))
+        if state == "summary":  # the occupation is known: look for options first
+            self.state = "offer"
+            return Offer()
         if state == "q_age":  # why we ask about the caller, said once before the first question
             prefix = prefix + ("P28",)
         return self._action(prefix)
@@ -309,6 +359,11 @@ class Interview:
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)
         if s == "story":
             return Record(s, prefix + ("P12" if self.story_attempts == 0 else "P23",))
+        if s == "offer":
+            return Offer()
+        if s == "options":
+            valid = "123"[: len(self.options)] + str(len(self.options) + 1)
+            return Ask(s, prefix + tuple(self.options_prompts), valid + GLOBAL_KEYS, self.timeout)
         if s == "readback":
             valid = "123"[: len(self.candidates)] + self._none_key()
             prompts = prefix + tuple(self.readback_prompts)
