@@ -9,7 +9,7 @@ from pathlib import Path
 from core import callbacks, store, story_job
 from core.config import Settings
 from core.dialogue.flow import Effect
-from core.dialogue.prompts import PROMPTS
+from core.dialogue.prompts import PROMPTS, local_title
 from core.phone import encrypt, normalize_indian_mobile, phone_hash
 from core.timeutil import next_allowed, utcnow
 
@@ -211,9 +211,13 @@ def provider_status(settings: Settings, provider_call_id: str, status: str) -> N
             )
 
 
-def occupation_title(settings: Settings, code: str) -> str | None:
+def occupation_title(settings: Settings, code: str, language: str = "hi-IN") -> str | None:
     if not code:
         return None
     with store.connect(settings.database_url) as conn:
-        row = conn.execute("SELECT title_hi FROM nco WHERE nco_code = %s", (code,)).fetchone()
-    return row["title_hi"] if row else None
+        row = conn.execute(
+            "SELECT title_en, title_hi, title_mr FROM nco WHERE nco_code = %s", (code,)
+        ).fetchone()
+    if not row:
+        return None
+    return local_title(language, row["title_en"], row["title_hi"], row["title_mr"])

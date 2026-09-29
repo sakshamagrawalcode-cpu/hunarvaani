@@ -33,12 +33,19 @@ def main() -> None:
     with psycopg.connect(url) as conn:
         for r, v in zip(rows, vectors, strict=True):
             conn.execute(
-                "INSERT INTO nco (nco_code, title_en, title_hi, aliases, embedding) "
-                "VALUES (%s, %s, %s, %s, %s::vector) "
+                "INSERT INTO nco (nco_code, title_en, title_hi, title_mr, aliases, embedding) "
+                "VALUES (%s, %s, %s, %s, %s, %s::vector) "
                 "ON CONFLICT (nco_code) DO UPDATE SET title_en = EXCLUDED.title_en, "
-                "title_hi = EXCLUDED.title_hi, aliases = EXCLUDED.aliases, "
-                "embedding = EXCLUDED.embedding",
-                (r.nco_code, r.title_en, r.title_hi, " | ".join(r.aliases), vector_literal(v)),
+                "title_hi = EXCLUDED.title_hi, title_mr = EXCLUDED.title_mr, "
+                "aliases = EXCLUDED.aliases, embedding = EXCLUDED.embedding",
+                (
+                    r.nco_code,
+                    r.title_en,
+                    r.title_hi,
+                    r.title_mr,
+                    " | ".join(r.aliases),
+                    vector_literal(v),
+                ),
             )
         count = conn.execute("SELECT count(*) FROM nco").fetchone()[0]
     print(f"nco rows in database: {count}")

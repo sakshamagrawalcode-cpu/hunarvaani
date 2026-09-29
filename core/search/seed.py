@@ -11,6 +11,7 @@ class NcoRow:
     title_en: str
     title_hi: str
     aliases: tuple[str, ...]
+    title_mr: str = ""
 
 
 def load_seed(path: Path = SEED_PATH) -> list[NcoRow]:
@@ -21,13 +22,14 @@ def load_seed(path: Path = SEED_PATH) -> list[NcoRow]:
                 title_en=r["title_en"].strip(),
                 title_hi=r["title_hi"].strip(),
                 aliases=tuple(a.strip() for a in r["aliases"].split("|") if a.strip()),
+                title_mr=(r.get("title_mr") or "").strip(),
             )
             for r in csv.DictReader(f)
         ]
 
 
 def passage_text(row: NcoRow) -> str:
-    return f"passage: {row.title_en}. {row.title_hi}. {', '.join(row.aliases)}"
+    return f"passage: {row.title_en}. {row.title_hi}. {row.title_mr}. {', '.join(row.aliases)}"
 
 
 def vector_literal(vec) -> str:

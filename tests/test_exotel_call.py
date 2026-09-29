@@ -58,7 +58,7 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         database_url=DB,
         redis_url=RD,
         default_language="hi-IN",
-        second_language="",
+        languages=("hi-IN",),
         callback_delay_seconds=5,
         max_triggers_per_day=3,
         daily_call_budget=100,
@@ -645,3 +645,58 @@ def test_story_queue_failure_offers_the_trade_list(client, settings, monkeypatch
         p.speak(1)
         p.hear("P14")
         ws.close()
+
+
+def _tone_wav(path: Path, sample: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(struct.pack("<h", sample) * 400)
+
+
+def test_prompt_audio_plays_the_callers_language_and_pinned_menu_lines(tmp_path):
+    from apps.voice.exotel import PromptAudio
+
+    for folder, sample in (("hi", 1), ("en", 2), ("mr", 3)):
+        _tone_wav(tmp_path / folder / "P05.wav", sample)
+    _tone_wav(tmp_path / "hi" / "P03.wav", 1)
+    _tone_wav(tmp_path / "mr" / "P03.wav", 3)
+    audio = PromptAudio(tmp_path)
+    value = lambda pcm: struct.unpack("<h", pcm[:2])[0]  # noqa: E731
+    assert value(audio.pcm("P05@mr-IN", "hi-IN", 8000)) == 3
+    assert value(audio.pcm("P05@en-IN", "hi-IN", 8000)) == 2
+    assert value(audio.pcm("P03", "mr-IN", 8000)) == 3
+    assert value(audio.pcm("P03", "en-IN", 8000)) == 1  # not rendered in English: Hindi
+
+
+def test_caller_picks_marathi_at_the_start(client, settings, monkeypatch):
+    import dataclasses
+
+    from core.interview_store import prompt_hash
+
+    three = dataclasses.replace(settings, languages=("hi-IN", "en-IN", "mr-IN"))
+    monkeypatch.setattr(main, "settings", three)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        p.hear("P01")
+        p.press("1")
+        p.hear("P05@hi-IN+P05@en-IN+P05@mr-IN")
+        p.press("3")
+        for prompt, key in (("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
+            p.hear(prompt)
+            p.press(key)
+        for prompt, key in (("P09", "4"), ("P10", "2"), ("P11", "1")):
+            p.hear(prompt)
+            p.press(key)
+        p.hear("P12")
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    job = json.loads(redis.Redis.from_url(RD).lpop(story_job.QUEUE))
+    assert job["language"] == "mr-IN"
+    assert rows("SELECT language FROM call") == [("mr-IN",)]
+    [(h,)] = rows("SELECT hash FROM consent WHERE kind = 'recording'")
+    assert h == prompt_hash("P06", "mr-IN") != prompt_hash("P06", "hi-IN")

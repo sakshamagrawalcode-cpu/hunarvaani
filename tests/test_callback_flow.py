@@ -47,7 +47,7 @@ def settings(schema, monkeypatch):
         database_url=DB,
         redis_url=RD,
         default_language="hi-IN",
-        second_language="",
+        languages=("hi-IN",),
         callback_delay_seconds=5,
         max_triggers_per_day=3,
         daily_call_budget=100,

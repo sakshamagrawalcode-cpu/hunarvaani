@@ -9,7 +9,7 @@ import psycopg
 
 from core import store
 from core.config import Settings
-from core.dialogue.prompts import fill
+from core.dialogue.prompts import fill, local_title
 
 log = logging.getLogger("story")
 
@@ -95,7 +95,8 @@ def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:
         if not top or top[0].score < THRESHOLD or len(top) < 2:
             return out
 
-        text = fill(language, "P13", occupation_1=top[0].title_hi, occupation_2=top[1].title_hi)
+        names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in top]
+        text = fill(language, "P13", occupation_1=names[0], occupation_2=names[1])
         t2 = time.monotonic()
         out["prompt"] = render(text, language)
         out["tts_ms"] = int((time.monotonic() - t2) * 1000)

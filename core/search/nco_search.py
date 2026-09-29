@@ -27,6 +27,7 @@ class Occupation:
     title_hi: str
     aliases: tuple[str, ...]
     embedding: np.ndarray | None = None
+    title_mr: str = ""
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class Candidate:
     alias: float
     bm25: float
     cosine: float
+    title_mr: str = ""
 
 
 def _alias_hit(alias: str, text: str, tokens: set[str]) -> bool:
@@ -54,8 +56,9 @@ class NcoIndex:
         self.occupations = occupations
         docs = []
         for o in occupations:
-            words = normalise(f"{o.title_en} {o.title_hi} {' '.join(o.aliases)}")
-            latin = to_latin(" ".join(a for a in o.aliases + (o.title_hi,) if is_devanagari(a)))
+            names = o.aliases + (o.title_hi, o.title_mr)
+            words = normalise(f"{o.title_en} {' '.join(names)}")
+            latin = to_latin(" ".join(a for a in names if is_devanagari(a)))
             docs.append(content_tokens(words) + content_tokens(latin))
         self.bm25 = BM25Okapi(docs)
 
@@ -77,7 +80,7 @@ class NcoIndex:
         results = []
         for i, o in enumerate(self.occupations):
             alias = 0.0
-            for a in o.aliases + (o.title_hi,):
+            for a in o.aliases + (o.title_hi, o.title_mr):
                 text, tokens = (dev, dev_tokens) if is_devanagari(a) else (lat, lat_tokens)
                 if _alias_hit(a, text, tokens):
                     alias = 1.0
@@ -96,6 +99,7 @@ class NcoIndex:
                     alias,
                     round(float(bm25n[i]), 4),
                     round(cosine, 4),
+                    o.title_mr,
                 )
             )
         results.sort(key=lambda c: c.score, reverse=True)
@@ -104,7 +108,7 @@ class NcoIndex:
 
 def load_occupations(conn) -> list[Occupation]:
     rows = conn.execute(
-        "SELECT nco_code, title_en, title_hi, aliases, embedding::text AS emb FROM nco "
+        "SELECT nco_code, title_en, title_hi, title_mr, aliases, embedding::text AS emb FROM nco "
         "ORDER BY nco_code"
     ).fetchall()
     out = []
@@ -113,5 +117,7 @@ def load_occupations(conn) -> list[Occupation]:
         if r["emb"]:
             emb = np.array([float(x) for x in r["emb"].strip("[]").split(",")], dtype=np.float32)
         aliases = tuple(a.strip() for a in (r["aliases"] or "").split("|") if a.strip())
-        out.append(Occupation(r["nco_code"], r["title_en"], r["title_hi"], aliases, emb))
+        out.append(
+            Occupation(r["nco_code"], r["title_en"], r["title_hi"], aliases, emb, r["title_mr"])
+        )
     return out

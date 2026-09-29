@@ -24,6 +24,7 @@ LABELS = {
     "own_work": "own work",
     "unsure": "not sure",
 }
+LANGUAGE_NAMES = {"hi-IN": "Hindi", "en-IN": "English", "mr-IN": "Marathi"}
 STYLE = """
 body{font-family:system-ui,sans-serif;margin:16px;color:#1b1b1b;background:#fafafa}
 h1{font-size:20px} table{border-collapse:collapse;width:100%;background:#fff}
@@ -115,6 +116,7 @@ def render(settings: Settings, limit: int = 50) -> str:
             + cell(_fmt(c["answered_at"] or c["callback_at"] or c["missed_at"]))
             + cell(_number(settings, c["phone_enc"]))
             + cell(c["status"])
+            + cell(LANGUAGE_NAMES.get(c["language"], c["language"]))
             + cell(f"{c['duration_seconds']} s" if c["duration_seconds"] is not None else "")
             + "".join(cell(LABELS.get(answers.get(s), answers.get(s))) for s in STEPS)
             + cell(story["transcript"] if story else "")
@@ -126,12 +128,12 @@ def render(settings: Settings, limit: int = 50) -> str:
             + "</tr>"
         )
     head = (
-        "<tr><th>When (IST)</th><th>Number</th><th>Status</th><th>Duration</th>"
+        "<tr><th>When (IST)</th><th>Number</th><th>Status</th><th>Language</th><th>Duration</th>"
         "<th>Education</th><th>Travel</th><th>Prefers</th><th>Own words</th>"
         "<th>Search top 2</th><th>Occupation</th><th>Timings</th><th>Consents</th>"
         "<th>Flags</th></tr>"
     )
-    body = "".join(out) or "<tr><td colspan=13 class=muted>No calls yet.</td></tr>"
+    body = "".join(out) or "<tr><td colspan=14 class=muted>No calls yet.</td></tr>"
     return (
         "<!doctype html><html lang=hi><head><meta charset=utf-8>"
         "<meta name=viewport content='width=device-width,initial-scale=1'>"

@@ -12,13 +12,17 @@ def _str(name: str, default: str = "") -> str:
     return raw if raw else default
 
 
+def _list(name: str, default: str) -> tuple[str, ...]:
+    return tuple(x.strip() for x in _str(name, default).split(",") if x.strip())
+
+
 @dataclass(frozen=True)
 class Settings:
     public_base_url: str
     database_url: str
     redis_url: str
     default_language: str
-    second_language: str
+    languages: tuple[str, ...]
     callback_delay_seconds: int
     max_triggers_per_day: int
     daily_call_budget: int
@@ -54,7 +58,7 @@ def load_settings() -> Settings:
         database_url=_str("DATABASE_URL", "postgresql://hv:hv@db:5432/hv"),
         redis_url=_str("REDIS_URL", "redis://redis:6379/0"),
         default_language=_str("DEFAULT_LANGUAGE", "hi-IN"),
-        second_language=_str("SECOND_LANGUAGE"),
+        languages=_list("LANGUAGES", "hi-IN,en-IN,mr-IN"),
         callback_delay_seconds=_int("CALLBACK_DELAY_SECONDS", 5),
         max_triggers_per_day=_int("MAX_TRIGGERS_PER_DAY", 3),
         daily_call_budget=_int("DAILY_CALL_BUDGET", 100),

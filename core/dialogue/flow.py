@@ -9,10 +9,14 @@ Rules from the build spec:
   once more, then records "skipped" and moves on (a skipped consent counts as "no");
 - 9 at any menu deletes the caller's data, blocks the number, plays P18 and hangs up;
 - 0 at any menu flags the call for a human (P19) and repeats the question;
-- silence at the opening plays P02 once ("press 9 if you did not call"), then hangs up.
+- silence at the opening plays P02 once ("press 9 if you did not call"), then hangs up;
+- right after the opening the caller picks a language (skipped when only one is offered);
+  every later prompt plays in that language.
 """
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
+
+from core.dialogue.prompts import LANGUAGE_KEYS, in_language
 
 GLOBAL_KEYS = "90"
 
@@ -75,7 +79,7 @@ CONSENTS = {
 
 @dataclass
 class Interview:
-    second_language: str = ""
+    languages: list[str] = field(default_factory=lambda: ["hi-IN"])
     timeout: int = 8
     state: str = "opening"
     attempts: int = 0
@@ -92,7 +96,12 @@ class Interview:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Interview":
-        return cls(**data)
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
+
+    def _menu(self) -> dict[str, str]:
+        """Key -> language for the languages on offer (keys stay fixed: Marathi is always 3)."""
+        return {k: code for k, code in LANGUAGE_KEYS.items() if code in self.languages}
 
     def start(self) -> Action:
         return self._action()
@@ -107,24 +116,22 @@ class Interview:
             return self._action(prefix=("P19",)), [Effect("human_flag", {"step": self.state})]
 
         if self.state == "opening":
-            return (self._goto("safe_to_talk"), []) if digit == "1" else self.on_timeout()
+            return (self._goto("language"), []) if digit == "1" else self.on_timeout()
 
         if self.state == "safe_to_talk":
             if digit == "1":
-                return self._goto("language"), []
+                return self._goto("consent_recording"), []
             if digit == "2":
                 self.state = "ended"
                 return Hangup(("P04",)), [Effect("callback_tomorrow")]
             return self._invalid()
 
         if self.state == "language":
-            choices = {"1": "hi-IN"}
-            if self.second_language:
-                choices["2"] = self.second_language
+            choices = self._menu()
             if digit not in choices:
                 return self._invalid()
             self.language = choices[digit]
-            return self._goto("consent_recording"), [Effect("language", {"code": self.language})]
+            return self._goto("safe_to_talk"), [Effect("language", {"code": self.language})]
 
         if self.state == "readback":
             return self._readback(digit)
@@ -201,9 +208,9 @@ class Interview:
         step = self.state
         skipped = [Effect("skipped", {"step": step})]
         if step == "safe_to_talk":
-            return self._goto("language"), skipped
-        if step == "language":
             return self._goto("consent_recording"), skipped
+        if step == "language":
+            return self._goto("safe_to_talk"), skipped
         if step == "readback":
             return self._goto("trades"), skipped
         if step in CONSENTS:
@@ -227,8 +234,11 @@ class Interview:
     def _goto(self, state: str) -> Action:
         self.state = state
         self.attempts = 0
-        if state == "language" and not self.second_language:
-            return self._goto("consent_recording")
+        if state == "language" and len(self._menu()) < 2:
+            menu = self._menu()
+            if menu:
+                self.language = next(iter(menu.values()))
+            return self._goto("safe_to_talk")
         if state == "summary":
             self.state = "ended"
             return Hangup(("P15",))
@@ -243,8 +253,9 @@ class Interview:
         if s == "safe_to_talk":
             return Ask(s, prefix + ("P03",), "12" + GLOBAL_KEYS, self.timeout)
         if s == "language":
-            valid = "12" if self.second_language else "1"
-            return Ask(s, prefix + ("P05",), valid + GLOBAL_KEYS, self.timeout)
+            menu = self._menu()
+            lines = tuple(in_language("P05", code) for code in menu.values())
+            return Ask(s, prefix + lines, "".join(menu) + GLOBAL_KEYS, self.timeout)
         if s in CONSENTS:
             return Ask(s, prefix + (CONSENTS[s][0],), "12" + GLOBAL_KEYS, self.timeout)
         if s in QUESTIONS:

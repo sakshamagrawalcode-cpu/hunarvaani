@@ -24,7 +24,7 @@ from fastapi.concurrency import run_in_threadpool
 from core import dynprompt, interview_store, story_job
 from core.config import Settings
 from core.dialogue.flow import Ask, Hangup, Interview
-from core.dialogue.prompts import audio_dir_name
+from core.dialogue.prompts import audio_dir_name, split_language
 from core.dialogue.summary import summary_text
 from core.phone import last4
 
@@ -50,7 +50,10 @@ def beep(rate: int, seconds: float = 0.4, freq: int = 1000) -> bytes:
 
 
 class PromptAudio:
-    """Pre-rendered prompt WAVs as raw PCM at the call's sample rate, Hindi as fallback."""
+    """Pre-rendered prompt WAVs as raw PCM at the call's sample rate, Hindi as fallback.
+
+    "P05@en-IN" plays P05 from the English folder whatever the call's language is.
+    """
 
     def __init__(self, audio_dir: Path):
         self.dir = audio_dir
@@ -63,6 +66,8 @@ class PromptAudio:
         return self._cache[key]
 
     def _load(self, prompt_id: str, language: str, rate: int) -> bytes:
+        prompt_id, pinned = split_language(prompt_id)
+        language = pinned or language
         if prompt_id.startswith(dynprompt.PREFIX):
             name = prompt_id[len(dynprompt.PREFIX) :]
             path = self.dir / "dyn" / f"{name}.wav"
@@ -273,7 +278,7 @@ class ExotelSession:
         """Render P15 with what we wrote down; fall back to the fixed P20 if that fails."""
         try:
             title = await run_in_threadpool(
-                interview_store.occupation_title, self.settings, engine.occupation
+                interview_store.occupation_title, self.settings, engine.occupation, engine.language
             )
             text = summary_text(engine.language, engine.education, title)
             pid = await run_in_threadpool(
@@ -354,7 +359,7 @@ class ExotelSession:
             short = call_id[:8]
             log.info("call %s: started, caller %s", short, last4(self.caller))
             engine = Interview(
-                second_language=self.settings.second_language,
+                languages=list(self.settings.languages),
                 timeout=self.settings.ivr_timeout_seconds,
             )
             action = engine.start()

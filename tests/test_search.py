@@ -9,7 +9,10 @@ from core.search.text import normalise, to_latin
 @pytest.fixture(scope="module")
 def index():
     return NcoIndex(
-        [Occupation(r.nco_code, r.title_en, r.title_hi, r.aliases) for r in load_seed()]
+        [
+            Occupation(r.nco_code, r.title_en, r.title_hi, r.aliases, None, r.title_mr)
+            for r in load_seed()
+        ]
     )
 
 
@@ -77,3 +80,32 @@ def test_cosine_is_rescaled_from_the_e5_band():
     occ = [Occupation("1", "x", "क", ("zz",), a), Occupation("2", "y", "ख", ("yy",), -a)]
     top = NcoIndex(occ).search("कुछ और", query_vec=a)
     assert top[0].code == "1" and top[0].cosine == 1.0 and top[1].cosine == 0.0
+
+
+OTHER_LANGUAGES = [
+    ("I stitch clothes, I make blouses and suits for women in my village", "7531"),
+    ("I repair motorcycles and scooters at a small garage", "7231"),
+    ("I repair water motors and pumps", "7233"),
+    ("I work on other people's farms, cutting crops", "9211"),
+    ("I do electrical wiring in houses", "7411"),
+    ("I drive an auto rickshaw", "8322"),
+    ("मी कपडे शिवते, ब्लाउज आणि ड्रेस बनवते", "7531"),
+    ("मी गवंडी काम करतो, विटा लावतो", "7112"),
+    ("मी शेतात मजुरी करतो", "9211"),
+    ("माझ्याकडे दोन म्हशी आहेत, दूध विकतो", "6121"),
+    ("मी मोबाईल दुरुस्ती करतो", "7422"),
+    ("मी सुतार आहे, फर्निचर बनवतो", "7115"),
+]
+
+
+@pytest.mark.parametrize("story,code", OTHER_LANGUAGES)
+def test_english_and_marathi_stories(index, story, code):
+    top = index.search(story, None, 2)
+    assert top[0].code == code and top[0].score >= THRESHOLD
+
+
+@pytest.mark.parametrize(
+    "story", ["I am studying in college", "मी कॉलेजमध्ये शिकतो", "आज हवामान चांगलं आहे"]
+)
+def test_english_and_marathi_small_talk_is_not_an_occupation(index, story):
+    assert index.search(story, None, 2)[0].score < THRESHOLD

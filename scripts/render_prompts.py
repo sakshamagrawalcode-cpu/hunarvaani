@@ -1,10 +1,11 @@
-"""Render the Hindi voice prompts to audio/hi/*.wav (8 kHz mono) with Sarvam Bulbul v3.
+"""Render the voice prompts to audio/<hi|en|mr>/*.wav (8 kHz mono) with Sarvam Bulbul v3.
 
 Run from the project root, on your laptop (needs ffmpeg on PATH and SARVAM_API_KEY in .env):
-  python scripts/render_prompts.py --dry-run     # show the text, no API calls
-  python scripts/render_prompts.py --only P01    # render one prompt
-  python scripts/render_prompts.py               # render every missing prompt
-  python scripts/render_prompts.py --force       # re-render everything
+  python scripts/render_prompts.py --dry-run          # show the text, no API calls
+  python scripts/render_prompts.py --only P01         # render one prompt in every language
+  python scripts/render_prompts.py --lang mr-IN       # one language only
+  python scripts/render_prompts.py                    # render every missing prompt
+  python scripts/render_prompts.py --force            # re-render everything
 
 SARVAM_SPEAKER in .env picks the voice; leave it empty to use Sarvam's default voice.
 """
@@ -34,25 +35,31 @@ def load_env() -> None:
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--lang", default="hi-IN")
+    ap.add_argument("--lang", default="all", help="hi-IN, en-IN, mr-IN or all")
     ap.add_argument("--only", nargs="*", help="prompt ids, e.g. P01 P02")
     ap.add_argument("--force", action="store_true", help="re-render files that already exist")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     load_env()
-    ids = args.only or prerendered_ids(args.lang)
-    unknown = [i for i in ids if i not in PROMPTS[args.lang]]
-    if unknown:
-        sys.exit(f"unknown prompt id(s): {', '.join(unknown)}")
-    out_dir = ROOT / "audio" / audio_dir_name(args.lang)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if args.lang != "all" and args.lang not in PROMPTS:
+        sys.exit(f"unknown language {args.lang}; use one of {', '.join(PROMPTS)} or all")
+    languages = list(PROMPTS) if args.lang == "all" else [args.lang]
+    jobs = []
+    for lang in languages:
+        ids = args.only or prerendered_ids(lang)
+        unknown = [i for i in ids if i not in PROMPTS[lang]]
+        if unknown:
+            sys.exit(f"unknown prompt id(s): {', '.join(unknown)}")
+        out_dir = ROOT / "audio" / audio_dir_name(lang)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        jobs += [(lang, pid, out_dir / f"{pid}.wav") for pid in ids]
 
     if args.dry_run:
-        for pid in ids:
-            text = PROMPTS[args.lang][pid]
-            state = "exists" if (out_dir / f"{pid}.wav").exists() else "missing"
-            print(f"{pid} [{state}] {len(text)} chars: {text}")
+        for lang, pid, dst in jobs:
+            text = PROMPTS[lang][pid]
+            state = "exists" if dst.exists() else "missing"
+            print(f"{lang} {pid} [{state}] {len(text)} chars: {text}")
         return
 
     key = os.environ.get("SARVAM_API_KEY", "").strip()
@@ -62,19 +69,18 @@ def main() -> None:
     print(f"voice: {speaker or 'Sarvam default'}")
 
     failed = 0
-    for pid in ids:
-        dst = out_dir / f"{pid}.wav"
+    for lang, pid, dst in jobs:
         if dst.exists() and not args.force:
-            print(f"{pid}: skipped, already exists")
+            print(f"{lang} {pid}: skipped, already exists")
             continue
         try:
-            wav = to_8k_mono(synthesize(PROMPTS[args.lang][pid], args.lang, key, speaker))
+            wav = to_8k_mono(synthesize(PROMPTS[lang][pid], lang, key, speaker))
         except TtsError as exc:
             failed += 1
-            print(f"{pid}: FAILED - {exc}")
+            print(f"{lang} {pid}: FAILED - {exc}")
             continue
         dst.write_bytes(wav)
-        print(f"{pid}: rendered {len(wav) / 1024:.0f} KB, about {len(wav) / 16000:.1f} s")
+        print(f"{lang} {pid}: rendered {len(wav) / 1024:.0f} KB, about {len(wav) / 16000:.1f} s")
     if failed:
         sys.exit(f"{failed} prompt(s) failed")
 

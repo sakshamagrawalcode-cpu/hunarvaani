@@ -1,4 +1,4 @@
-from core.dialogue.flow import Ask, Hangup, Interview, Record
+from core.dialogue.flow import Ask, Effect, Hangup, Interview, Record
 
 
 def kinds(effects):
@@ -33,21 +33,42 @@ def test_happy_path_with_recording():
     assert (iv.education, iv.occupation) == ("10th", "7531")
 
 
-def test_language_menu_is_skipped_without_a_second_language():
+def test_language_menu_is_skipped_with_one_language():
     iv = Interview()
-    iv.start()
-    iv.on_key("1")
+    action = iv.on_key("1")[0]
+    assert action.prompts == ("P03",) and iv.language == "hi-IN"
     action, _ = iv.on_key("1")
     assert action.prompts == ("P06",)
 
 
-def test_language_menu_with_a_second_language():
-    iv = Interview(second_language="mr-IN")
-    run(iv, ["1", "1"])
+def test_language_menu_comes_right_after_the_greeting():
+    iv = Interview(languages=["hi-IN", "en-IN", "mr-IN"])
+    action, _ = iv.on_key("1")
     assert iv.state == "language"
-    action, effects = iv.on_key("2")
+    assert action.prompts == ("P05@hi-IN", "P05@en-IN", "P05@mr-IN")
+    assert action.valid == "123" + "90"
+    action, effects = iv.on_key("3")
     assert effects[0].data == {"code": "mr-IN"} and iv.language == "mr-IN"
-    assert action.prompts == ("P06",)
+    assert action.prompts == ("P03",) and iv.state == "safe_to_talk"
+
+
+def test_language_keys_stay_fixed_when_one_is_left_out():
+    iv = Interview(languages=["hi-IN", "mr-IN"])
+    action, _ = iv.on_key("1")
+    assert action.prompts == ("P05@hi-IN", "P05@mr-IN") and action.valid == "13" + "90"
+    iv.on_key("2")
+    assert iv.state == "language"
+    iv.on_key("3")
+    assert iv.language == "mr-IN"
+
+
+def test_no_language_choice_keeps_hindi():
+    iv = Interview(languages=["hi-IN", "en-IN"])
+    iv.on_key("1")
+    iv.on_timeout()
+    action, effects = iv.on_timeout()
+    assert effects == [Effect("skipped", {"step": "language"})]
+    assert iv.language == "hi-IN" and action.prompts == ("P03",)
 
 
 def test_no_to_recording_means_keypad_only_and_no_story():
@@ -122,7 +143,7 @@ def test_not_now_schedules_a_callback_tomorrow():
 
 
 def test_state_survives_serialisation():
-    iv = Interview(second_language="ta-IN")
+    iv = Interview(languages=["hi-IN", "en-IN"])
     run(iv, ["1", "1", "2"])
     copy = Interview.from_dict(iv.to_dict())
     assert copy == iv

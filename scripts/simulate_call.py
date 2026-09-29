@@ -3,7 +3,7 @@
 Run it inside the api container (it already has the websockets library):
   docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py
 
-After each prompt it shows the Hindi text and waits for you:
+After each prompt it shows the text (in the language you picked) and waits for you:
   a digit (0-9), several digits, * or #   -> pressed as keys
   Enter on an empty line                  -> stay silent (tests the timeout)
   q                                       -> hang up
@@ -23,7 +23,7 @@ import uuid
 import websockets
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from core.dialogue.prompts import PROMPTS  # noqa: E402
+from core.dialogue.prompts import LANGUAGE_KEYS, PROMPTS, split_language  # noqa: E402
 
 RATE = 8000
 
@@ -84,6 +84,7 @@ async def main() -> None:
         print(f"call connected as {args.caller[-4:].rjust(10, 'x')}")
         print("answer each question within the IVR timeout (8 s by default)\n")
 
+        language = "hi-IN"
         while True:
             kind, name = await events.get()
             if kind == "end":
@@ -91,8 +92,10 @@ async def main() -> None:
                 break
             if not name:
                 continue
-            for pid in name.split("+"):
-                print(f"  {pid}: {PROMPTS['hi-IN'].get(pid, '(generated during the call)')}")
+            for full in name.split("+"):
+                pid, pinned = split_language(full)
+                text = PROMPTS[pinned or language].get(pid, "(generated during the call)")
+                print(f"  {full}: {text}")
             if name == "P17":  # "one moment" while the worker listens; not a question
                 continue
             if name.endswith("P12"):
@@ -117,6 +120,8 @@ async def main() -> None:
             if line.lower() == "q":
                 await send({"event": "stop"})
                 break
+            if "P05@" in name and line[:1] in LANGUAGE_KEYS:
+                language = LANGUAGE_KEYS[line[:1]]
             for digit in line:
                 if digit in "0123456789*#":
                     if not await send({"event": "dtmf", "dtmf": {"digit": digit}}):

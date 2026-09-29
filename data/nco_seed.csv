@@ -1,17 +1,17 @@
-nco_code,title_en,title_hi,aliases
-7531,"Tailor, dressmaker",दर्ज़ी,silai | darzi | tailor | kapde silna | blouse | suit | tailoring | stitching | garment | सिलाई | दर्जी | कपड़े सिलना | ब्लाउज | सूट | टेलर | सिलाई मशीन | कपड़े | सिलती | सिलता | सीती | कपड़े सीना
-7411,Building electrician,बिजली मिस्त्री,bijli | wiring | electrician | switch board | fitting | बिजली | वायरिंग | इलेक्ट्रीशियन | स्विच बोर्ड | बिजली मिस्त्री | बिजली का काम
-7233,Farm and industrial machinery mechanic,मशीन और पंप मिस्त्री,pump | motor | tractor repair | machine theek | पंप | मोटर | ट्रैक्टर | मशीन ठीक | ट्रैक्टर रिपेयर
-7422,Mobile phone and ICT servicer,मोबाइल मिस्त्री,mobile repair | phone theek | screen | charging | मोबाइल | फोन ठीक | स्क्रीन | चार्जिंग | मोबाइल रिपेयर
-7112,"Mason, bricklayer",राजमिस्त्री,mistri | chinai | int | plaster | raj mistri | rajmistri | masonry | building work | मिस्त्री | चिनाई | ईंट | प्लास्टर | राज मिस्त्री | राजमिस्त्री
-7115,Carpenter,बढ़ई,badhai | lakdi | furniture | carpenter | बढ़ई | लकड़ी | फर्नीचर | कारपेंटर
-7126,Plumber,प्लंबर,plumber | nal | pipe | tanki | plumbing | pipe fitting | nal thik | paani pipe | प्लंबर | नल | पाइप | टंकी | पानी की पाइप
-7231,Motor vehicle mechanic,गाड़ी मिस्त्री,gaadi | bike repair | mechanic | garage | bike thik | gaadi thik | motorcycle repair | scooter | two wheeler | bike mechanic | vehicle repair | गाड़ी ठीक | बाइक | मैकेनिक | गैराज | मोटरसाइकिल | स्कूटर
-8322,"Car, taxi and van driver",ड्राइवर,driver | gaadi chalana | taxi | ड्राइवर | गाड़ी चलाना | टैक्सी | ऑटो चलाना
-5141,Hairdresser,नाई,naai | baal katna | salon | नाई | बाल काटना | सैलून
-5142,Beautician,ब्यूटीशियन,parlour | beauty | mehndi | makeup | पार्लर | ब्यूटी | मेहंदी | मेकअप
-6121,Livestock and dairy producer,पशुपालक,bhains | gaay | doodh | dairy | bakri | भैंस | गाय | दूध | डेयरी | बकरी | पशुपालन
-9211,Crop farm labourer,खेतिहर मज़दूर,khet | kheti | mazdoori | fasal | farming | crop work | kisan | खेत | खेती | मजदूरी | फसल | किसान
-9313,Building construction labourer,निर्माण मज़दूर,construction | site | beldari | कंस्ट्रक्शन | साइट | बेलदारी
-7512,"Baker, confectioner",हलवाई,halwai | mithai | bakery | हलवाई | मिठाई | बेकरी
-5223,Shop sales assistant,दुकान सहायक,dukaan | counter | bikri | shop sales | retail helper | दुकान | काउंटर | बिक्री
+nco_code,title_en,title_hi,title_mr,aliases
+7531,"Tailor, dressmaker",दर्ज़ी,शिंपी,silai | darzi | tailor | kapde silna | blouse | suit | tailoring | stitching | garment | सिलाई | दर्जी | कपड़े सिलना | ब्लाउज | सूट | टेलर | सिलाई मशीन | कपड़े | सिलती | सिलता | सीती | कपड़े सीना | stitch | sew | sewing | clothes | dress | शिंपी | शिवणकाम | शिवण | शिवते | शिवतो | कपडे शिवणे | ड्रेस
+7411,Building electrician,बिजली मिस्त्री,इलेक्ट्रिशियन,bijli | wiring | electrician | switch board | fitting | बिजली | वायरिंग | इलेक्ट्रीशियन | स्विच बोर्ड | बिजली मिस्त्री | बिजली का काम | electrical | electric | wireman | वीजकाम | वायरमन | इलेक्ट्रिशियन | वीज
+7233,Farm and industrial machinery mechanic,मशीन और पंप मिस्त्री,पंप आणि मशीन मेकॅनिक,pump | motor pump | water motor | tractor repair | machine theek | पंप | मोटर | ट्रैक्टर | मशीन ठीक | ट्रैक्टर रिपेयर | machine repair | pump repair | ट्रॅक्टर | मशीन दुरुस्ती | पंप दुरुस्ती
+7422,Mobile phone and ICT servicer,मोबाइल मिस्त्री,मोबाईल मेकॅनिक,mobile repair | phone theek | screen | charging | मोबाइल | फोन ठीक | स्क्रीन | चार्जिंग | मोबाइल रिपेयर | phone repair | mobile phones | मोबाईल | मोबाईल दुरुस्ती | फोन दुरुस्ती
+7112,"Mason, bricklayer",राजमिस्त्री,गवंडी,mistri | chinai | int | plaster | raj mistri | rajmistri | masonry | building work | मिस्त्री | चिनाई | ईंट | प्लास्टर | राज मिस्त्री | राजमिस्त्री | mason | bricks | brick | गवंडी | गवंडीकाम | वीट | विटा
+7115,Carpenter,बढ़ई,सुतार,badhai | lakdi | furniture | carpenter | बढ़ई | लकड़ी | फर्नीचर | कारपेंटर | wood | woodwork | सुतार | सुतारकाम | लाकूड | फर्निचर
+7126,Plumber,प्लंबर,प्लंबर,plumber | nal | pipe | tanki | plumbing | pipe fitting | nal thik | paani pipe | प्लंबर | नल | पाइप | टंकी | पानी की पाइप | pipes | tap | taps | नळ | पाईप | टाकी
+7231,Motor vehicle mechanic,गाड़ी मिस्त्री,गाडी मेकॅनिक,gaadi | bike repair | mechanic | garage | bike thik | gaadi thik | motorcycle repair | scooter | two wheeler | bike mechanic | vehicle repair | गाड़ी ठीक | बाइक | मैकेनिक | गैराज | मोटरसाइकिल | स्कूटर | bike | car repair | गाडी दुरुस्ती | बाईक | गॅरेज
+8322,"Car, taxi and van driver",ड्राइवर,ड्रायव्हर,driver | gaadi chalana | taxi | ड्राइवर | गाड़ी चलाना | टैक्सी | ऑटो चलाना | driving | drive | गाडी चालवणे | रिक्षा | ड्रायव्हिंग
+5141,Hairdresser,नाई,न्हावी,naai | baal katna | salon | नाई | बाल काटना | सैलून | barber | haircut | hair cutting | न्हावी | केस कापणे | सलून
+5142,Beautician,ब्यूटीशियन,ब्युटीशियन,parlour | beauty | mehndi | makeup | पार्लर | ब्यूटी | मेहंदी | मेकअप | beauty parlour | ब्युटी पार्लर | ब्युटीशियन
+6121,Livestock and dairy producer,पशुपालक,पशुपालक,bhains | gaay | doodh | dairy | bakri | भैंस | गाय | दूध | डेयरी | बकरी | पशुपालन | cows | buffalo | milk | goats | cattle | म्हैस | म्हशी | गायी | शेळी | शेळ्या
+9211,Crop farm labourer,खेतिहर मज़दूर,शेतमजूर,khet | kheti | mazdoori | fasal | farming | crop work | kisan | खेत | खेती | मजदूरी | फसल | किसान | farm | farm work | fields | crops | शेती | शेत | शेतमजूर | शेतमजुरी | पीक | शेतात | शेतावर
+9313,Building construction labourer,निर्माण मज़दूर,बांधकाम मजूर,construction | site | beldari | कंस्ट्रक्शन | साइट | बेलदारी | construction work | construction site | labourer | बांधकाम | बिगारी
+7512,"Baker, confectioner",हलवाई,हलवाई,halwai | mithai | bakery | हलवाई | मिठाई | बेकरी | sweets | sweet shop | baker | मिठाईचं दुकान
+5223,Shop sales assistant,दुकान सहायक,दुकान सहाय्यक,dukaan | counter | bikri | shop sales | retail helper | दुकान | काउंटर | बिक्री | shop | sales | shop work | दुकानात | विक्री
