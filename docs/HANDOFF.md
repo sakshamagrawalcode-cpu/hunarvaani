@@ -317,6 +317,7 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
   the whole call stays under ~4 minutes.
 
 ### Open decisions and loose ends
+- **Sarvam credits ran out** (HTTP 402 on 29 Sep). All 75 prompt files were rendered before that. Live calls need credits for speech-to-text and the read-back / summary voice: add credits in the Sarvam dashboard.
 - **Demo state for the sample data (A7/A8)**: Maharashtra (fits Marathi) + 2–3 Hindi-belt districts
   unless the team prefers another.
 - **Native-speaker check** of the Hindi, Marathi and English prompts; voice is Sarvam's default
@@ -360,8 +361,8 @@ python scripts\set_public_url.py --from-tunnel      # then paste the wss:// URL 
 docker compose -f infra/docker-compose.yml up -d api worker
 
 # after pulling new prompts or occupations
-python scripts\render_prompts.py            # renders missing prompts in every language
-python scripts\render_prompts.py --force    # when the TEXT of prompts changed (re-renders all)
+python scripts\render_prompts.py            # renders missing or changed prompts, every language
+python scripts\render_prompts.py --force    # re-renders ALL (only if the voice changed; costs credits)
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
 

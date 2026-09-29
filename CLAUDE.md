@@ -20,7 +20,7 @@ options from a sample dataset and say them on the call.**
   physical difficulty, one "why we ask" (P28) · consents reviewed (P06–P08, simple words; P08 =
   "use without name/number to train our AI") · A4 59 occupations · A5 team console · folder
   layout frontend/ backend/ database/.
-- **Next:** A6 = the user tests on real calls (render prompts with `--force`, rebuild, 3 calls,
+- **Next:** A6 = the user tests on real calls (prompts are rendered; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then A7 (district by PIN code) + A8 (sample NSQF dataset in
   `database/sample/`). Open question: demo region (proposed: Maharashtra + a few Hindi-belt
   districts).
@@ -61,7 +61,8 @@ cd frontend && npm ci && npm run build      # strict TypeScript must pass
 - Commit with `set -o pipefail` and only after all tests pass; push to `main`.
 
 ## Things that bite on the laptop
-- Prompt text changed → `python scripts\render_prompts.py --force`.
+- Prompt text changed → `python scripts\render_prompts.py` (re-renders only changed prompts; `--force` re-renders all and wastes Sarvam credits).
+- Sarvam credits ran out on 29 Sep (HTTP 402). Without credits, calls still run but skip speech-to-text, the read-back and the spoken summary (keypad list + fixed goodbye). Add credits in the Sarvam dashboard before real-call tests.
 - Schema or occupations changed → `init_db.py` then `seed_nco.py` (in the worker container).
 - Tunnel restarted → `python scripts\set_public_url.py --from-tunnel`, paste the URL in Exotel.
 - Console "not built" → `docker compose -f infra/docker-compose.yml up -d --build`.
