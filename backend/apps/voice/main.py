@@ -166,17 +166,36 @@ def _exotel_token_ok(token: str) -> bool:
     return bool(expected) and hmac.compare_digest(token.encode(), expected.encode())
 
 
+FIX_EXOTEL_URL = (
+    "run: python scripts/set_public_url.py --from-tunnel, paste the wss:// address it prints "
+    "into Exotel (App Bazaar > flow > Voicebot > URL) and click Save"
+)
+
+
 @app.websocket("/exotel/ws/{token}")
 async def exotel_ws(websocket: WebSocket, token: str):
     if not _exotel_token_ok(token):
-        log.warning("rejected Exotel websocket: bad token")
+        why = "EXOTEL_WS_TOKEN is empty" if not settings.exotel_ws_token else "wrong token"
+        log.warning("rejected an Exotel call: %s in the Voicebot URL; %s", why, FIX_EXOTEL_URL)
         await websocket.close(code=1008)
         return
     await websocket.accept()
+    log.info("exotel websocket connected")
     session = ExotelSession(
         websocket, settings, PromptAudio(AUDIO_DIR), _redis_for(settings.redis_url)
     )
     await session.run()
+
+
+@app.websocket("/exotel")
+async def exotel_old_address(websocket: WebSocket):
+    """The SIH bridge's address (same Exotel flow). Refused, with a log line saying what to do."""
+    log.warning(
+        "rejected an Exotel call on wss://.../exotel, the SIH bridge's address; HunarVaani's "
+        "address ends with /exotel/ws/<token>: %s",
+        FIX_EXOTEL_URL,
+    )
+    await websocket.close(code=1008)
 
 
 @app.post("/exotel/status/{token}")

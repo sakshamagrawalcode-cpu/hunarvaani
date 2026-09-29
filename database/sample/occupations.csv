@@ -1,0 +1,60 @@
+nco_code,title_en,sector,typical_skills,near,loan_scheme,rpl
+7531,"Tailor, dressmaker",apparel,hand stitching|machine stitching|measurement,7533|7318,PM-VISHWAKARMA,yes
+7533,Embroidery worker,apparel,hand embroidery|design transfer,7531,PMEGP,yes
+7318,Handloom weaver,apparel,handloom weaving|yarn preparation,7531|7533,PMEGP,yes
+7411,Building electrician,electrical,house wiring|fault finding,7412|7127,MUDRA,yes
+7412,Motor winding and solar technician,electrical,motor rewinding|pump repair,7411,MUDRA,yes
+7127,AC and refrigeration mechanic,electrical,fridge repair|gas charging,7411|7421,PMEGP,yes
+7422,Mobile phone and ICT servicer,electronics,screen and battery change|software flashing,7421,PMEGP,yes
+7421,Electronics mechanic,electronics,TV and radio repair|soldering,7422|7127,PMEGP,yes
+7231,Motor vehicle mechanic,automotive,engine repair|brake and clutch,7233|8322,PMEGP,yes
+7233,Farm and industrial machinery mechanic,automotive,diesel engine repair|pump repair,7231|8341,PMEGP,yes
+8322,"Car, taxi and van driver",automotive,car driving|road rules,8332|9621,MUDRA,yes
+8332,Truck and bus driver,automotive,heavy vehicle driving|loading,8322|8342,MUDRA,yes
+7112,"Mason, bricklayer",construction,brick laying|plastering,7122|7131,PM-VISHWAKARMA,yes
+7115,Carpenter,construction,wood cutting|door and window making,7131,PM-VISHWAKARMA,yes
+7126,Plumber,construction,pipe fitting|tap repair,7411,MUDRA,yes
+9313,Building construction labourer,construction,carrying material|concrete mixing,7112|9312,MUDRA,yes
+7131,Painter,construction,wall painting|putty work,7122,MUDRA,yes
+7122,Tile and floor layer,construction,tile fixing|levelling,7112|7131,MUDRA,yes
+8342,JCB and crane operator,construction,machine operation|digging,8332,MUDRA,yes
+9312,Road and MGNREGA worker,construction,digging and levelling|road work,9313,MUDRA,no
+7212,Welder,metal,arc welding|cutting,7214|7223,PMEGP,yes
+7214,Metal fabricator,metal,welding|cutting and bending,7212,PMEGP,yes
+7221,Blacksmith,metal,forging|tool sharpening,7212|7214,PM-VISHWAKARMA,yes
+7223,Lathe operator and fitter,metal,lathe operation|measuring,7212,PMEGP,yes
+5141,Hairdresser,beauty,haircut|shaving,5142,PM-VISHWAKARMA,yes
+5142,Beautician,beauty,threading|facial,5141,MUDRA,yes
+9211,Crop farm labourer,agriculture,sowing and harvesting|weeding,6111|8341,MUDRA,no
+6111,Vegetable and field crop grower,agriculture,vegetable growing|irrigation,6113|6121,MUDRA,yes
+6113,Gardener and nursery grower,agriculture,plant care|watering and pruning,6111,MUDRA,yes
+8341,Tractor and farm machine operator,agriculture,tractor driving|ploughing,7233,MUDRA,yes
+6210,Forest produce collector,agriculture,collecting forest produce|drying,6113,MUDRA,no
+6121,Livestock and dairy producer,livestock,milking|cattle care,6122,PMEGP,yes
+6122,Poultry farmer,livestock,bird care|feeding,6121,PMEGP,yes
+6222,Fish farmer and fisher,livestock,fishing|net repair,6121,PMEGP,yes
+7512,"Baker, confectioner",food,baking|mixing dough,5120|7514,PMEGP,yes
+7514,"Pickle, papad and spice maker",food,pickle and papad making|spice grinding,7512,PMEGP,yes
+5120,Cook,food,cooking|cutting vegetables,7512|5131,MUDRA,yes
+5131,Waiter,food,serving food|cleaning tables,5120,MUDRA,yes
+5223,Shop sales assistant,retail,helping customers|arranging stock,5230|5221,MUDRA,yes
+5211,Street and market vendor,retail,selling|cash handling,5221,PM-SVANIDHI,yes
+5221,Shopkeeper,retail,selling|cash handling|stock buying,5223,MUDRA,no
+5230,Cashier,retail,cash handling|billing,5223|4132,MUDRA,yes
+7536,Shoemaker and cobbler,handicraft,shoe repair|stitching leather,7535,PM-VISHWAKARMA,yes
+7535,Leather worker and tanner,handicraft,leather cutting|stitching leather,7536,PMEGP,yes
+7314,Potter,handicraft,making pots|kiln firing,7317,PM-VISHWAKARMA,yes
+7317,Bamboo and basket craft worker,handicraft,basket weaving|bamboo cutting,7314,PM-VISHWAKARMA,yes
+7313,Goldsmith and jeweller,handicraft,jewellery making|polishing,,PM-VISHWAKARMA,yes
+5311,Child care and anganwadi helper,care,child care|cooking for children,3253,MUDRA,yes
+5321,Hospital and patient care assistant,care,patient help|cleaning wards,3253,MUDRA,yes
+3253,Community health worker (ASHA),care,home visits|mother and child care,5321,MUDRA,yes
+9112,Cleaner and housekeeping helper,facility,cleaning|washing,9111|5321,MUDRA,yes
+9613,Sweeper and sanitation worker,facility,sweeping|waste collection,9112,MUDRA,yes
+9111,Domestic helper,facility,house cleaning|cooking,9112|5120,MUDRA,yes
+5414,Security guard,facility,gate duty|keeping registers,9621,MUDRA,yes
+9621,Delivery and courier worker,logistics,two-wheeler riding|finding addresses,8322|5414,MUDRA,yes
+9329,Factory helper and packer,logistics,packing|loading,9333,MUDRA,yes
+9333,Loader and porter,logistics,lifting and carrying|loading,9329,MUDRA,no
+4132,Computer and data entry operator,it_ites,typing|computer basics,4222,MUDRA,yes
+4222,Call centre and customer care executive,it_ites,talking to customers|computer basics,4132,MUDRA,yes

@@ -27,11 +27,17 @@ apply them yourself (safe to repeat), then load the 59 seed occupations with emb
 docker compose -f infra/docker-compose.yml build worker
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
-curl.exe http://localhost:8000/ready    # nco_rows should be 16
+curl.exe http://localhost:8000/ready    # nco_rows should be 59
 ```
 
 The first `seed_nco.py` run downloads the multilingual-e5-base model (about 1 GB) into a
 Docker volume, so later runs are fast. The api service needs a restart only for code changes.
+
+## Try the recommender (no phone needed)
+
+```powershell
+python scripts\recommend.py --occupation 7531 --age 26_35 --gender female --education upto_8th --travel 10km --lean own_work --pin 411001
+```
 
 ## Tests
 
@@ -54,7 +60,7 @@ backend/
 database/
   schema/            SQL tables (applied by scripts/init_db.py)
   seed/              59 occupations (nco_seed.csv)
-  sample/            sample recommendation data (step A8)
+  sample/            sample data (A7, A8): PIN -> district, courses, centres, demand, schemes
 scripts/             run from the laptop or inside a container: secrets, prompts, seeding, tests calls
 audio/               rendered prompts per language (hi/, en/, mr/; not in git)
 infra/               Dockerfile, docker-compose.yml

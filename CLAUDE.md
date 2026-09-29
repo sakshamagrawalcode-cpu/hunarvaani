@@ -26,11 +26,15 @@ options from a sample dataset and say them on the call.**
   smoother audio + even loudness · console **Voice prompts** page · **story waits for Sarvam**
   (P30 "stay on the line" every 8 s, up to 90 s), **English translation feeds the search**,
   read-back offers **3 occupations** (1–3, next key = none), up to 3 tries (schema 07 →
-  `init_db.py`; new prompts P30, P31, P32 → `render_prompts.py`).
+  `init_db.py`; new prompts P30, P31, P32 → `render_prompts.py`) · Exotel exchange aligned
+  with the SIH bridge (1 s send-ahead, `clear` on every prompt/key, clear log lines for a wrong URL) ·
+  **A8 sample dataset** (`database/sample/`: 59 occupations, 115 courses, 124 centres in 31
+  districts, demand, schemes) · **A9 recommender** (`core/recommend.py`, top 3 with reasons + skill
+  gap; try `python scripts\recommend.py --occupation 7531 --pin 411001 …`).
 - **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
-  check `/console/`). Then A8 (sample NSQF dataset in
-  `database/sample/`), A9 recommender, A10 say options on the call, A11 console v2. Open question: demo region (proposed: Maharashtra + a few Hindi-belt
-  districts).
+  check `/console/`). Then **A10** say the top options on the call (after the summary, 1/2 =
+  interested, saved) and **A11** console v2 (options, reasons, skill gap). Demo region used:
+  Maharashtra + the Hindi-belt cities of the PIN table.
 - Blocked: outbound calls / callbacks (Exotel needs business KYC; the team has none).
 
 ## Links (no secrets here; secrets live only in the laptop's `.env`)
@@ -74,6 +78,8 @@ cd frontend && npm ci && npm run build      # strict TypeScript must pass
 - Sarvam credits ran out on 29 Sep (HTTP 402). Without credits, calls still run but skip speech-to-text, the read-back and the spoken summary (keypad list + fixed goodbye). Add credits in the Sarvam dashboard before real-call tests.
 - Schema or occupations changed → `init_db.py` then `seed_nco.py` (in the worker container).
 - Tunnel restarted → `python scripts\set_public_url.py --from-tunnel`, paste the URL in Exotel.
+- Exotel flow "sih idea" is shared with the SIH bridge: HunarVaani's URL ends with `/exotel/ws/<token>`,
+  SIH's with `/exotel`. The api log says which one Exotel used when it refuses a call.
 - The api is on laptop port **8000** (`http://localhost:8000/console/`; another port for one run:
   `$env:API_PORT="5000"` before `docker compose up`). Port taken → `netstat -ano | findstr :8000`.
 - Console "not built" → `docker compose -f infra/docker-compose.yml up -d --build`.

@@ -1,0 +1,125 @@
+centre_id,district_code,type,name_en,distance_km,hostel,women_batches,sectors
+BR-PAT-BLOCK,BR-PAT,block,"Block Skill Centre, Patna",5,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+BR-PAT-PMKK,BR-PAT,pmkk,"Kaushal Kendra (PMKK), Patna",17,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+BR-PAT-RSETI,BR-PAT,rseti,"RSETI (bank training institute), Patna",20,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+BR-PAT-ITI,BR-PAT,iti,"Government ITI, Patna",33,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+CG-RAI-BLOCK,CG-RAI,block,"Block Skill Centre, Raipur",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+CG-RAI-PMKK,CG-RAI,pmkk,"Kaushal Kendra (PMKK), Raipur",22,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+CG-RAI-RSETI,CG-RAI,rseti,"RSETI (bank training institute), Raipur",35,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+CG-RAI-ITI,CG-RAI,iti,"Government ITI, Raipur",27,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+DL-DEL-BLOCK,DL-DEL,block,"Block Skill Centre, Delhi",8,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+DL-DEL-PMKK,DL-DEL,pmkk,"Kaushal Kendra (PMKK), Delhi",28,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+DL-DEL-RSETI,DL-DEL,rseti,"RSETI (bank training institute), Delhi",25,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+DL-DEL-ITI,DL-DEL,iti,"Government ITI, Delhi",28,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+JH-RAN-BLOCK,JH-RAN,block,"Block Skill Centre, Ranchi",8,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+JH-RAN-PMKK,JH-RAN,pmkk,"Kaushal Kendra (PMKK), Ranchi",12,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+JH-RAN-RSETI,JH-RAN,rseti,"RSETI (bank training institute), Ranchi",19,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+JH-RAN-ITI,JH-RAN,iti,"Government ITI, Ranchi",27,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-AHM-BLOCK,MH-AHM,block,"Block Skill Centre, Ahmednagar",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-AHM-PMKK,MH-AHM,pmkk,"Kaushal Kendra (PMKK), Ahmednagar",27,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-AHM-RSETI,MH-AHM,rseti,"RSETI (bank training institute), Ahmednagar",32,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-AHM-ITI,MH-AHM,iti,"Government ITI, Ahmednagar",42,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-AMR-BLOCK,MH-AMR,block,"Block Skill Centre, Amravati",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-AMR-PMKK,MH-AMR,pmkk,"Kaushal Kendra (PMKK), Amravati",12,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-AMR-RSETI,MH-AMR,rseti,"RSETI (bank training institute), Amravati",32,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-AMR-ITI,MH-AMR,iti,"Government ITI, Amravati",32,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-BUL-BLOCK,MH-BUL,block,"Block Skill Centre, Buldhana",6,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-BUL-PMKK,MH-BUL,pmkk,"Kaushal Kendra (PMKK), Buldhana",28,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-BUL-RSETI,MH-BUL,rseti,"RSETI (bank training institute), Buldhana",20,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-BUL-ITI,MH-BUL,iti,"Government ITI, Buldhana",34,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-CSN-BLOCK,MH-CSN,block,"Block Skill Centre, Chhatrapati Sambhajinagar",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-CSN-PMKK,MH-CSN,pmkk,"Kaushal Kendra (PMKK), Chhatrapati Sambhajinagar",24,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-CSN-RSETI,MH-CSN,rseti,"RSETI (bank training institute), Chhatrapati Sambhajinagar",32,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-CSN-ITI,MH-CSN,iti,"Government ITI, Chhatrapati Sambhajinagar",38,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-DHU-BLOCK,MH-DHU,block,"Block Skill Centre, Dhule",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-DHU-PMKK,MH-DHU,pmkk,"Kaushal Kendra (PMKK), Dhule",19,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-DHU-RSETI,MH-DHU,rseti,"RSETI (bank training institute), Dhule",18,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-DHU-ITI,MH-DHU,iti,"Government ITI, Dhule",38,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-JAL-BLOCK,MH-JAL,block,"Block Skill Centre, Jalgaon",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-JAL-PMKK,MH-JAL,pmkk,"Kaushal Kendra (PMKK), Jalgaon",24,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-JAL-RSETI,MH-JAL,rseti,"RSETI (bank training institute), Jalgaon",35,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-JAL-ITI,MH-JAL,iti,"Government ITI, Jalgaon",33,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-KOL-BLOCK,MH-KOL,block,"Block Skill Centre, Kolhapur",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-KOL-PMKK,MH-KOL,pmkk,"Kaushal Kendra (PMKK), Kolhapur",14,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-KOL-RSETI,MH-KOL,rseti,"RSETI (bank training institute), Kolhapur",16,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-KOL-ITI,MH-KOL,iti,"Government ITI, Kolhapur",25,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-MUM-BLOCK,MH-MUM,block,"Block Skill Centre, Mumbai",7,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-MUM-PMKK,MH-MUM,pmkk,"Kaushal Kendra (PMKK), Mumbai",12,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-MUM-RSETI,MH-MUM,rseti,"RSETI (bank training institute), Mumbai",25,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-MUM-ITI,MH-MUM,iti,"Government ITI, Mumbai",39,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-NAG-BLOCK,MH-NAG,block,"Block Skill Centre, Nagpur",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-NAG-PMKK,MH-NAG,pmkk,"Kaushal Kendra (PMKK), Nagpur",12,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-NAG-RSETI,MH-NAG,rseti,"RSETI (bank training institute), Nagpur",17,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-NAG-ITI,MH-NAG,iti,"Government ITI, Nagpur",45,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-NAS-BLOCK,MH-NAS,block,"Block Skill Centre, Nashik",8,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-NAS-PMKK,MH-NAS,pmkk,"Kaushal Kendra (PMKK), Nashik",22,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-NAS-RSETI,MH-NAS,rseti,"RSETI (bank training institute), Nashik",33,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-NAS-ITI,MH-NAS,iti,"Government ITI, Nashik",25,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-PAL-BLOCK,MH-PAL,block,"Block Skill Centre, Palghar",6,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-PAL-PMKK,MH-PAL,pmkk,"Kaushal Kendra (PMKK), Palghar",25,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-PAL-RSETI,MH-PAL,rseti,"RSETI (bank training institute), Palghar",23,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-PAL-ITI,MH-PAL,iti,"Government ITI, Palghar",41,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-PUN-BLOCK,MH-PUN,block,"Block Skill Centre, Pune",8,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-PUN-PMKK,MH-PUN,pmkk,"Kaushal Kendra (PMKK), Pune",21,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-PUN-RSETI,MH-PUN,rseti,"RSETI (bank training institute), Pune",31,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-PUN-ITI,MH-PUN,iti,"Government ITI, Pune",40,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-RAI-BLOCK,MH-RAI,block,"Block Skill Centre, Raigad",7,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-RAI-PMKK,MH-RAI,pmkk,"Kaushal Kendra (PMKK), Raigad",13,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-RAI-RSETI,MH-RAI,rseti,"RSETI (bank training institute), Raigad",25,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-RAI-ITI,MH-RAI,iti,"Government ITI, Raigad",40,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-SAT-BLOCK,MH-SAT,block,"Block Skill Centre, Satara",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-SAT-PMKK,MH-SAT,pmkk,"Kaushal Kendra (PMKK), Satara",26,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-SAT-RSETI,MH-SAT,rseti,"RSETI (bank training institute), Satara",28,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-SAT-ITI,MH-SAT,iti,"Government ITI, Satara",40,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-SOL-BLOCK,MH-SOL,block,"Block Skill Centre, Solapur",7,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-SOL-PMKK,MH-SOL,pmkk,"Kaushal Kendra (PMKK), Solapur",13,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-SOL-RSETI,MH-SOL,rseti,"RSETI (bank training institute), Solapur",25,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-SOL-ITI,MH-SOL,iti,"Government ITI, Solapur",35,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-THA-BLOCK,MH-THA,block,"Block Skill Centre, Thane",5,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-THA-PMKK,MH-THA,pmkk,"Kaushal Kendra (PMKK), Thane",21,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-THA-RSETI,MH-THA,rseti,"RSETI (bank training institute), Thane",20,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-THA-ITI,MH-THA,iti,"Government ITI, Thane",40,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-WAR-BLOCK,MH-WAR,block,"Block Skill Centre, Wardha",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-WAR-PMKK,MH-WAR,pmkk,"Kaushal Kendra (PMKK), Wardha",14,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-WAR-RSETI,MH-WAR,rseti,"RSETI (bank training institute), Wardha",26,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-WAR-ITI,MH-WAR,iti,"Government ITI, Wardha",35,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MH-YAV-BLOCK,MH-YAV,block,"Block Skill Centre, Yavatmal",7,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MH-YAV-PMKK,MH-YAV,pmkk,"Kaushal Kendra (PMKK), Yavatmal",26,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MH-YAV-RSETI,MH-YAV,rseti,"RSETI (bank training institute), Yavatmal",15,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MH-YAV-ITI,MH-YAV,iti,"Government ITI, Yavatmal",28,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MP-BHO-BLOCK,MP-BHO,block,"Block Skill Centre, Bhopal",7,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MP-BHO-PMKK,MP-BHO,pmkk,"Kaushal Kendra (PMKK), Bhopal",21,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MP-BHO-RSETI,MP-BHO,rseti,"RSETI (bank training institute), Bhopal",16,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MP-BHO-ITI,MP-BHO,iti,"Government ITI, Bhopal",36,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+MP-IND-BLOCK,MP-IND,block,"Block Skill Centre, Indore",3,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+MP-IND-PMKK,MP-IND,pmkk,"Kaushal Kendra (PMKK), Indore",12,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+MP-IND-RSETI,MP-IND,rseti,"RSETI (bank training institute), Indore",15,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+MP-IND-ITI,MP-IND,iti,"Government ITI, Indore",42,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+RJ-JAI-BLOCK,RJ-JAI,block,"Block Skill Centre, Jaipur",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+RJ-JAI-PMKK,RJ-JAI,pmkk,"Kaushal Kendra (PMKK), Jaipur",14,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+RJ-JAI-RSETI,RJ-JAI,rseti,"RSETI (bank training institute), Jaipur",29,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+RJ-JAI-ITI,RJ-JAI,iti,"Government ITI, Jaipur",34,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-AGR-BLOCK,UP-AGR,block,"Block Skill Centre, Agra",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-AGR-PMKK,UP-AGR,pmkk,"Kaushal Kendra (PMKK), Agra",20,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-AGR-RSETI,UP-AGR,rseti,"RSETI (bank training institute), Agra",17,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-AGR-ITI,UP-AGR,iti,"Government ITI, Agra",40,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-GOR-BLOCK,UP-GOR,block,"Block Skill Centre, Gorakhpur",5,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-GOR-PMKK,UP-GOR,pmkk,"Kaushal Kendra (PMKK), Gorakhpur",17,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-GOR-RSETI,UP-GOR,rseti,"RSETI (bank training institute), Gorakhpur",27,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-GOR-ITI,UP-GOR,iti,"Government ITI, Gorakhpur",32,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-KAN-BLOCK,UP-KAN,block,"Block Skill Centre, Kanpur",5,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-KAN-PMKK,UP-KAN,pmkk,"Kaushal Kendra (PMKK), Kanpur",24,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-KAN-RSETI,UP-KAN,rseti,"RSETI (bank training institute), Kanpur",23,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-KAN-ITI,UP-KAN,iti,"Government ITI, Kanpur",29,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-LKO-BLOCK,UP-LKO,block,"Block Skill Centre, Lucknow",6,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-LKO-PMKK,UP-LKO,pmkk,"Kaushal Kendra (PMKK), Lucknow",17,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-LKO-RSETI,UP-LKO,rseti,"RSETI (bank training institute), Lucknow",20,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-LKO-ITI,UP-LKO,iti,"Government ITI, Lucknow",27,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-PRA-BLOCK,UP-PRA,block,"Block Skill Centre, Prayagraj",4,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-PRA-PMKK,UP-PRA,pmkk,"Kaushal Kendra (PMKK), Prayagraj",27,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-PRA-RSETI,UP-PRA,rseti,"RSETI (bank training institute), Prayagraj",15,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-PRA-ITI,UP-PRA,iti,"Government ITI, Prayagraj",31,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma
+UP-VAR-BLOCK,UP-VAR,block,"Block Skill Centre, Varanasi",5,no,yes,construction|agriculture|facility|apparel|handicraft|livestock|rpl|vishwakarma
+UP-VAR-PMKK,UP-VAR,pmkk,"Kaushal Kendra (PMKK), Varanasi",13,no,yes,apparel|beauty|retail|care|it_ites|logistics|food|facility|electronics|rpl
+UP-VAR-RSETI,UP-VAR,rseti,"RSETI (bank training institute), Varanasi",21,yes,yes,agriculture|livestock|food|handicraft|beauty|apparel|retail|electrical|entrepreneurship
+UP-VAR-ITI,UP-VAR,iti,"Government ITI, Varanasi",38,yes,no,electrical|electronics|automotive|construction|metal|it_ites|apparel|vishwakarma

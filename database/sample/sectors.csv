@@ -1,0 +1,17 @@
+sector,title_en,title_hi,title_mr,wage_min,wage_max
+apparel,Apparel and textiles,कपड़ा और सिलाई,कपडे आणि शिवणकाम,9000,14000
+electrical,Electrical and solar,बिजली और सोलर,वीज आणि सौर,12000,20000
+electronics,Electronics repair,इलेक्ट्रॉनिक्स मरम्मत,इलेक्ट्रॉनिक्स दुरुस्ती,10000,18000
+automotive,Vehicles and driving,गाड़ी और ड्राइविंग,वाहन आणि ड्रायव्हिंग,12000,20000
+construction,Construction,निर्माण,बांधकाम,12000,18000
+metal,Metal work,धातु का काम,धातुकाम,13000,20000
+beauty,Beauty and wellness,ब्यूटी और वेलनेस,सौंदर्य आणि वेलनेस,9000,15000
+agriculture,Farming,खेती,शेती,7000,11000
+livestock,Livestock and fisheries,पशुपालन और मछली,पशुपालन आणि मत्स्य,8000,14000
+food,Food and cooking,खाना और खाद्य उद्योग,अन्न आणि स्वयंपाक,10000,16000
+retail,Shops and selling,दुकान और बिक्री,दुकान आणि विक्री,10000,15000
+handicraft,Handicrafts,हस्तशिल्प,हस्तकला,8000,13000
+care,Health and care,स्वास्थ्य और देखभाल,आरोग्य आणि देखभाल,11000,18000
+facility,Cleaning and security,सफ़ाई और सुरक्षा,स्वच्छता आणि सुरक्षा,10000,14000
+logistics,Delivery and warehouse,डिलीवरी और गोदाम,डिलिव्हरी आणि गोदाम,12000,18000
+it_ites,Computer and call centre,कंप्यूटर और कॉल सेंटर,संगणक आणि कॉल सेंटर,12000,18000

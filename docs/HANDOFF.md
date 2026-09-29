@@ -101,14 +101,15 @@ has its own README.
 | `backend/core/prompt_check.py` | Checks every rendered prompt file (length, loudness, silence, text changed) for the console's Voice prompts page |
 | `backend/core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
 | `backend/core/geo.py` | PIN code → district (first 3 digits, sample table) |
+| `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 286 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 319 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
-| `database/sample/` | Sample data: `pin_districts.csv` (A7), recommendation data (A8) |
-| `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
+| `database/sample/` | Sample data (A7, A8): PIN → district, occupations, courses, centres, demand, sectors, schemes |
+| `scripts/` | `recommend` (options for a profile), `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
 
 ---
 
@@ -225,6 +226,9 @@ The console shows both tries.
 | A7 | **District from the PIN code**: P31/P32 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
 | Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port back to 8000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
 | Story | **Waits for Sarvam** (P17, then P30 "please stay on the line" every 8 s, up to 90 s); the caller's words are **translated to English** and the search uses both; read-back offers the **3 closest occupations** (1–3, next key = none); unclear or too short → tell it again, up to 3 tries, then the trade list; `story.top3` (schema 07); new prompt P30 | see git log |
+| Exotel | **Talks to Exotel like the team's SIH bridge** (which works on every call): audio 1 s ahead (was 2 s), `clear` before every prompt and on every key press, log lines for `connected` / `start` / accepted socket; an Exotel URL on SIH's `…/exotel` or with a wrong token is refused with a log line saying how to fix it; smoke test with a real uvicorn server + fake Exotel client passed (menu → PIN → trade list → goodbye) | see git log |
+| A8 | **Sample dataset** (`database/sample/`, all labelled sample): 59 occupation profiles (sector, usual skills, near trades, loan route, RPL yes/no), 115 courses (59 upskill + 54 RPL certificates + PM Vishwakarma training/toolkit + "Start your own work" at RSETI), 124 centres (4 types in each of the 31 PIN-table districts, distance, hostel, women-only batches), demand per district, 16 sectors with wages, 9 real schemes described simply (verify before real use); loader `core/sample_data.py`. Course ids are ours, not real QP codes | see git log |
+| A9 | **Recommendation engine** `core/recommend.py`: filters (age, education, heavy work if physical difficulty, no business course for job seekers, centre within the daily travel or a hostel in the state) → score 0.35 fit + 0.20 demand + 0.20 reach + 0.15 wish + 0.10 step-up (+0.03 women-only batch) → top 3 with reasons and skill gap; farther centres only fill in, marked "farther"; every occupation × district × travel × wish gets ≥ 1 option (tested); `scripts/recommend.py` shows options for any profile; ideas from SkillCall `engine.py` | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -233,7 +237,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 286 automated tests pass (1 skipped where ffmpeg is missing).
+- 319 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -262,8 +266,8 @@ hours, the rest is testing on real calls.
 | A5 | Team console v1 | calls, call detail, people, occupations | Claude | — | ✅ `44dd869` |
 | A6 | **Test A1–A5 on real calls** | prompts already rendered (needs Sarvam credits for calls), rebuild, 3 calls (one per language), check the console | You | 0.5 day | ⏳ next |
 | A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ✅ (needs `render_prompts.py` for P31, P32) |
-| A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ☐ |
-| A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ☐ |
+| A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ✅ see §5 |
+| A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ✅ see §5 |
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ☐ |
 | A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ☐ |
 | A12 | Step 11 checklist on real calls | every row of the checklist below, fix what breaks | You + Claude | 0.5 day | ☐ |
@@ -310,7 +314,7 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | "none" at read-back → tell again (up to 3 tries), then trade list | ✅ tests; ⏳ real call |
 | Spoken summary; console shows answers, words, occupation, timings | ✅ built; ⏳ confirm on a real call |
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
-| Wrong token → refused | ✅ Exotel secret URL token; Plivo signatures |
+| Wrong token → refused | ✅ Exotel secret URL token (SIH-style `…/exotel` refused too, with a hint in the log); Plivo signatures |
 | `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
 
 ### English translation: part of understanding the story
@@ -337,8 +341,11 @@ words themselves (only the timing).
 
 ### Open decisions and loose ends
 - **Sarvam credits ran out** (HTTP 402 on 29 Sep). All 75 prompt files were rendered before that. Live calls need credits for speech-to-text and the read-back / summary voice: add credits in the Sarvam dashboard.
-- **Demo state for the sample data (A7/A8)**: Maharashtra (fits Marathi) + 2–3 Hindi-belt districts
-  unless the team prefers another.
+- **Demo region (A7/A8)**: used Maharashtra (18 districts) + 13 Hindi-belt / other cities, the
+  districts of `pin_districts.csv`; change it by editing the CSVs in `database/sample/`.
+- **Sample data check**: courses, centres, demand and wages are invented; scheme descriptions are
+  simplified from memory of the official schemes. A teammate should check `schemes.csv` against
+  the official websites before the demo.
 - **Native-speaker check** of the Hindi, Marathi and English prompts; voice is Sarvam's default
   (set `SARVAM_SPEAKER`, then `render_prompts.py --force`).
 - **NCO codes**: the 59 use NCO-2015 / ISCO-08 4-digit unit groups; check each against NCO-2015
@@ -347,7 +354,7 @@ words themselves (only the timing).
 
 ---
 
-## 7. Recommendations: design for steps A7–A10
+## 7. Recommendations: design for steps A7–A10 (A7–A9 built as described; A10 next)
 
 1. **Profile** from the call: language, age band, gender, education, travel limit, physical
    difficulty, job vs own work, confirmed occupation (NCO), district (A7), consents.
@@ -364,6 +371,12 @@ words themselves (only the timing).
 6. **Say it**: top 2 on the call in the caller's language, with duration, distance, cost ("free")
    and one reason each; press 1/2 → "interested" saved. Top 3 with reasons on the console.
 7. **Honesty**: every sample row carries `sample=true`; the console and slides say so.
+8. **As built (A9)**: candidates are same-trade upskill, same-trade RPL certificate, near-trade
+   upskill, and for own work / unsure: PM Vishwakarma (its trades) or "Start your own work" plus the
+   trade's loan scheme (PM Vishwakarma, PMEGP, Mudra, PM SVANidhi). Reach = 1 − 0.5 × distance ÷
+   limit (village 5 km, 10, 30, district HQ 60 km; hostel = 60 km or a hostel centre elsewhere in
+   the state). Wish: job → placement-linked 1.0; own work → business training 1.0. No PIN code →
+   options without a centre ("centre to be confirmed"). No occupation → no options.
 
 Reuse: SkillCall's `backend/app/engine.py` (occupation matching, skill gap, recommendations,
 career path). No foreign LLM may see real callers' data.
@@ -395,7 +408,11 @@ docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_
 ```
 
 Troubleshooting: "failed to connect to the docker API" → start Docker Desktop. No logs during a
-call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Console says "not built"
+call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Log says **"rejected an
+Exotel call on wss://.../exotel, the SIH bridge's address"** → the flow "sih idea" is shared with the
+SIH bridge and still points at SIH's address; paste the `…/exotel/ws/<token>` URL that
+`set_public_url.py` prints. Log says **"wrong token"** → same fix. Log shows `exotel: start` but the
+call is silent → prompts not rendered (`render_prompts.py`). Console says "not built"
 → `up -d --build`. Console keeps asking for a password → check `CALLS_PAGE_PASSWORD` in `.env` and
 restart the api. Simulator: answer within 8 s; at P12 give seconds to "speak" (a tone, so the story
 has no words and the retell / trade list follows).
