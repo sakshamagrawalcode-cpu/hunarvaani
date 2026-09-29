@@ -67,17 +67,24 @@ EDUCATION = {
 TRAVEL = {"1": "village", "2": "10km", "3": "30km", "4": "district_hq", "5": "hostel"}
 LEAN = {"1": "job", "2": "own_work", "3": "unsure"}
 TRADES = {"1": "9211", "2": "7531", "3": "7411", "4": "7112", "5": "7422"}
+AGE = {"1": "under_18", "2": "18_25", "3": "26_35", "4": "36_45", "5": "46_60", "6": "over_60"}
+GENDER = {"1": "female", "2": "male", "3": "other", "4": "not_said"}
+PHYSICAL = {"1": "none", "2": "some"}
 
+# step -> (prompt, key -> value, next step); q_lean's next step depends on the recording consent
 QUESTIONS = {
+    "q_age": ("P25", AGE, "q_gender"),
+    "q_gender": ("P26", GENDER, "q_education"),
     "q_education": ("P09", EDUCATION, "q_travel"),
-    "q_travel": ("P10", TRAVEL, "q_lean"),
+    "q_travel": ("P10", TRAVEL, "q_physical"),
+    "q_physical": ("P27", PHYSICAL, "q_lean"),
     "q_lean": ("P11", LEAN, None),
     "trades": ("P14", TRADES, "summary"),
 }
 CONSENTS = {
     "consent_recording": ("P06", "recording", "consent_share"),
     "consent_share": ("P07", "share", "consent_research"),
-    "consent_research": ("P08", "research", "q_education"),
+    "consent_research": ("P08", "research", "q_age"),
 }
 
 

@@ -28,6 +28,8 @@ pytestmark = pytest.mark.skipif(not (DB and RD), reason="TEST_DATABASE_URL/TEST_
 
 TOKEN = "ws-secret-token"
 CALLER = "919876543210"
+# age 26-35, woman, 10th pass, up to 10 km, no physical difficulty, wants a job
+PROFILE = (("P25", "3"), ("P26", "1"), ("P09", "4"), ("P10", "2"), ("P27", "1"), ("P11", "1"))
 
 
 @pytest.fixture(scope="module")
@@ -155,12 +157,9 @@ def test_full_interview_with_story(client, settings):
         p.press("1")
         p.hear("P08")
         p.press("2")
-        p.hear("P09")
-        p.press("4")
-        p.hear("P10")
-        p.press("2")
-        p.hear("P11")
-        p.press("1")
+        for prompt, key in PROFILE:
+            p.hear(prompt)
+            p.press(key)
         p.hear("P12")
         p.speak(2)
         p.press("#")
@@ -173,14 +172,22 @@ def test_full_interview_with_story(client, settings):
     )
     assert (status, answered, ended) == ("completed", True, True) and dur >= 0
     answers = dict(rows("SELECT step, value FROM answer"))
-    assert answers == {"q_education": "10th", "q_travel": "10km", "q_lean": "job", "trades": "7531"}
+    assert answers == {
+        "q_age": "26_35",
+        "q_gender": "female",
+        "q_education": "10th",
+        "q_travel": "10km",
+        "q_physical": "none",
+        "q_lean": "job",
+        "trades": "7531",
+    }
     consents = sorted(rows("SELECT kind, granted FROM consent"))
     assert consents == [("recording", True), ("research", False), ("share", True)]
     [(path,)] = rows("SELECT recording_url FROM story")
     with wave.open(path) as w:
         assert w.getframerate() == 8000 and w.getnframes() / 8000 == pytest.approx(2, abs=0.2)
     keys = rows("SELECT count(*) FROM event WHERE kind = 'key'")
-    assert keys == [(9,)]
+    assert keys == [(12,)]
 
 
 def test_nine_deletes_data_and_blocks_the_hashed_number(client, settings):
@@ -231,10 +238,15 @@ def test_timeouts_repeat_then_skip(client, settings):
         for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
             p.hear(prompt)
             p.press(key)
+        for prompt, key in (("P25", "3"), ("P26", "1")):
+            p.hear(prompt)
+            p.press(key)
         p.hear("P09")
         p.hear("P16+P09")
         p.hear("P10")
         p.press("3")
+        p.hear("P27")
+        p.press("1")
         p.hear("P11")
         p.press("2")
         p.hear("P12")
@@ -256,7 +268,7 @@ def test_zero_flags_human_and_no_to_recording_skips_story(client, settings):
         p.press("1")
         p.hear("P06")
         p.press("2")
-        for prompt, key in (("P07", "2"), ("P08", "2"), ("P09", "1"), ("P10", "1"), ("P11", "3")):
+        for prompt, key in (("P07", "2"), ("P08", "2"), *PROFILE[:-1], ("P11", "3")):
             p.hear(prompt)
             p.press(key)
         heard = p.hear("P14")
@@ -357,7 +369,7 @@ def _to_story(p):
     for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
         p.hear(prompt)
         p.press(key)
-    for prompt, key in (("P09", "4"), ("P10", "2"), ("P11", "1")):
+    for prompt, key in PROFILE:
         p.hear(prompt)
         p.press(key)
     p.hear("P12")
@@ -728,7 +740,7 @@ def test_caller_picks_marathi_at_the_start(client, settings, monkeypatch):
         for prompt, key in (("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
             p.hear(prompt)
             p.press(key)
-        for prompt, key in (("P09", "4"), ("P10", "2"), ("P11", "1")):
+        for prompt, key in PROFILE:
             p.hear(prompt)
             p.press(key)
         p.hear("P12")

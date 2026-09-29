@@ -17,10 +17,17 @@ def run(iv, keys):
 
 def test_happy_path_with_recording():
     iv = Interview()
-    action, effects = run(iv, ["1", "1", "1", "1", "2", "4", "2", "1"])
+    action, effects = run(iv, ["1", "1", "1", "1", "2", "3", "1", "4", "2", "2", "1"])
     assert isinstance(action, Record) and action.prompts == ("P12",)
     answers = {e.data["step"]: e.data["value"] for e in effects if e.kind == "answer"}
-    assert answers == {"q_education": "10th", "q_travel": "10km", "q_lean": "job"}
+    assert answers == {
+        "q_age": "26_35",
+        "q_gender": "female",
+        "q_education": "10th",
+        "q_travel": "10km",
+        "q_physical": "some",
+        "q_lean": "job",
+    }
     consents = [(e.data["kind"], e.data["granted"]) for e in effects if e.kind == "consent"]
     assert consents == [("recording", True), ("share", True), ("research", False)]
 
@@ -73,14 +80,14 @@ def test_no_language_choice_keeps_hindi():
 
 def test_no_to_recording_means_keypad_only_and_no_story():
     iv = Interview()
-    action, effects = run(iv, ["1", "1", "2", "1", "1", "3", "3", "2"])
+    action, effects = run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "2"])
     assert "keypad_only" in kinds(effects) and iv.keypad_only
     assert isinstance(action, Ask) and action.prompts == ("P14",)
 
 
 def test_timeout_repeats_once_with_p16_then_skips():
     iv = Interview()
-    run(iv, ["1", "1", "1", "1", "1"])
+    run(iv, ["1", "1", "1", "1", "1", "3", "1"])
     assert iv.state == "q_education"
     action, effects = iv.on_timeout()
     assert action.prompts == ("P16", "P09") and effects == []
@@ -93,7 +100,23 @@ def test_wrong_key_counts_like_a_timeout():
     iv = Interview()
     run(iv, ["1", "1", "1", "1", "1"])
     action, _ = iv.on_key("8")
-    assert action.prompts == ("P16", "P09")
+    assert action.prompts == ("P16", "P25")
+
+
+def test_age_gender_and_physical_questions_come_around_education():
+    iv = Interview()
+    action, _ = run(iv, ["1", "1", "1", "1", "1"])
+    assert action.prompts == ("P25",) and action.valid == "123456" + "90"
+    action, _ = iv.on_key("6")
+    assert action.prompts == ("P26",) and action.valid == "1234" + "90"
+    action, _ = iv.on_key("4")
+    assert action.prompts == ("P09",)
+    iv.on_key("7")
+    action, _ = iv.on_key("5")
+    assert action.prompts == ("P27",) and action.valid == "12" + "90"
+    action, effects = iv.on_key("1")
+    assert action.prompts == ("P11",)
+    assert effects[0].data == {"step": "q_physical", "key": "1", "value": "none"}
 
 
 def test_skipped_consent_counts_as_no():
@@ -152,7 +175,7 @@ def test_state_survives_serialisation():
 
 def test_no_speech_asks_once_more_then_offers_the_trade_list():
     iv = Interview()
-    run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "1"])
     action, effects = iv.on_recording(None, 0.0)
     assert kinds(effects) == ["story_empty"]
     assert isinstance(action, Record) and action.prompts == ("P22", "P23")
@@ -161,7 +184,7 @@ def test_no_speech_asks_once_more_then_offers_the_trade_list():
 
 
 def _story(iv):
-    run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "1"])
 
 
 def test_confident_story_says_what_we_heard_and_reads_back_two_occupations():
@@ -234,7 +257,7 @@ def test_slow_or_failed_processing_goes_straight_to_the_trade_list():
 
 def test_skipped_trade_list_still_ends_with_the_summary():
     iv = Interview()
-    run(iv, ["1", "1", "2", "1", "1", "3", "3", "2"])
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "2"])
     iv.on_timeout()
     action, effects = iv.on_timeout()
     assert action == Hangup(("P15",)) and iv.occupation == "" and kinds(effects) == ["skipped"]

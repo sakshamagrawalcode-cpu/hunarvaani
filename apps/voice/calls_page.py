@@ -6,7 +6,7 @@ from core import store
 from core.config import Settings
 from core.phone import decrypt, last4
 
-STEPS = ("q_education", "q_travel", "q_lean")
+STEPS = ("q_age", "q_gender", "q_education", "q_travel", "q_physical", "q_lean")
 LABELS = {
     "none": "no schooling",
     "upto_5th": "up to 5th",
@@ -23,6 +23,17 @@ LABELS = {
     "job": "regular job",
     "own_work": "own work",
     "unsure": "not sure",
+    "under_18": "under 18",
+    "18_25": "18–25",
+    "26_35": "26–35",
+    "36_45": "36–45",
+    "46_60": "46–60",
+    "over_60": "over 60",
+    "female": "woman",
+    "male": "man",
+    "other": "other",
+    "not_said": "not said",
+    "some": "some difficulty",
 }
 LANGUAGE_NAMES = {"hi-IN": "Hindi", "en-IN": "English", "mr-IN": "Marathi"}
 STYLE = """
@@ -131,11 +142,12 @@ def render(settings: Settings, limit: int = 50) -> str:
         )
     head = (
         "<tr><th>When (IST)</th><th>Number</th><th>Status</th><th>Language</th><th>Duration</th>"
-        "<th>Education</th><th>Travel</th><th>Prefers</th><th>Own words</th>"
+        "<th>Age</th><th>Gender</th><th>Education</th><th>Travel</th><th>Physical</th>"
+        "<th>Prefers</th><th>Own words</th>"
         "<th>Search top 2</th><th>Occupation</th><th>Timings</th><th>Consents</th>"
         "<th>Flags</th></tr>"
     )
-    body = "".join(out) or "<tr><td colspan=14 class=muted>No calls yet.</td></tr>"
+    body = "".join(out) or "<tr><td colspan=17 class=muted>No calls yet.</td></tr>"
     return (
         "<!doctype html><html lang=hi><head><meta charset=utf-8>"
         "<meta name=viewport content='width=device-width,initial-scale=1'>"
