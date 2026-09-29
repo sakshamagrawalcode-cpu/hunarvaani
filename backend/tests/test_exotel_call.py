@@ -401,6 +401,36 @@ def test_bad_token_is_refused(client, settings):
     assert rows("SELECT count(*) FROM call") == [(0,)]
 
 
+def test_the_sih_bridge_address_is_refused_with_a_hint(client, settings, caplog):
+    """Both projects share one Exotel flow: an old .../exotel URL is refused and the log says
+    how to fix it, without a call row."""
+    with caplog.at_level("WARNING", logger="voice"):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/exotel") as ws:
+                ws.receive_json()
+    assert "SIH bridge" in caplog.text and "set_public_url.py" in caplog.text
+    assert rows("SELECT count(*) FROM call") == [(0,)]
+
+
+def test_every_key_press_clears_exotels_queue_like_the_sih_bridge(client, settings):
+    """Our audio runs ahead of the phone, so a key press sends `clear` even after the whole
+    prompt has been sent (its `mark` already went out)."""
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        p.hear("P01")  # the whole greeting has been sent
+        p.press("1")
+        seen = []
+        while True:
+            msg = ws.receive_json()
+            seen.append(msg["event"])
+            if msg["event"] == "mark":
+                assert msg["mark"]["name"] == "P03"
+                break
+        assert seen.index("clear") < seen.index("media")
+        ws.close()
+
+
 def test_status_callback_marks_unanswered_callbacks(client, settings):
     with psycopg.connect(DB, autocommit=True) as conn:
         conn.execute(

@@ -103,7 +103,7 @@ has its own README.
 | `backend/core/geo.py` | PIN code → district (first 3 digits, sample table) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 286 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 289 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -225,6 +225,7 @@ The console shows both tries.
 | A7 | **District from the PIN code**: P31/P32 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
 | Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port 5000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
 | Story | **Waits for Sarvam** (P17, then P30 "please stay on the line" every 8 s, up to 90 s); the caller's words are **translated to English** and the search uses both; read-back offers the **3 closest occupations** (1–3, next key = none); unclear or too short → tell it again, up to 3 tries, then the trade list; `story.top3` (schema 07); new prompt P30 | see git log |
+| Exotel | **Talks to Exotel like the team's SIH bridge** (which works on every call): audio 1 s ahead (was 2 s), `clear` before every prompt and on every key press, log lines for `connected` / `start` / accepted socket; an Exotel URL on SIH's `…/exotel` or with a wrong token is refused with a log line saying how to fix it; smoke test with a real uvicorn server + fake Exotel client passed (menu → PIN → trade list → goodbye) | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -233,7 +234,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 286 automated tests pass (1 skipped where ffmpeg is missing).
+- 289 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -310,7 +311,7 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | "none" at read-back → tell again (up to 3 tries), then trade list | ✅ tests; ⏳ real call |
 | Spoken summary; console shows answers, words, occupation, timings | ✅ built; ⏳ confirm on a real call |
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
-| Wrong token → refused | ✅ Exotel secret URL token; Plivo signatures |
+| Wrong token → refused | ✅ Exotel secret URL token (SIH-style `…/exotel` refused too, with a hint in the log); Plivo signatures |
 | `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
 
 ### English translation: part of understanding the story
@@ -395,7 +396,11 @@ docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_
 ```
 
 Troubleshooting: "failed to connect to the docker API" → start Docker Desktop. No logs during a
-call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Console says "not built"
+call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Log says **"rejected an
+Exotel call on wss://.../exotel, the SIH bridge's address"** → the flow "sih idea" is shared with the
+SIH bridge and still points at SIH's address; paste the `…/exotel/ws/<token>` URL that
+`set_public_url.py` prints. Log says **"wrong token"** → same fix. Log shows `exotel: start` but the
+call is silent → prompts not rendered (`render_prompts.py`). Console says "not built"
 → `up -d --build`. Console keeps asking for a password → check `CALLS_PAGE_PASSWORD` in `.env` and
 restart the api. Simulator: answer within 8 s; at P12 give seconds to "speak" (a tone, so the story
 has no words and the retell / trade list follows).

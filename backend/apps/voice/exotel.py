@@ -4,8 +4,10 @@ Wire format (proven on the team's SIH bridge): JSON text frames; audio is base64
 16-bit mono little-endian at the call's sample rate (8000 Hz). We send `media` chunks that are
 multiples of 320 bytes, `clear` to cut playback, and `mark` after each prompt.
 
-Smooth sound: audio is sent up to LEAD_SECONDS ahead of real time, so a slow moment on the
-tunnel or the internet does not leave a gap, and `clear` still stops it at once on a key press.
+The exchange with Exotel follows the team's SIH bridge (github.com/sakshamagrawalcode-cpu/SIH,
+telephony/backend/main.py), which works on every real call: audio is sent about one second
+ahead of real time (LEAD_SECONDS), every new prompt and every key press first sends `clear`
+(so nothing old is still queued at Exotel), and each prompt ends with a `mark`.
 Database writes (the console's live log, answers) run on one background thread per call, in
 order, so the next question never waits for them.
 """
@@ -41,7 +43,7 @@ with warnings.catch_warnings():
 log = logging.getLogger("exotel")
 _DYN_NAME = re.compile(r"^[0-9a-f]{8,64}$")
 CHUNK_MS = 200
-LEAD_SECONDS = 2.0
+LEAD_SECONDS = 1.0  # as in the SIH bridge; enough to cover a slow moment on the tunnel
 START_TIMEOUT = 15
 STILL_WORKING_EVERY = 8  # seconds between "please stay on the line" (P30) while we wait
 # every prompt is brought to the same loudness, so no sentence is much quieter or louder
@@ -187,13 +189,21 @@ class ExotelSession:
                 except (json.JSONDecodeError, TypeError):
                     continue
                 event = data.get("event")
-                if event == "start":
+                if event == "connected":
+                    log.info("exotel: connected")
+                elif event == "start":
                     start = data.get("start") or {}
                     self.stream_sid = data.get("stream_sid") or start.get("stream_sid")
                     self.call_sid = start.get("call_sid") or data.get("call_sid")
                     self.caller = start.get("from")
                     fmt = start.get("media_format") or {}
                     self.rate = int(fmt.get("sample_rate") or 8000)
+                    log.info(
+                        "exotel: start, call %s, caller %s, %d Hz",
+                        (self.call_sid or "?")[-6:],
+                        last4(self.caller),
+                        self.rate,
+                    )
                     self.started.set()
                 elif event == "media" and self.recording is not None:
                     payload = (data.get("media") or {}).get("payload")
@@ -251,12 +261,18 @@ class ExotelSession:
         await self.send({"event": "mark", "stream_sid": self.stream_sid, "mark": {"name": name}})
 
     async def stop_playback(self) -> None:
+        """Stop our sender and tell Exotel to drop whatever audio it still has queued.
+
+        `clear` is sent every time, as the SIH bridge does: our sender runs up to a second ahead,
+        so a prompt can still be playing on the phone after we have sent all of it.
+        """
         if self.player and not self.player.done():
             self.player.cancel()
             try:
                 await self.player
             except asyncio.CancelledError:
                 pass
+        if self.stream_sid:
             await self.send({"event": "clear", "stream_sid": self.stream_sid})
 
     def _drain_keys(self) -> None:
@@ -579,7 +595,9 @@ class ExotelSession:
                 await self._apply(call_id, effects)
                 if hung_up:
                     break
-        except (CallEnded, asyncio.TimeoutError):
+        except asyncio.TimeoutError:
+            log.warning("exotel connected but sent no 'start' within %d s; closing", START_TIMEOUT)
+        except CallEnded:
             if call_id:
                 log.info("call %s: caller hung up", call_id[:8])
         except Exception:

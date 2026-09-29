@@ -81,6 +81,12 @@ def main() -> None:
     if token:
         host = url.removeprefix("https://")
         print(f"Exotel Voicebot URL: wss://{host}/exotel/ws/{token}")
+        print(
+            "Paste it into Exotel: App Bazaar > flow 'sih idea' > Voicebot > URL, then Save.\n"
+            "(Not .../exotel: that is the SIH bridge's address, and HunarVaani refuses it.)"
+        )
+    else:
+        print("EXOTEL_WS_TOKEN is empty in .env: run python scripts/gen_secrets.py first.")
     print("Now run: docker compose -f infra/docker-compose.yml up -d api worker")
 
 
