@@ -61,7 +61,9 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate --url http://api:8000
+    # http2 (over TCP) instead of the default QUIC: Cloudflare advises it for long-lived
+    # websockets such as a phone call, which QUIC can drop
+    command: tunnel --no-autoupdate --protocol http2 --url http://api:8000
     profiles: ["tunnel"]
     depends_on:
       - api

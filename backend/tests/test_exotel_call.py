@@ -82,6 +82,7 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         ivr_timeout_seconds=0.3,
         record_silence_seconds=0.6,
         record_no_speech_seconds=0.6,
+        min_answer_seconds=0,  # the test phone answers within milliseconds
         story_wait_seconds=0.5,
         recordings_dir=str(tmp_path / "recordings"),
     )
@@ -399,6 +400,61 @@ def test_bad_token_is_refused(client, settings):
         with client.websocket_connect("/exotel/ws/wrong-token") as ws:
             ws.receive_json()
     assert rows("SELECT count(*) FROM call") == [(0,)]
+
+
+def test_a_second_press_of_the_same_answer_is_not_taken_for_the_next_question(
+    client, settings, monkeypatch
+):
+    import dataclasses
+
+    gap = 1.0
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, min_answer_seconds=gap))
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        p.hear("P01")
+        p.press("1")
+        p.hear("P03")
+        p.press("2")  # at once: a repeated press, ignored ("2" here would mean "call later")
+        heard = p.hear("P16+P03")  # so P03 times out and is asked again
+        assert "P04" not in heard
+        time.sleep(gap)  # a real answer comes later
+        p.press("1")
+        p.hear("P06")
+        ws.close()
+    keys = rows("SELECT payload->>'step', payload->>'digit' FROM event WHERE kind = 'key'")
+    assert keys == [("opening", "1"), ("safe_to_talk", "1")]
+
+
+def test_a_caller_hanging_up_is_logged_as_such_not_as_a_problem(client, settings, caplog):
+    with caplog.at_level("INFO", logger="exotel"):
+        with dial(client) as ws:
+            p = Phone(ws)
+            p.start()
+            p.hear("P01")
+            ws.send_json({"event": "stop", "stop": {"reason": "callended"}})
+    assert "exotel sent stop, reason: callended" in caplog.text
+    assert "ended early: the caller hung up" in caplog.text
+    assert rows("SELECT count(*) FROM event WHERE kind = 'problem'") == [(0,)]
+
+
+def test_a_dropped_connection_is_named_on_the_console(client, settings, caplog):
+    """No stop message first: the tunnel, the internet or a keepalive closed the socket. The
+    log and the console's Errors panel say so, so a call cut in half can be explained."""
+    with caplog.at_level("INFO", logger="exotel"):
+        with dial(client) as ws:
+            p = Phone(ws)
+            p.start()
+            p.hear("P01")
+            ws.send_json({"event": "mark", "mark": {"name": "P01"}})  # as Exotel echoes it
+            ws.send_bytes(b"not part of the protocol")  # ignored, the call goes on
+            p.press("1")
+            p.hear("P03")
+            ws.close(code=1011)
+    [(what,)] = rows("SELECT payload->>'what' FROM event WHERE kind = 'problem'")
+    assert "closed without a stop message (code 1011)" in what
+    assert "ended early: the connection to Exotel closed without a stop message" in caplog.text
+    assert "exotel played P01" in caplog.text  # our mark came back: the playback delay is logged
 
 
 def test_the_sih_bridge_address_is_refused_with_a_hint(client, settings, caplog):

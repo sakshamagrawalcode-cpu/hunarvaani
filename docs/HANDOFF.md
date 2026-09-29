@@ -104,7 +104,7 @@ has its own README.
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 319 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 322 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -227,6 +227,7 @@ The console shows both tries.
 | Calls | **Never skip, never hang up for silence** (P16/P29 + the question again, as often as needed); smoother audio (2 s send-ahead, database writes off the audio path, every prompt at the same loudness); laptop port back to 8000; **Voice prompts** console page (listen to every file, length, loudness, silence, problems) | `cc209e7` |
 | Story | **Waits for Sarvam** (P17, then P30 "please stay on the line" every 8 s, up to 90 s); the caller's words are **translated to English** and the search uses both; read-back offers the **3 closest occupations** (1–3, next key = none); unclear or too short → tell it again, up to 3 tries, then the trade list; `story.top3` (schema 07); new prompt P30 | see git log |
 | Exotel | **Talks to Exotel like the team's SIH bridge** (which works on every call): audio 1 s ahead (was 2 s), `clear` before every prompt and on every key press, log lines for `connected` / `start` / accepted socket; an Exotel URL on SIH's `…/exotel` or with a wrong token is refused with a log line saying how to fix it; smoke test with a real uvicorn server + fake Exotel client passed (menu → PIN → trade list → goodbye) | see git log |
+| Reliability | After a real call **cut off during P10** with no `stop` message from Exotel (so the connection itself closed) and some keys lost: the tunnel now uses **HTTP/2 instead of QUIC** (Cloudflare's advice for long websockets); uvicorn waits **60 s** for a keepalive reply (was 20 s); the log and the console's Errors panel say **why a call ended** (caller hung up / Exotel stopped / connection closed with code N / sending failed) and warn if Exotel goes quiet for 15 s; each prompt logs **how long Exotel took to play it** (`exotel played P01 (+0.9 s)`: the real delay); a **second press of the same key within 0.6 s** is ignored instead of answering the next question; binary frames no longer end a call | see git log |
 | A8 | **Sample dataset** (`database/sample/`, all labelled sample): 59 occupation profiles (sector, usual skills, near trades, loan route, RPL yes/no), 115 courses (59 upskill + 54 RPL certificates + PM Vishwakarma training/toolkit + "Start your own work" at RSETI), 124 centres (4 types in each of the 31 PIN-table districts, distance, hostel, women-only batches), demand per district, 16 sectors with wages, 9 real schemes described simply (verify before real use); loader `core/sample_data.py`. Course ids are ours, not real QP codes | see git log |
 | A9 | **Recommendation engine** `core/recommend.py`: filters (age, education, heavy work if physical difficulty, no business course for job seekers, centre within the daily travel or a hostel in the state) → score 0.35 fit + 0.20 demand + 0.20 reach + 0.15 wish + 0.10 step-up (+0.03 women-only batch) → top 3 with reasons and skill gap; farther centres only fill in, marked "farther"; every occupation × district × travel × wish gets ≥ 1 option (tested); `scripts/recommend.py` shows options for any profile; ideas from SkillCall `engine.py` | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
@@ -237,7 +238,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 319 automated tests pass (1 skipped where ffmpeg is missing).
+- 322 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -339,6 +340,26 @@ words themselves (only the timing).
 - To check on real calls: that the Marathi and English sound natural (native speaker), and that
   the whole call stays under ~4 minutes.
 
+### Telephony: why calls were slow or cut, and what fixes it (29 Sep review)
+- **How our calls work:** every prompt and every key travels phone → Exotel → internet → Cloudflare
+  quick tunnel → Docker on the laptop (home Wi-Fi) → back. Our own code answers a key in about 1 ms
+  (see the log timestamps); the delay and the drops come from that long path.
+- **How most IVRs work** (and SIH teams such as Pashu-Shield, which moved from Twilio to Exotel's
+  native IVR): the provider's own servers play the prompts and read the keys (Exotel "Gather",
+  Twilio `<Gather>`), and only a web request goes to the app. We need a live audio stream only for
+  the spoken work story, but we stream the whole call.
+- **Biggest fix: A13, run the server on a VM in India** (Mumbai / Hyderabad / Bangalore): no
+  laptop, no Wi-Fi, no quick tunnel, a fixed URL. Student options: GitHub Student Pack (DigitalOcean
+  credit, Bangalore region), Azure for Students, Google Cloud credit (Mumbai).
+- **Other providers** all need KYC for Indian numbers (DoT rules): Plivo (business email), Twilio
+  (business documents for Indian numbers), Ozonetel / Knowlarity / MyOperator (business KYC).
+  Exotel's trial is the only no-KYC path we have, so we keep it.
+- **Backup for the demo:** a browser "phone" page that speaks the same websocket messages as Exotel
+  (mic + keypad) would show the whole flow with no telephony at all (Phase B idea).
+- **After each test call, read** `exotel played … (+N s)` (delay the caller hears) and
+  `ended early: …` (who ended it) in the api log, and the call's row in Exotel's Call Logs
+  (status, duration, who hung up).
+
 ### Open decisions and loose ends
 - **Sarvam credits ran out** (HTTP 402 on 29 Sep). All 75 prompt files were rendered before that. Live calls need credits for speech-to-text and the read-back / summary voice: add credits in the Sarvam dashboard.
 - **Demo region (A7/A8)**: used Maharashtra (18 districts) + 13 Hindi-belt / other cities, the
@@ -407,7 +428,10 @@ docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call
 docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py
 ```
 
-Troubleshooting: "failed to connect to the docker API" → start Docker Desktop. No logs during a
+Troubleshooting: call cut in the middle → the api log line `ended early: …` says why (caller hung
+up / Exotel stopped the stream / connection closed without a stop, code N); check Exotel's Call
+Logs too. Keys feel slow → look at `exotel played … (+N s)`; over ~2 s is the network path.
+"failed to connect to the docker API" → start Docker Desktop. No logs during a
 call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Log says **"rejected an
 Exotel call on wss://.../exotel, the SIH bridge's address"** → the flow "sih idea" is shared with the
 SIH bridge and still points at SIH's address; paste the `…/exotel/ws/<token>` URL that
