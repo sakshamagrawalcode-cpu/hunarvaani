@@ -1,8 +1,11 @@
 # HunarVaani: project handoff (status, plan, how it works)
 
-Last updated: 29 Sep 2026, after the code review fixes (commits `a22910d`–`cb3b546`), starting
-Step 11.
-Read this first if you are a new teammate or a new Claude chat picking up the work.
+Last updated: 29 Sep 2026, after Step 11b (three languages, `32890f5`).
+Read this first if you are a new teammate or a new Claude chat picking up the work. The SIH
+problem statement and what we cover of it: `docs/PROBLEM_STATEMENT.md`. The agreed order of
+work: section 6.
+
+**Only one Claude chat should change the code at a time; always `git pull` first.**
 
 ---
 
@@ -82,7 +85,7 @@ pgvector), `redis`, and `tunnel` (optional profile).
 | `data/nco_seed.csv` | 16 occupations with Hindi and romanised aliases |
 | `db/*.sql` | Schema (applied by `scripts/init_db.py`) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
-| `tests/` | 157 tests (unit + real-Postgres/Redis integration) |
+| `tests/` | 178 tests (unit + real-Postgres/Redis integration) |
 
 ---
 
@@ -91,15 +94,13 @@ pgvector), `redis`, and `tunnel` (optional profile).
 ```mermaid
 flowchart TD
     A([Caller dials 09513886363 + PIN]) --> P01["P01 नमस्ते… बात करने के लिए 1"]
-    P01 -- 1 --> P03["P03 अभी बात करना ठीक है? 1 हाँ / 2 बाद में"]
+    P01 -- 1 --> P05["P05 language: 1 हिंदी / 2 English / 3 मराठी<br/>(no choice = Hindi; from here on, every prompt is in that language)"]
+    P05 --> P03["P03 अभी बात करना ठीक है? 1 हाँ / 2 बाद में"]
     P01 -- "silence 8 s" --> P02["P02 कॉल नहीं किया था तो 9"]
     P02 -- 1 --> P03
     P02 -- "silence" --> END0([hang up, no data])
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
-    P03 -- 1 --> LANG{"second language<br/>configured?"}
-    LANG -- no --> P06
-    LANG -- yes --> P05["P05 language 1/2"] --> P06
-    P06["P06 consent: recording 1/2"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: anonymised research"]
+    P03 -- 1 --> P06["P06 consent: recording 1/2"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: anonymised research"]
     P08 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 बीप के बाद अपना काम बताइए<br/>(stops on silence, # or 60 s)"]
     P11 -- "recording = no" --> P14
@@ -179,17 +180,39 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 | Review | 9 also deletes recordings; slow stories keep their transcript (worker saves it); "नई" no longer read back as नाई; callback matched by number if Exotel's call id differs; no shared "unknown" hash | `a22910d` |
 | Review | `init_db.py` safe to re-run again (it failed on every re-run since Step 8) | `d393857` |
 | Review | Simulator speaks in real time after the beep (simulated stories used to be dropped), skips P17 | `cb3b546` |
+| Fix | Calls no longer drop after the story when the worker needs over 3 s (Redis socket timeout < story wait) | `3652ddf` |
+| 11b | **Three languages**: Hindi, English, Marathi; menu right after the greeting; all prompts, read-back and summary in the caller's language; English + Marathi occupation words | `32890f5` |
 
 **Measured so far:**
 - Real Exotel calls: prompts play, keys work, story recorded.
 - Real call understanding: STT 550 ms, search 336 ms, **1.0 s total wait** (target ≤ 6 s).
 - Search: all 24 test sentences right (19 describing work across the 16 occupations, incl. romanised; 5 with no occupation correctly refused, incl. "मैंने नई नौकरी शुरू की है").
 - Real e5 cosines: correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78 → band 0.78–0.90 kept.
-- 157 automated tests pass.
+- 178 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
-## 6. What is left in the 48-hour slice
+## 6. What is left
+
+### Agreed plan (after reading the SIH problem statement, `docs/PROBLEM_STATEMENT.md`)
+First finish the prototype with the easy, important additions; the big features come after, if
+there is time.
+
+1. ✅ Three languages (Hindi, English, Marathi). Marathi was picked because it uses the same
+   script as Hindi, so search and read-back needed the fewest changes.
+2. **More profile questions** (keypad): age band, traditional family occupation, physical
+   difficulty, what they would like to learn.
+3. **Recommendations**: sample NSQF qualification data + sample district opportunities (labelled
+   as sample), rule-based ranking, skill gap; top 2 spoken at the end of the call and shown on
+   `/calls`. Moved up from Stage 2 because the problem statement is about recommendations.
+4. **English translation in brackets** on `/calls` for Hindi and Marathi text (Sarvam Translate).
+5. Step 11 checklist → Step 12 deploy → Step 13 measure → Step 14 video and slides.
+
+**Later, only if time:** live call dashboard (every turn, translation, timing), people/profile
+pages, India-hosted LLM writing the next line from earlier answers, WhatsApp voice notes.
+**Not possible now:** missed-call callbacks (Exotel needs business KYC), dialects Sarvam does not
+support, real PM-AJAY beneficiary data (not public).
+
 
 ### Step 11: the "Done when" checklist (from the guide)
 
@@ -212,7 +235,7 @@ Compose, Caddy for HTTPS, `api.hunarvaani.co.in` pointing at it (DNS in Cloudfla
 changing tunnel URL; real callers must only be served from this VM (guide's rule).
 
 ### Step 13: measure 30 calls
-15 Hindi + 15 second-language calls with consenting teammates and family, a reference transcript
+10 Hindi + 10 Marathi + 10 English calls with consenting teammates and family, a reference transcript
 for each, then `scripts/measure.py` (to write): WER per language (jiwer), turn latency
 (end of story → first read-back audio) p50/p90, callback time, completion rate →
 `docs/measurements.md` (numbers for slide 3).
@@ -222,7 +245,8 @@ for each, then `scripts/measure.py` (to write): WER per language (jiwer), turn l
 slides.
 
 ### Open decisions and loose ends
-- **Second language**: not chosen yet (P05 needs its line; prompts need rendering in it).
+- **Languages**: Hindi, English, Marathi (`LANGUAGES` in `.env`). A native speaker should check
+  the Marathi and English lines.
 - **Dedicated ExoPhone + KYC**: KYC is **required for any outbound call** (confirmed: 403 on the callback API); also needed for a true free missed call and for the pilot. Until then the demo uses inbound calls (caller dials the trial number + PIN).
 - **Plivo**: waiting on Contact-Sales reply (backup only).
 - **NCO codes**: check each of the 16 against NCO-2015 Vol II before the demo.
@@ -232,7 +256,7 @@ slides.
 
 ---
 
-## 7. Recommendations: how HunarVaani will suggest training and jobs (not built yet)
+## 7. Recommendations: how HunarVaani will suggest training and jobs (not built yet; next after the profile questions)
 
 The 48-hour slice stops at a confirmed profile and says "आगे की जानकारी के लिए हम आपको फिर कॉल करेंगे".
 The recommender is Stage 2 (the guide's 8-week build). The planned logic:
@@ -267,7 +291,7 @@ docker compose -f infra/docker-compose.yml --profile tunnel up -d --build
 python scripts\set_public_url.py --from-tunnel      # then paste the wss:// URL into Exotel's Voicebot and Save
 docker compose -f infra/docker-compose.yml up -d api worker
 
-# after pulling new prompts or occupations
+# after pulling new prompts or occupations (renders every language; skips files that exist)
 python scripts\render_prompts.py
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
