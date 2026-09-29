@@ -92,16 +92,21 @@ async def main() -> None:
             if not name:
                 continue
             for pid in name.split("+"):
-                print(f"  {pid}: {PROMPTS['hi-IN'].get(pid, '(no text)')}")
+                print(f"  {pid}: {PROMPTS['hi-IN'].get(pid, '(generated during the call)')}")
+            if name == "P17":  # "one moment" while the worker listens; not a question
+                continue
             if name.endswith("P12"):
                 try:
                     raw = await asyncio.to_thread(input, "seconds to speak (Enter = 3)> ")
                 except EOFError:
                     raw = ""
                 seconds = float(raw.strip() or 3)
-                await asyncio.sleep(0.6)
+                # The server streams prompts up to 1 s ahead, so the mark arrives before the beep
+                # has finished; then send audio in real time (20 ms frames) like a phone does.
+                await asyncio.sleep(1.5)
                 for frame in tone_frames(seconds):
                     await send(frame)
+                    await asyncio.sleep(0.02)
                 await send({"event": "dtmf", "dtmf": {"digit": "#"}})
                 print(f"  [spoke {seconds:g} s, pressed #]")
                 continue
