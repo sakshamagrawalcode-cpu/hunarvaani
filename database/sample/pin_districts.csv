@@ -1,0 +1,36 @@
+pin_prefix,state,district_code,district_en,district_hi,district_mr
+400,Maharashtra,MH-MUM,Mumbai,मुंबई,मुंबई
+401,Maharashtra,MH-PAL,Palghar,पालघर,पालघर
+402,Maharashtra,MH-RAI,Raigad,रायगढ़,रायगड
+410,Maharashtra,MH-RAI,Raigad,रायगढ़,रायगड
+411,Maharashtra,MH-PUN,Pune,पुणे,पुणे
+412,Maharashtra,MH-PUN,Pune,पुणे,पुणे
+413,Maharashtra,MH-SOL,Solapur,सोलापुर,सोलापूर
+414,Maharashtra,MH-AHM,Ahmednagar,अहमदनगर,अहमदनगर
+415,Maharashtra,MH-SAT,Satara,सातारा,सातारा
+416,Maharashtra,MH-KOL,Kolhapur,कोल्हापुर,कोल्हापूर
+421,Maharashtra,MH-THA,Thane,ठाणे,ठाणे
+422,Maharashtra,MH-NAS,Nashik,नासिक,नाशिक
+423,Maharashtra,MH-NAS,Nashik,नासिक,नाशिक
+424,Maharashtra,MH-DHU,Dhule,धुले,धुळे
+425,Maharashtra,MH-JAL,Jalgaon,जलगाँव,जळगाव
+431,Maharashtra,MH-CSN,Chhatrapati Sambhajinagar,छत्रपति संभाजीनगर,छत्रपती संभाजीनगर
+440,Maharashtra,MH-NAG,Nagpur,नागपुर,नागपूर
+441,Maharashtra,MH-NAG,Nagpur,नागपुर,नागपूर
+442,Maharashtra,MH-WAR,Wardha,वर्धा,वर्धा
+443,Maharashtra,MH-BUL,Buldhana,बुलढाणा,बुलढाणा
+444,Maharashtra,MH-AMR,Amravati,अमरावती,अमरावती
+445,Maharashtra,MH-YAV,Yavatmal,यवतमाल,यवतमाळ
+110,Delhi,DL-DEL,Delhi,दिल्ली,दिल्ली
+208,Uttar Pradesh,UP-KAN,Kanpur,कानपुर,कानपूर
+211,Uttar Pradesh,UP-PRA,Prayagraj,प्रयागराज,प्रयागराज
+221,Uttar Pradesh,UP-VAR,Varanasi,वाराणसी,वाराणसी
+226,Uttar Pradesh,UP-LKO,Lucknow,लखनऊ,लखनऊ
+273,Uttar Pradesh,UP-GOR,Gorakhpur,गोरखपुर,गोरखपूर
+282,Uttar Pradesh,UP-AGR,Agra,आगरा,आग्रा
+302,Rajasthan,RJ-JAI,Jaipur,जयपुर,जयपूर
+452,Madhya Pradesh,MP-IND,Indore,इंदौर,इंदूर
+462,Madhya Pradesh,MP-BHO,Bhopal,भोपाल,भोपाळ
+492,Chhattisgarh,CG-RAI,Raipur,रायपुर,रायपूर
+800,Bihar,BR-PAT,Patna,पटना,पाटणा
+834,Jharkhand,JH-RAN,Ranchi,राँची,रांची

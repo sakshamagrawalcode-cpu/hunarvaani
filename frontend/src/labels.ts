@@ -21,6 +21,8 @@ export const STEP: Record<string, string> = {
   q_education: "Education",
   q_travel: "Can travel",
   q_physical: "Physical difficulty",
+  q_pin: "PIN code",
+  q_district: "District",
   q_lean: "Wants",
   story: "Work story",
   readback: "Read-back",

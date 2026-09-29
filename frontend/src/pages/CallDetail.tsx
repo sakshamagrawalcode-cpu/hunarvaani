@@ -62,12 +62,13 @@ export default function CallDetail() {
             {data.duration !== null && ` · ${seconds(data.duration)}`}
           </span>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4 lg:grid-cols-7 dark:border-slate-800">
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4 lg:grid-cols-8 dark:border-slate-800">
           <Fact label="Age">{value(a.q_age)}</Fact>
           <Fact label="Gender">{value(a.q_gender)}</Fact>
           <Fact label="Education">{value(a.q_education)}</Fact>
           <Fact label="Can travel">{value(a.q_travel)}</Fact>
           <Fact label="Physical difficulty">{value(a.q_physical)}</Fact>
+          <Fact label="District">{value(a.q_district)}</Fact>
           <Fact label="Wants">{value(a.q_lean)}</Fact>
           <Fact label="Occupation">{occupationName(data.occupation)}</Fact>
         </div>

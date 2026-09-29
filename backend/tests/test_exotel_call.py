@@ -29,7 +29,16 @@ pytestmark = pytest.mark.skipif(not (DB and RD), reason="TEST_DATABASE_URL/TEST_
 TOKEN = "ws-secret-token"
 CALLER = "919876543210"
 # age 26-35, woman, 10th pass, up to 10 km, no physical difficulty, wants a job
-PROFILE = (("P28+P25", "3"), ("P26", "1"), ("P09", "4"), ("P10", "2"), ("P27", "1"), ("P11", "1"))
+# and lives at PIN code 411001 (Pune)
+PROFILE = (
+    ("P28+P25", "3"),
+    ("P26", "1"),
+    ("P09", "4"),
+    ("P10", "2"),
+    ("P27", "1"),
+    ("P31", "411001"),
+    ("P11", "1"),
+)
 
 
 @pytest.fixture(scope="module")
@@ -126,8 +135,9 @@ class Phone:
                 if msg["mark"]["name"] == name:
                     return heard
 
-    def press(self, digit):
-        self.ws.send_json({"event": "dtmf", "stream_sid": "stream-1", "dtmf": {"digit": digit}})
+    def press(self, digits):
+        for digit in digits:
+            self.ws.send_json({"event": "dtmf", "stream_sid": "stream-1", "dtmf": {"digit": digit}})
 
     def speak(self, seconds):
         time.sleep(0.6)  # a caller starts after the beep has actually played
@@ -180,6 +190,8 @@ def test_full_interview_with_story(client, settings):
         "q_education": "10th",
         "q_travel": "10km",
         "q_physical": "none",
+        "q_pin": "411001",
+        "q_district": "MH-PUN",
         "q_lean": "job",
         "trades": "7531",
     }
@@ -189,7 +201,7 @@ def test_full_interview_with_story(client, settings):
     with wave.open(path) as w:
         assert w.getframerate() == 8000 and w.getnframes() / 8000 == pytest.approx(2, abs=0.2)
     keys = rows("SELECT count(*) FROM event WHERE kind = 'key'")
-    assert keys == [(12,)]
+    assert keys == [(13,)]
 
 
 def test_nine_deletes_data_and_blocks_the_hashed_number(client, settings):
@@ -253,13 +265,39 @@ def test_timeouts_repeat_the_question_until_answered(client, settings):
         p.press("3")
         p.hear("P27")
         p.press("1")
+        p.hear("P31")
+        p.press("*")
         p.hear("P11")
         p.press("2")
         p.hear("P12")
         ws.close()
     answers = dict(rows("SELECT step, value FROM answer"))
     assert answers["q_education"] == "10th" and answers["q_travel"] == "30km"
+    assert answers["q_pin"] == "skipped" and "q_district" not in answers  # * = the caller's skip
     assert rows("SELECT count(*) FROM event WHERE kind = 'timeout'") == [(2,)]
+
+
+def test_pin_code_is_asked_again_then_gives_a_district(client, settings):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "2"), ("P07", "2"), ("P08", "2")):
+            p.hear(prompt)
+            p.press(key)
+        for prompt, key in PROFILE[:5]:
+            p.hear(prompt)
+            p.press(key)
+        p.hear("P31")
+        p.press("4110#")  # too short
+        p.hear("P32+P31")
+        p.press("999999")  # digits 9 and 0 are digits here, and this PIN is not in the table
+        p.hear("P11")
+        p.press("3")
+        p.hear("P14")
+        ws.close()
+    answers = dict(rows("SELECT step, value FROM answer"))
+    assert answers["q_pin"] == "999999" and answers["q_district"] == "unknown"
+    assert rows("SELECT count(*) FROM call") == [(1,)]  # 9 did not delete the call
 
 
 def test_zero_flags_human_and_no_to_recording_skips_story(client, settings):
@@ -797,6 +835,7 @@ def test_console_api_shows_a_whole_call(client, settings, audio_dir, monkeypatch
     [row] = get("/calls").json()
     assert row["number"] == "xxxxxx3210" and row["status"] == "completed"
     assert row["answers"]["q_age"] == "26_35" and row["answers"]["q_gender"] == "female"
+    assert row["answers"]["q_district"] == "Pune, Maharashtra"
     assert row["occupation"]["title_hi"] == "दर्ज़ी" and row["occupation_via"] == "read-back"
     assert row["transcripts"] == ["मैं सिलाई का काम करती हूं"]
 

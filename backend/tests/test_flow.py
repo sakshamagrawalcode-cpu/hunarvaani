@@ -1,4 +1,4 @@
-from core.dialogue.flow import MAX_STORY_ATTEMPTS, Ask, Hangup, Interview, Record
+from core.dialogue.flow import MAX_STORY_ATTEMPTS, Ask, Effect, Hangup, Interview, Record
 
 
 def kinds(effects):
@@ -10,14 +10,24 @@ def run(iv, keys):
     effects = []
     action = iv.start()
     for k in keys:
-        action, eff = iv.on_timeout() if k == "T" else iv.on_key(k)
+        if k == "T":
+            action, eff = iv.on_timeout()
+        elif k == "P":  # a valid PIN code entry
+            action, eff = iv.on_digits("411001")
+        else:
+            action, eff = iv.on_key(k)
         effects += eff
     return action, effects
 
 
 def test_happy_path_with_recording():
     iv = Interview()
-    action, effects = run(iv, ["1", "1", "1", "1", "2", "3", "1", "4", "2", "2", "1"])
+    action, effects = run(iv, ["1", "1", "1", "1", "2", "3", "1", "4", "2", "2"])
+    assert action.step == "q_pin"
+    action, more = iv.on_digits("411001")
+    effects += more
+    action, more = iv.on_key("1")
+    effects += more
     assert isinstance(action, Record) and action.prompts == ("P12",)
     answers = {e.data["step"]: e.data["value"] for e in effects if e.kind == "answer"}
     assert answers == {
@@ -26,6 +36,7 @@ def test_happy_path_with_recording():
         "q_education": "10th",
         "q_travel": "10km",
         "q_physical": "some",
+        "q_pin": "411001",
         "q_lean": "job",
     }
     consents = [(e.data["kind"], e.data["granted"]) for e in effects if e.kind == "consent"]
@@ -96,7 +107,7 @@ def test_wrong_key_and_no_key_get_different_apologies():
 
 def test_no_to_recording_means_keypad_only_and_no_story():
     iv = Interview()
-    action, effects = run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "2"])
+    action, effects = run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2"])
     assert "keypad_only" in kinds(effects) and iv.keypad_only
     assert isinstance(action, Ask) and action.prompts == ("P14",)
 
@@ -133,8 +144,36 @@ def test_age_gender_and_physical_questions_come_around_education():
     action, _ = iv.on_key("5")
     assert action.prompts == ("P27",) and action.valid == "12" + "90"
     action, effects = iv.on_key("1")
-    assert action.prompts == ("P11",)
+    assert action.prompts == ("P31",) and action.digits == 6 and "9" in action.valid
     assert effects[0].data == {"step": "q_physical", "key": "1", "value": "none"}
+
+
+def test_pin_code_is_asked_again_until_six_digits_and_can_be_skipped_with_star():
+    def at_pin():
+        iv = Interview()
+        run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "2"])
+        assert iv.state == "q_pin"
+        return iv
+
+    iv = at_pin()
+    for entry in ("0123", "012345", "", "41100"):  # too short or a leading zero: asked again
+        action, effects = iv.on_digits(entry)
+        assert action.prompts == ("P32", "P31") and effects == [] and iv.state == "q_pin"
+    action, effects = iv.on_digits("411001")
+    assert action.prompts == ("P11",) and effects[0].data["value"] == "411001"
+
+    iv = at_pin()
+    action, effects = iv.on_digits("*")  # the caller's own choice to skip
+    assert action.prompts == ("P11",) and effects == [Effect("skipped", {"step": "q_pin"})]
+
+    iv = at_pin()
+    for _ in range(3):  # silence never skips the question
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P16", "P31") and effects == []
+
+    iv = at_pin()  # 9 and 0 are digits here: no deletion, no human flag
+    action, effects = iv.on_key("9")
+    assert iv.state == "q_pin" and kinds(effects) == [] and action.prompts == ("P32", "P31")
 
 
 def test_unanswered_consent_is_asked_again_not_taken_as_no():
@@ -198,7 +237,7 @@ def test_state_survives_serialisation():
 
 def test_no_speech_asks_again_then_offers_the_trade_list():
     iv = Interview()
-    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "1"])
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "P", "1"])
     for _ in range(MAX_STORY_ATTEMPTS - 1):
         action, effects = iv.on_recording(None, 0.0)
         assert kinds(effects) == ["story_empty"]
@@ -208,7 +247,7 @@ def test_no_speech_asks_again_then_offers_the_trade_list():
 
 
 def _story(iv):
-    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "1"])
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "P", "1"])
 
 
 def test_confident_story_says_what_we_heard_and_reads_back_two_occupations():
@@ -298,7 +337,7 @@ def test_slow_or_failed_processing_goes_straight_to_the_trade_list():
 
 def test_trade_list_is_repeated_until_the_caller_picks_one():
     iv = Interview()
-    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "2"])
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2"])
     for _ in range(3):
         action, _ = iv.on_timeout()
         assert action.prompts == ("P16", "P14")

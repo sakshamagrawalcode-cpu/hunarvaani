@@ -12,6 +12,9 @@ Rules from the build spec:
   call never skips a question and never hangs up for lack of an answer (the language menu just
   plays again, because no language is chosen yet);
 - 9 at any menu deletes the caller's data, blocks the number, plays P18 and hangs up;
+- the PIN code question (P31) collects up to 6 digits ended by # (a wrong entry is asked again
+  with P32, like any other question); the caller may press * to skip it. 9 and 0 are ordinary
+  digits there, so they do not delete or flag while a PIN is typed;
 - 0 at any menu flags the call for a human (P19) and repeats the question;
 - silence at the greeting plays P02 ("can you hear us? press 1; press 9 if you did not call"),
   then P16 + P02 until the caller answers or hangs up;
@@ -24,6 +27,7 @@ Rules from the build spec:
 from dataclasses import asdict, dataclass, field, fields
 
 from core.dialogue.prompts import LANGUAGE_KEYS, in_language
+from core.geo import valid_pin
 
 GLOBAL_KEYS = "90"
 MAX_STORY_ATTEMPTS = 3
@@ -35,6 +39,7 @@ class Ask:
     prompts: tuple[str, ...]
     valid: str
     timeout: int
+    digits: int = 0  # > 0: collect up to this many digits (ended by #) and answer with on_digits
 
 
 @dataclass(frozen=True)
@@ -74,6 +79,7 @@ TRADES = {"1": "9211", "2": "7531", "3": "7411", "4": "7112", "5": "7422"}
 AGE = {"1": "under_18", "2": "18_25", "3": "26_35", "4": "36_45", "5": "46_60", "6": "over_60"}
 GENDER = {"1": "female", "2": "male", "3": "other", "4": "not_said"}
 PHYSICAL = {"1": "none", "2": "some"}
+PIN_DIGITS = 6
 
 # step -> (prompt, key -> value, next step); q_lean's next step depends on the recording consent
 QUESTIONS = {
@@ -81,7 +87,7 @@ QUESTIONS = {
     "q_gender": ("P26", GENDER, "q_education"),
     "q_education": ("P09", EDUCATION, "q_travel"),
     "q_travel": ("P10", TRAVEL, "q_physical"),
-    "q_physical": ("P27", PHYSICAL, "q_lean"),
+    "q_physical": ("P27", PHYSICAL, "q_pin"),
     "q_lean": ("P11", LEAN, None),
     "trades": ("P14", TRADES, "summary"),
 }
@@ -125,6 +131,8 @@ class Interview:
     def on_key(self, digit: str) -> tuple[Action, list[Effect]]:
         if self.state in ("ended", "story"):
             return self._action(), []
+        if self.state == "q_pin":
+            return self.on_digits(digit)
         if digit == "9":
             self.state = "ended"
             return Hangup(("P18",)), [Effect("delete_and_block")]
@@ -170,6 +178,18 @@ class Interview:
             return self._after_question(step), [effect]
 
         return self._action(), []
+
+    def on_digits(self, entry: str) -> tuple[Action, list[Effect]]:
+        """The whole PIN code entry ("*" skips it); anything but 6 digits is asked again."""
+        if self.state != "q_pin":
+            return self._action(), []
+        if entry == "*":
+            return self._after_question("q_pin"), [Effect("skipped", {"step": "q_pin"})]
+        if not valid_pin(entry):
+            self.attempts += 1
+            return self._action(prefix=("P32",)), []
+        effect = Effect("answer", {"step": "q_pin", "key": "", "value": entry})
+        return self._after_question("q_pin"), [effect]
 
     def on_timeout(self) -> tuple[Action, list[Effect]]:
         if self.state == "opening" and not self.opening_warned:
@@ -248,6 +268,8 @@ class Interview:
     def _after_question(self, step: str) -> Action:
         if step == "q_lean":
             return self._goto("trades" if self.keypad_only else "story")
+        if step == "q_pin":
+            return self._goto("q_lean")
         return self._goto(QUESTIONS[step][2])
 
     def _goto(self, state: str, prefix: tuple[str, ...] = ()) -> Action:
@@ -279,6 +301,9 @@ class Interview:
             return Ask(s, prefix + lines, "".join(menu) + GLOBAL_KEYS, self.timeout)
         if s in CONSENTS:
             return Ask(s, prefix + (CONSENTS[s][0],), "12" + GLOBAL_KEYS, self.timeout)
+        if s == "q_pin":
+            valid = "0123456789*#"
+            return Ask(s, prefix + ("P31",), valid, self.timeout, digits=PIN_DIGITS)
         if s in QUESTIONS:
             prompt, options, _ = QUESTIONS[s]
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)

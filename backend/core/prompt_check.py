@@ -20,8 +20,8 @@ with warnings.catch_warnings():
 
 # the order a caller meets them, then the ones that play only sometimes
 CALL_ORDER = (
-    "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P11 P12 P17 P30 P21 P13 P24 P22 P23 "
-    "P14 P15 P16 P29 P19 P18 P04 P20"
+    "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P31 P32 P11 P12 P17 P30 P21 P13 P24 "
+    "P22 P23 P14 P15 P16 P29 P19 P18 P04 P20"
 ).split()
 
 USED_FOR = {
@@ -55,6 +55,8 @@ USED_FOR = {
     "P28": "why we ask",
     "P29": "wrong key: please listen again",
     "P30": "still working, please stay on the line",
+    "P31": "PIN code: 6 digits, # to end, * to skip",
+    "P32": "PIN code not right: press the six digits again",
 }
 
 FRAME_MS = 20

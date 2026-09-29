@@ -12,12 +12,12 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from core import prompt_check, store
+from core import geo, prompt_check, store
 from core.config import Settings
 from core.phone import decrypt, last4
 from core.timeutil import IST, utcnow
 
-STEPS = ("q_age", "q_gender", "q_education", "q_travel", "q_physical", "q_lean")
+STEPS = ("q_age", "q_gender", "q_education", "q_travel", "q_physical", "q_district", "q_lean")
 LIVE_FOR = timedelta(minutes=30)  # an "in call" row older than this is a crashed call, not live
 
 
@@ -98,6 +98,17 @@ class _Db:
         return out
 
 
+def _district(values: dict) -> str | None:
+    """ "Pune, Maharashtra" for the caller's PIN code (sample table); "Area not found"."""
+    code = values.get("q_district")
+    if not code:
+        return None
+    for row in geo.table().values():
+        if row["district_code"] == code:
+            return f"{row['district_en']}, {row['state']}"
+    return "Area not found"
+
+
 def _row(settings: Settings, db: _Db, c: dict, answers: list[dict], stories: list[dict]) -> dict:
     values = {a["step"]: a["value"] for a in answers}
     occupation, via = values.get("occupation"), "read-back"
@@ -111,7 +122,7 @@ def _row(settings: Settings, db: _Db, c: dict, answers: list[dict], stories: lis
         "status": c["status"],
         "language": c["language"],
         "duration": c["duration_seconds"],
-        "answers": {s: values.get(s) for s in STEPS},
+        "answers": {s: values.get(s) for s in STEPS} | {"q_district": _district(values)},
         "occupation": db.occupation(occupation),
         "occupation_via": via if db.occupation(occupation) else None,
         "transcripts": [s["transcript"] for s in stories if s["transcript"]],

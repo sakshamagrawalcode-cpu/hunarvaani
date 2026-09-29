@@ -22,14 +22,14 @@ options from a sample dataset and say them on the call.**
   "use without name/number to train our AI") · A4 59 occupations · A5 team console · folder
   layout frontend/ backend/ database/ · B2 live call view (three panels: conversation /
   processing / errors; schema 06 → run `init_db.py`) · language menu first, then the greeting ·
-  P29 "wrong key" apology · **never skip / never hang up for silence** (question repeats) ·
+  P29 "wrong key" apology · A7 district by PIN code (P31, P32) · **never skip / never hang up for silence** (question repeats) ·
   smoother audio + even loudness · console **Voice prompts** page · **story waits for Sarvam**
   (P30 "stay on the line" every 8 s, up to 90 s), **English translation feeds the search**,
   read-back offers **3 occupations** (1–3, next key = none), up to 3 tries (schema 07 →
-  `init_db.py`; new prompt P30 → `render_prompts.py`).
-- **Next:** A6 = the user tests on real calls (prompts are rendered; needs Sarvam credits; rebuild, 3 calls,
-  check `/console/`). Then A7 (district by PIN code) + A8 (sample NSQF dataset in
-  `database/sample/`). Open question: demo region (proposed: Maharashtra + a few Hindi-belt
+  `init_db.py`; new prompts P30, P31, P32 → `render_prompts.py`).
+- **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
+  check `/console/`). Then A8 (sample NSQF dataset in
+  `database/sample/`), A9 recommender, A10 say options on the call, A11 console v2. Open question: demo region (proposed: Maharashtra + a few Hindi-belt
   districts).
 - Blocked: outbound calls / callbacks (Exotel needs business KYC; the team has none).
 
