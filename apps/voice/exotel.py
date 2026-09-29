@@ -17,6 +17,7 @@ import wave
 from datetime import datetime, timezone
 from pathlib import Path
 
+import redis
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 
@@ -293,11 +294,15 @@ class ExotelSession:
         """Hand the story to the worker, play the 'one moment' filler, wait for the answer."""
         loop = asyncio.get_running_loop()
         started = loop.time()
-        await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
-        await self.play(("P17",))
-        result = await run_in_threadpool(
-            story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
-        )
+        try:
+            await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
+            await self.play(("P17",))
+            result = await run_in_threadpool(
+                story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
+            )
+        except redis.RedisError as exc:
+            log.warning("call %s: story queue failed (%s); using the trade list", call_id[:8], exc)
+            return None
         waited = loop.time() - started
         if result is not None:
             result["wait_ms"] = int(waited * 1000)

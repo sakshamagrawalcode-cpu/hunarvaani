@@ -614,3 +614,34 @@ def test_calls_page_needs_the_password_and_hides_numbers(client, settings, monke
 
 def test_calls_page_is_closed_without_a_password(client, settings):
     assert client.get("/calls", auth=("admin", "")).status_code == 503
+
+
+def test_slow_worker_answer_does_not_hit_the_redis_socket_timeout():
+    """The api's Redis client times out a socket read after 3 s; the story wait is longer."""
+    key = story_job.result_key("slow")
+    redis.Redis.from_url(RD).delete(key)
+    short = redis.Redis.from_url(RD, socket_timeout=2)
+
+    def late_answer():
+        time.sleep(1.8)
+        redis.Redis.from_url(RD).rpush(key, json.dumps({"transcript": "देर से"}))
+
+    threading.Thread(target=late_answer).start()
+    assert story_job.wait_result(short, "slow", 3) == {"transcript": "देर से"}
+    started = time.monotonic()
+    assert story_job.wait_result(short, "none", 2.5) is None
+    assert 2.0 < time.monotonic() - started < 3.5
+
+
+def test_story_queue_failure_offers_the_trade_list(client, settings, monkeypatch):
+    def broken(*args):
+        raise redis.exceptions.TimeoutError("Timeout reading from socket")
+
+    monkeypatch.setattr(story_job, "wait_result", broken)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()

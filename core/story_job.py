@@ -33,8 +33,19 @@ def publish(r, call_id: str, result: dict) -> None:
 
 
 def wait_result(r, call_id: str, timeout: float) -> dict | None:
-    item = r.blpop(result_key(call_id), timeout=max(timeout, 0.1))
-    return json.loads(item[1]) if item else None
+    """Wait up to `timeout` seconds for the worker's answer.
+
+    Waits in slices of at most one second, so a Redis client with a short socket timeout
+    (the api's is 3 s) never times out while the worker is still busy.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        left = deadline - time.monotonic()
+        item = r.blpop(result_key(call_id), timeout=min(max(left, 0.1), 1.0))
+        if item:
+            return json.loads(item[1])
+        if left <= 1.0:
+            return None
 
 
 def story_fields(result: dict) -> dict:
