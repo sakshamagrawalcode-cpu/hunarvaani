@@ -15,9 +15,10 @@ Rules from the build spec:
 - 0 at any menu flags the call for a human (P19) and repeats the question;
 - silence at the greeting plays P02 ("can you hear us? press 1; press 9 if you did not call"),
   then P16 + P02 until the caller answers or hangs up;
-- after the work story the caller hears what we heard (P21) and what we understood (P13); if we
-  could not understand it, or the caller says neither guess is right, they may tell it once more
-  in more detail (P23) before the keypad trade list (P14).
+- after the work story the caller hears what we heard (P21) and up to three occupations we
+  think it is (P13: keys 1-3, the next key = none of these); if the story was unclear or too
+  short, or none is right, they tell it again in more detail (P23), up to MAX_STORY_ATTEMPTS
+  tries in all, then choose from the keypad trade list (P14).
 """
 
 from dataclasses import asdict, dataclass, field, fields
@@ -25,7 +26,7 @@ from dataclasses import asdict, dataclass, field, fields
 from core.dialogue.prompts import LANGUAGE_KEYS, in_language
 
 GLOBAL_KEYS = "90"
-MAX_STORY_ATTEMPTS = 2
+MAX_STORY_ATTEMPTS = 3
 
 
 @dataclass(frozen=True)
@@ -201,7 +202,7 @@ class Interview:
         data = {"path": path, "seconds": round(seconds, 1), **(details or {})}
         effects = [Effect("story_recorded", data)]
         if candidates and readback:
-            self.candidates = list(candidates)[:2]
+            self.candidates = list(candidates)[:3]
             self.readback_prompts = list(heard) + list(readback)
             return self._goto("readback"), effects
         if not understood:
@@ -209,15 +210,18 @@ class Interview:
         unclear = tuple(heard) + ("P24",) if heard else ("P22",)
         return self._goto(again, unclear), effects
 
+    def _none_key(self) -> str:
+        return str(len(self.candidates) + 1)
+
     def _readback(self, digit: str) -> tuple[Action, list[Effect]]:
-        choice = {"1": 0, "2": 1}.get(digit)
-        if digit == "3":
+        choice = int(digit) - 1 if digit.isdigit() and digit != "0" else None
+        if digit == self._none_key():
             effect = Effect(
-                "readback", {"key": "3", "confirmed": None, "candidates": self.candidates}
+                "readback", {"key": digit, "confirmed": None, "candidates": self.candidates}
             )
             again = self.story_attempts < MAX_STORY_ATTEMPTS
             return self._goto("story" if again else "trades"), [effect]
-        if choice is None or choice >= len(self.candidates):
+        if choice is None or not 0 <= choice < len(self.candidates):
             return self._invalid(wrong_key=True)
         code = self.candidates[choice]
         self.occupation = code
@@ -281,7 +285,7 @@ class Interview:
         if s == "story":
             return Record(s, prefix + ("P12" if self.story_attempts == 0 else "P23",))
         if s == "readback":
-            valid = "123"[: len(self.candidates)] + "3"
+            valid = "123"[: len(self.candidates)] + self._none_key()
             prompts = prefix + tuple(self.readback_prompts)
             return Ask(s, prompts, valid + GLOBAL_KEYS, self.timeout)
         return Hangup()

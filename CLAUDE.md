@@ -3,8 +3,9 @@
 **What it is:** a phone-call (IVR) assistant for SIH problem statement 26097 (MoSJE, PM-AJAY GIA).
 A caller on a keypad phone picks Hindi, English or Marathi, gives consent, answers short keypad
 questions (age, gender, education, travel, physical difficulty, job or own work) and describes
-their work in their own words; the system understands the occupation (59 NCO occupations),
-says back what it heard and understood, the caller confirms, and a spoken summary ends the call.
+their work in their own words; the system transcribes it (Sarvam), translates it to English,
+finds the 3 closest of 59 NCO occupations, says back what it heard and offers those 3, the caller
+confirms (or tells it again), and a spoken summary ends the call.
 The team sees every call on a React console. **Next: recommend NSQF training / livelihood
 options from a sample dataset and say them on the call.**
 
@@ -21,7 +22,11 @@ options from a sample dataset and say them on the call.**
   "use without name/number to train our AI") · A4 59 occupations · A5 team console · folder
   layout frontend/ backend/ database/ · B2 live call view (three panels: conversation /
   processing / errors; schema 06 → run `init_db.py`) · language menu first, then the greeting ·
-  P29 "wrong key" apology (render it: `python scripts\render_prompts.py`).
+  P29 "wrong key" apology · **never skip / never hang up for silence** (question repeats) ·
+  smoother audio + even loudness · console **Voice prompts** page · **story waits for Sarvam**
+  (P30 "stay on the line" every 8 s, up to 90 s), **English translation feeds the search**,
+  read-back offers **3 occupations** (1–3, next key = none), up to 3 tries (schema 07 →
+  `init_db.py`; new prompt P30 → `render_prompts.py`).
 - **Next:** A6 = the user tests on real calls (prompts are rendered; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then A7 (district by PIN code) + A8 (sample NSQF dataset in
   `database/sample/`). Open question: demo region (proposed: Maharashtra + a few Hindi-belt
@@ -64,6 +69,8 @@ cd frontend && npm ci && npm run build      # strict TypeScript must pass
 
 ## Things that bite on the laptop
 - Prompt text changed → `python scripts\render_prompts.py` (re-renders only changed prompts; `--force` re-renders all and wastes Sarvam credits).
+- The api is on laptop port 5000; old `.env` lines `STORY_WAIT_SECONDS` and `TRANSLATE_TO_ENGLISH`
+  are ignored now (the wait setting is `STORY_MAX_WAIT_SECONDS`, default 90; translation is always on).
 - Sarvam credits ran out on 29 Sep (HTTP 402). Without credits, calls still run but skip speech-to-text, the read-back and the spoken summary (keypad list + fixed goodbye). Add credits in the Sarvam dashboard before real-call tests.
 - Schema or occupations changed → `init_db.py` then `seed_nco.py` (in the worker container).
 - Tunnel restarted → `python scripts\set_public_url.py --from-tunnel`, paste the URL in Exotel.

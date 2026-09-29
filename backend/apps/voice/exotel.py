@@ -43,6 +43,7 @@ _DYN_NAME = re.compile(r"^[0-9a-f]{8,64}$")
 CHUNK_MS = 200
 LEAD_SECONDS = 2.0
 START_TIMEOUT = 15
+STILL_WORKING_EVERY = 8  # seconds between "please stay on the line" (P30) while we wait
 # every prompt is brought to the same loudness, so no sentence is much quieter or louder
 TARGET_RMS = 3000  # about -21 dBFS for speech
 MAX_PEAK = 26000  # stay clear of clipping
@@ -356,16 +357,26 @@ class ExotelSession:
             return ("P20",)
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
-        """Hand the story to the worker, play the 'one moment' filler, wait for the answer."""
+        """Hand the story to the worker and wait for its answer (speech-to-text, English,
+        search, voice). The caller hears "one moment" (P17), then "we are still working on
+        it, please stay on the line" (P30) every STILL_WORKING_EVERY seconds, for up to
+        `story_wait_seconds`."""
         loop = asyncio.get_running_loop()
         started = loop.time()
+        deadline = started + self.settings.story_wait_seconds
+        result = None
         try:
             await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
             await self._say(call_id, "story", ("P17",))
-            await self.play(("P17",))
-            result = await run_in_threadpool(
-                story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
-            )
+            nudge_at = started + await self.play(("P17",)) + STILL_WORKING_EVERY
+            while result is None and loop.time() < deadline:
+                if self.ended.is_set():
+                    raise CallEnded
+                if loop.time() >= nudge_at:
+                    await self._say(call_id, "story", ("P30",))
+                    nudge_at = loop.time() + await self.play(("P30",)) + STILL_WORKING_EVERY
+                wait = min(2.0, max(0.1, min(deadline, nudge_at) - loop.time()))
+                result = await run_in_threadpool(story_job.wait_result, self.r, call_id, wait)
         except redis.RedisError as exc:
             log.warning("call %s: story queue failed (%s); using the trade list", call_id[:8], exc)
             await self._problem(call_id, f"Story queue failed ({exc}); used the trade list")

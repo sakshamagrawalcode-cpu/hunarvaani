@@ -44,20 +44,25 @@ def run(transcript=None, error=None, index=INDEX, language="hi-IN", fail_tts=Fal
 
 def test_confident_story_says_what_we_heard_and_reads_back():
     out, rendered = run("मैं सिलाई का काम करती हूं।")
-    assert out["candidates"][0] == "7531" and len(out["candidates"]) == 2
+    assert out["candidates"][0] == "7531" and 1 <= len(out["candidates"]) <= 3
     assert out["readback"] == ["DYN:q"] and len(out["heard"]) == 1
     assert "आपने बताया: मैं सिलाई का काम करती हूं।" in rendered
-    assert any(r.startswith("हमारी समझ से, आप दर्ज़ी का काम करते हैं।") for r in rendered)
+    n = len(out["candidates"])
+    assert any(
+        r.startswith("हमारी समझ से, आपका काम इनमें से एक है। दर्ज़ी के लिए 1 दबाइए।")
+        and r.endswith(f"अगर इनमें से कोई नहीं, तो {n + 1} दबाइए।")
+        for r in rendered
+    )
     assert "error" not in out and out["stt_ms"] >= 0 and out["tts_ms"] >= 0
 
 
 def test_read_back_in_english_and_marathi():
     _, rendered = run("I repair motorcycles and scooters at a small garage", language="en-IN")
     assert "You said: I repair motorcycles and scooters at a small garage." in rendered
-    assert any("We understood that you work as motor vehicle mechanic." in r for r in rendered)
+    assert any("one of these. For motor vehicle mechanic, press 1." in r for r in rendered)
     _, rendered = run("मी कपडे शिवते, ब्लाउज आणि ड्रेस बनवते", language="mr-IN")
     assert "तुम्ही सांगितलं: मी कपडे शिवते, ब्लाउज आणि ड्रेस बनवते." in rendered
-    assert any("तुम्ही शिंपी म्हणून काम करता." in r for r in rendered)
+    assert any("शिंपी साठी 1 दाबा." in r for r in rendered)
 
 
 def test_long_story_is_trimmed_when_read_back():
@@ -104,7 +109,9 @@ def test_english_translation_and_spoken_texts_for_the_console():
     assert out["scores"][0]["title_en"] == "Tailor, dressmaker"
     heard, question = out["texts"][out["heard"][0]], out["texts"][out["readback"][0]]
     assert heard == {"text": "आपने बताया: मैं कपड़े सिलती हूं।", "text_en": "You said: I stitch clothes."}
-    assert question["text_en"].startswith("We understood that you work as tailor, dressmaker.")
+    assert question["text_en"].startswith(
+        "We think your work is one of these. For tailor, dressmaker"
+    )
 
 
 def test_translation_failure_never_breaks_the_call():
@@ -122,3 +129,36 @@ def test_translation_failure_never_breaks_the_call():
     )
     assert out["candidates"] and out["transcript_en"] is None
     assert "translate down" in out["translate_error"] and "error" not in out
+
+
+def test_the_english_words_are_searched_too():
+    def translate(text, language, key):
+        return "I am a tailor, I stitch clothes"
+
+    out = story_job.process(
+        JOB,
+        SETTINGS,
+        INDEX,
+        None,
+        lambda *a: "मेरा काम ज़रा अलग है",  # no occupation word in the Hindi
+        lambda text, language: f"DYN:{len(text):024x}",
+        translate=translate,
+    )
+    assert out["candidates"][0] == "7531" and out["transcript_en"].startswith("I am a tailor")
+
+
+def test_up_to_three_occupations_are_offered_with_the_next_key_for_none():
+    from core.dialogue.prompts import readback_text
+
+    three = readback_text("en-IN", ["tailor", "weaver", "embroiderer"])
+    assert three == (
+        "We think your work is one of these. For tailor, press 1. For weaver, press 2. "
+        "For embroiderer, press 3. If it is none of these, press 4."
+    )
+    assert readback_text("hi-IN", ["दर्ज़ी"]).endswith("अगर इनमें से कोई नहीं, तो 2 दबाइए।")
+
+
+def test_best_matches_keeps_each_occupations_best_score():
+    top = story_job.best_matches(INDEX, None, ["मेरा काम ज़रा अलग है", "I am a tailor"])
+    assert top[0].code == "7531" and top[0].score >= story_job.THRESHOLD
+    assert len(top) == story_job.TOP_K and len({c.code for c in top}) == 3

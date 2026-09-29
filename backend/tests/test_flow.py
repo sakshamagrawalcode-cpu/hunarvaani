@@ -1,4 +1,4 @@
-from core.dialogue.flow import Ask, Hangup, Interview, Record
+from core.dialogue.flow import MAX_STORY_ATTEMPTS, Ask, Hangup, Interview, Record
 
 
 def kinds(effects):
@@ -196,12 +196,13 @@ def test_state_survives_serialisation():
     assert copy.on_key("1")[0] == iv.on_key("1")[0]
 
 
-def test_no_speech_asks_once_more_then_offers_the_trade_list():
+def test_no_speech_asks_again_then_offers_the_trade_list():
     iv = Interview()
     run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "1"])
-    action, effects = iv.on_recording(None, 0.0)
-    assert kinds(effects) == ["story_empty"]
-    assert isinstance(action, Record) and action.prompts == ("P22", "P23")
+    for _ in range(MAX_STORY_ATTEMPTS - 1):
+        action, effects = iv.on_recording(None, 0.0)
+        assert kinds(effects) == ["story_empty"]
+        assert isinstance(action, Record) and action.prompts == ("P22", "P23")
     action, effects = iv.on_recording(None, 0.0)
     assert kinds(effects) == ["story_empty"] and action.prompts == ("P22", "P14")
 
@@ -229,15 +230,29 @@ def test_confident_story_says_what_we_heard_and_reads_back_two_occupations():
     assert effects[1].data == {"step": "occupation", "key": "2", "value": "7411"}
 
 
-def test_neither_lets_the_caller_tell_it_again_once():
+def test_three_occupations_are_offered_and_4_means_none():
+    iv = Interview()
+    _story(iv)
+    action, _ = iv.on_recording(
+        "/r.wav", 5, ["7531", "7411", "7231"], readback=["DYN:bb"], heard=["DYN:aa"]
+    )
+    assert action.valid == "1234" + "90"
+    action, _ = iv.on_key("3")
+    assert action == Hangup(("P15",)) and iv.occupation == "7231"
+
+
+def test_none_of_these_lets_the_caller_tell_it_again():
     iv = Interview()
     _story(iv)
     iv.on_recording("/r.wav", 5, ["7531", "7411"], readback=["DYN:bb"], heard=["DYN:aa"])
+    action, _ = iv.on_key("4")  # only two options: 3 means none, 4 is a wrong key
+    assert action.prompts == ("P29", "DYN:aa", "DYN:bb")
     action, effects = iv.on_key("3")
     assert isinstance(action, Record) and action.prompts == ("P23",)
-    assert effects[0].data["confirmed"] is None
-    iv.on_recording("/r2.wav", 5, ["7531", "7411"], readback=["DYN:dd"], heard=["DYN:cc"])
-    action, _ = iv.on_key("3")
+    assert effects[0].data == {"key": "3", "confirmed": None, "candidates": ["7531", "7411"]}
+    for _ in range(MAX_STORY_ATTEMPTS - 1):
+        iv.on_recording("/r2.wav", 5, ["7531"], readback=["DYN:dd"], heard=["DYN:cc"])
+        action, _ = iv.on_key("2")
     assert action.prompts == ("P14",)
 
 
@@ -259,7 +274,9 @@ def test_unclear_story_says_what_we_heard_and_asks_for_more_detail():
     assert kinds(effects) == ["story_recorded"]
     assert isinstance(action, Record) and action.prompts == ("DYN:aa", "P24", "P23")
     action, _ = iv.on_recording("/r2.wav", 5, [], None, heard=["DYN:cc"])
-    assert action.prompts == ("DYN:cc", "P24", "P14")
+    assert action.prompts == ("DYN:cc", "P24", "P23")
+    action, _ = iv.on_recording("/r3.wav", 5, [], None, heard=["DYN:ee"])
+    assert action.prompts == ("DYN:ee", "P24", "P14")
 
 
 def test_second_story_can_be_confirmed():

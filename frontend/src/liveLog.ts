@@ -54,7 +54,7 @@ function meaning(events: CallEvent[], i: number, name: (c: string) => string): s
     }
     if (e.kind === "consent" && step === `consent_${p.kind}`) return p.granted ? "yes" : "no";
     if (e.kind === "language" && step === "language") return LANGUAGE[String(p.code)] ?? String(p.code);
-    if (e.kind === "readback") return p.confirmed ? `yes, ${name(String(p.confirmed))}` : "neither";
+    if (e.kind === "readback") return p.confirmed ? `yes, ${name(String(p.confirmed))}` : "none of these";
     if (e.kind === "human_flag") return "asked for a human officer";
     if (e.kind === "callback_tomorrow") return "talk later";
   }
@@ -166,6 +166,7 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
         }
         const chips = [
           ms("speech-to-text", p.stt_ms),
+          ms("English", p.translate_ms),
           ms("search", p.search_ms),
           ms("voice made", p.tts_ms),
           ms("caller waited", p.wait_ms),
@@ -192,6 +193,15 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
             })),
           });
         }
+        if (p.translate_error)
+          s.problems.push({
+            ...base,
+            key: `${base.key}-en`,
+            icon: "🌐",
+            title: "English translation failed",
+            text: `searched the caller's own words only (${p.translate_error})`,
+            tone: "warn",
+          });
         if (p.error)
           s.problems.push({
             ...base,
@@ -226,7 +236,7 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
           icon: p.confirmed ? "✅" : "↩️",
           title: p.confirmed
             ? `Occupation confirmed: ${name(String(p.confirmed))}`
-            : "Caller said neither guess was right",
+            : "Caller said none of the guesses was right",
           tone: p.confirmed ? "ok" : undefined,
         });
         break;

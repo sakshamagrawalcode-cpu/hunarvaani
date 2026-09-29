@@ -20,7 +20,7 @@ with warnings.catch_warnings():
 
 # the order a caller meets them, then the ones that play only sometimes
 CALL_ORDER = (
-    "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P11 P12 P17 P21 P13 P24 P22 P23 "
+    "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P11 P12 P17 P30 P21 P13 P24 P22 P23 "
     "P14 P15 P16 P29 P19 P18 P04 P20"
 ).split()
 
@@ -37,7 +37,7 @@ USED_FOR = {
     "P10": "travel",
     "P11": "job or own work",
     "P12": "tell us about your work (beep)",
-    "P13": "what we understood (made during the call)",
+    "P13": "the 3 closest occupations: press 1-3 (made during the call)",
     "P14": "trade list",
     "P15": "closing summary (made during the call)",
     "P16": "no answer: please listen again",
@@ -54,6 +54,7 @@ USED_FOR = {
     "P27": "physical difficulty",
     "P28": "why we ask",
     "P29": "wrong key: please listen again",
+    "P30": "still working, please stay on the line",
 }
 
 FRAME_MS = 20

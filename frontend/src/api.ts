@@ -24,6 +24,7 @@ export type Story = {
   transcript: string | null;
   top1: Occupation | null;
   top2: Occupation | null;
+  top3: Occupation | null;
   confirmed: string | null;
   stt_ms: number | null;
   search_ms: number | null;

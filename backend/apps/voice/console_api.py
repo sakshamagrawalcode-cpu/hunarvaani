@@ -208,6 +208,7 @@ def build_router(
                     "transcript_en": s["transcript_en"],
                     "top1": db.occupation(s["top1"]),
                     "top2": db.occupation(s["top2"]),
+                    "top3": db.occupation(s.get("top3")),
                     "confirmed": s["confirmed"],
                     "stt_ms": s["stt_ms"],
                     "search_ms": s["search_ms"],

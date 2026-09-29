@@ -10,9 +10,10 @@ import { Badge, Card, Empty, LiveBadge, Loading, statusTone } from "../ui";
 
 function confirmedText(s: Story): string {
   if (!s.confirmed) return "not asked (unclear or too slow)";
-  if (s.confirmed === "none") return "neither was right";
+  if (s.confirmed === "none") return "none of them was right";
   if (s.top1?.code === s.confirmed) return `yes: ${occupationName(s.top1)}`;
   if (s.top2?.code === s.confirmed) return `yes: ${occupationName(s.top2)}`;
+  if (s.top3?.code === s.confirmed) return `yes: ${occupationName(s.top3)}`;
   return s.confirmed;
 }
 
@@ -35,7 +36,7 @@ export default function CallDetail() {
   if (!data) return <Loading error={error} />;
   const a = data.answers;
   const names = new Map<string, string>();
-  for (const o of [data.occupation, ...data.stories.flatMap((s) => [s.top1, s.top2])]) {
+  for (const o of [data.occupation, ...data.stories.flatMap((s) => [s.top1, s.top2, s.top3])]) {
     if (o) names.set(o.code, occupationName(o));
   }
   const streams = buildStreams(data.events, (code) => names.get(code) ?? code);
@@ -99,7 +100,8 @@ export default function CallDetail() {
                     </p>
                     <p className="text-xs text-slate-500">
                       Understood: {occupationName(s.top1)}
-                      {s.top2 && ` · or ${occupationName(s.top2)}`} · Confirmed: {confirmedText(s)}
+                      {s.top2 && ` · or ${occupationName(s.top2)}`}
+                      {s.top3 && ` · or ${occupationName(s.top3)}`} · Confirmed: {confirmedText(s)}
                     </p>
                   </div>
                 ))}

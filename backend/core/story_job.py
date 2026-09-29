@@ -1,5 +1,6 @@
-"""Work-story jobs: the api queues a recording, the worker transcribes, searches and renders
-the read-back, and the api waits (briefly) for the answer on a per-call Redis list."""
+"""Work-story jobs: the api queues a recording, the worker transcribes, translates, searches and
+renders the read-back, and the api waits for the answer on a per-call Redis list (the caller
+hears "please stay on the line" meanwhile)."""
 
 import json
 import logging
@@ -10,12 +11,14 @@ import psycopg
 
 from core import store
 from core.config import Settings
-from core.dialogue.prompts import fill, local_title
+from core.dialogue.prompts import fill, local_title, readback_text
 
 log = logging.getLogger("story")
 
 QUEUE = "hv:stories"
-THRESHOLD = 0.35
+THRESHOLD = 0.35  # the best match must reach this for a read-back
+TOP_K = 3  # occupations offered in the read-back
+MIN_OPTION_SCORE = 0.2  # a 2nd or 3rd occupation below this is not offered
 
 
 def result_key(call_id: str) -> str:
@@ -57,6 +60,7 @@ def story_fields(result: dict) -> dict:
         "transcript_en": result.get("transcript_en"),
         "top1": scores[0]["code"] if scores else None,
         "top2": scores[1]["code"] if len(scores) > 1 else None,
+        "top3": scores[2]["code"] if len(scores) > 2 else None,
         "stt_ms": result.get("stt_ms"),
         "search_ms": result.get("search_ms"),
     }
@@ -84,11 +88,14 @@ def heard_text(transcript: str) -> str:
 
 
 def process(job: dict, settings: Settings, index, encode, stt, render, translate=None) -> dict:
-    """Transcribe, search and render what we heard (P21) and the read-back (P13). Never raises.
+    """Transcribe, translate, search and render what we heard (P21) and the read-back (P13).
 
-    Text-to-speech is the slowest step, so the two sentences are rendered at the same time, and
-    the English translation for the team console (`translate`, optional) runs alongside them.
-    `texts` maps each rendered prompt id to its words and their English version.
+    Never raises. The caller's words are put into English (`translate`, Sarvam) and the search
+    runs on both the original words and the English, keeping each occupation's best score.
+    When the best match is confident, the read-back offers up to TOP_K occupations (keys 1-3,
+    the next key = none of these). Text-to-speech is the slowest step, so the two sentences
+    are rendered at the same time. `texts` maps each rendered prompt id to its words and their
+    English version.
     """
     language = job.get("language") or "hi-IN"
     out: dict = {"candidates": [], "readback": [], "heard": [], "texts": {}}
@@ -100,58 +107,64 @@ def process(job: dict, settings: Settings, index, encode, stt, render, translate
         if not transcript:
             return out
 
+        transcript_en = _english(translate, transcript, language, settings, out)
+        out["transcript_en"] = transcript_en
+
         t1 = time.monotonic()
         if index is None:
             out["error"] = "occupation index is empty; run scripts/seed_nco.py"
             return out
-        query_vec = encode(transcript) if encode else None
-        top = index.search(transcript, query_vec, top_k=2)
+        queries = [transcript]
+        if transcript_en and transcript_en != transcript:
+            queries.append(transcript_en)
+        top = best_matches(index, encode, queries)
         out["search_ms"] = int((time.monotonic() - t1) * 1000)
         out["scores"] = [
             {"code": c.code, "score": c.score, "title_en": c.title_en, "title_hi": c.title_hi}
             for c in top
         ]
-        confident = len(top) == 2 and top[0].score >= THRESHOLD
+        confident = bool(top) and top[0].score >= THRESHOLD
+        shown = [c for c in top if c.score >= MIN_OPTION_SCORE] if confident else []
 
         texts = [fill(language, "P21", heard=heard_text(transcript))]
-        if confident:
-            names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in top]
-            texts.append(fill(language, "P13", occupation_1=names[0], occupation_2=names[1]))
-        t2 = time.monotonic()
-        with ThreadPoolExecutor(len(texts) + 1) as pool:
-            english = pool.submit(_english, translate, transcript, language, settings, out)
-            rendered = list(pool.map(lambda text: render(text, language), texts))
-            out["tts_ms"] = int((time.monotonic() - t2) * 1000)
-            transcript_en = english.result()
-        out["transcript_en"] = transcript_en
         english_texts = [
             fill("en-IN", "P21", heard=heard_text(transcript_en)) if transcript_en else None
         ]
-        if confident:
-            english_texts.append(
-                fill(
-                    "en-IN",
-                    "P13",
-                    occupation_1=top[0].title_en.lower(),
-                    occupation_2=top[1].title_en.lower(),
-                )
-            )
+        if shown:
+            names = [local_title(language, c.title_en, c.title_hi, c.title_mr) for c in shown]
+            texts.append(readback_text(language, names))
+            english_texts.append(readback_text("en-IN", [c.title_en.lower() for c in shown]))
+        t2 = time.monotonic()
+        with ThreadPoolExecutor(len(texts)) as pool:
+            rendered = list(pool.map(lambda text: render(text, language), texts))
+        out["tts_ms"] = int((time.monotonic() - t2) * 1000)
         out["texts"] = {
             pid: {"text": text, "text_en": text_en}
             for pid, text, text_en in zip(rendered, texts, english_texts, strict=True)
         }
         out["heard"] = rendered[:1]
-        if confident:
+        if shown:
             out["readback"] = rendered[1:]
-            out["candidates"] = [c.code for c in top]
+            out["candidates"] = [c.code for c in shown]
     except Exception as exc:
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
         out["candidates"], out["readback"], out["heard"] = [], [], []
     return out
 
 
+def best_matches(index, encode, queries: list[str], top_k: int = TOP_K) -> list:
+    """Search each wording (original, English) and keep every occupation's best score."""
+    best: dict = {}
+    for text in queries:
+        vec = encode(text) if encode else None
+        for c in index.search(text, vec, top_k=top_k):
+            if c.code not in best or c.score > best[c.code].score:
+                best[c.code] = c
+    return sorted(best.values(), key=lambda c: c.score, reverse=True)[:top_k]
+
+
 def _english(translate, transcript: str, language: str, settings: Settings, out: dict):
-    """The transcript in English for the console; None if there is no translator or it fails."""
+    """The transcript in English; None if there is no translator or it fails."""
     if language == "en-IN":
         return transcript
     if translate is None:

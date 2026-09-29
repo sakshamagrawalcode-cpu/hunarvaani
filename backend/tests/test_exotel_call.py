@@ -406,10 +406,11 @@ def test_story_with_no_speech_moves_on(client, settings):
         p.start()
         _to_story(p)
         p.hear("P22+P23")
+        p.hear("P22+P23")
         p.hear("P22+P14")
         ws.close()
     assert rows("SELECT count(*) FROM story") == [(0,)]
-    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(2,)]
+    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(3,)]
 
 
 HEARD = "DYN:aaaaaaaaaaaaaaaaaaaaaaaa"
@@ -488,10 +489,10 @@ def test_story_is_read_back_and_confirmed(client, settings, audio_dir):
     assert payload == {"key": "1", "confirmed": "7531", "candidates": ["7531", "7411"]}
 
 
-def test_unclear_story_is_said_back_then_asked_once_more_then_the_trade_list(
+def test_unclear_story_is_said_back_and_asked_again_then_the_trade_list(
     client, settings, audio_dir
 ):
-    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है", jobs=2)
+    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है", jobs=3)
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
@@ -499,11 +500,13 @@ def test_unclear_story_is_said_back_then_asked_once_more_then_the_trade_list(
         p.speak(1)
         p.hear(f"{HEARD}+P24+P23")
         p.speak(1)
+        p.hear(f"{HEARD}+P24+P23")
+        p.speak(1)
         p.hear(f"{HEARD}+P24+P14")
         ws.close()
     worker.join(2)
     stories = rows("SELECT transcript, top1, confirmed FROM story ORDER BY created_at")
-    assert stories == [("आज मौसम अच्छा है", "5142", None)] * 2
+    assert stories == [("आज मौसम अच्छा है", "5142", None)] * 3
 
 
 def test_neither_lets_the_caller_tell_it_again_and_confirm(client, settings, audio_dir):
@@ -908,3 +911,48 @@ def test_console_lists_every_voice_prompt(client, settings, monkeypatch):
     p01 = next(p for p in out["prompts"] if p["id"] == "P01")["languages"]["hi-IN"]
     assert p01["audio"] == "/audio/hi/P01.wav" and p01["seconds"] == 0.05
     assert client.get("/console/api/prompts").status_code == 401
+
+
+def test_caller_hears_please_stay_on_the_line_while_the_worker_is_busy(
+    client, settings, audio_dir, monkeypatch
+):
+    import dataclasses
+
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel, "STILL_WORKING_EVERY", 0.3)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, story_wait_seconds=6))
+    r = redis.Redis.from_url(RD)
+
+    def slow_worker():
+        item = r.blpop(story_job.QUEUE, timeout=10)
+        time.sleep(1.5)  # Sarvam is slow today
+        _dyn_wav(audio_dir, HEARD)
+        _dyn_wav(audio_dir, QUESTION)
+        story_job.publish(
+            r,
+            json.loads(item[1])["call_id"],
+            {
+                "transcript": "मैं सिलाई का काम करती हूं",
+                "candidates": ["7531", "7411", "7231"],
+                "heard": [HEARD],
+                "readback": [QUESTION],
+                "scores": [{"code": "7531", "score": 0.7}],
+            },
+        )
+
+    worker = threading.Thread(target=slow_worker, daemon=True)
+    worker.start()
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        heard = p.hear(READBACK)
+        assert "P17" in heard and "P30" in heard
+        p.press("3")
+        p.until_hangup()
+    worker.join(2)
+    assert dict(rows("SELECT step, value FROM answer"))["occupation"] == "7231"
+    problems = [p["what"] for (p,) in rows("SELECT payload FROM event WHERE kind = 'problem'")]
+    assert not [w for w in problems if "worker" in w]  # it waited; nothing was given up

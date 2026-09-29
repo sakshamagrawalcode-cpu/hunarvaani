@@ -53,9 +53,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "सलाह दे पाएँगे। बीप के बाद बोलिए, और बोलने के बाद हैश का बटन दबाइए।"
         ),
         "P13": (
-            "हमारी समझ से, आप {occupation_1} का काम करते हैं। अगर यह सही है, तो 1 दबाइए। "
-            "अगर आप {occupation_2} का काम करते हैं, तो 2 दबाइए। "
-            "अगर दोनों में से कोई नहीं, तो 3 दबाइए।"
+            "हमारी समझ से, आपका काम इनमें से एक है। {options} अगर इनमें से कोई नहीं, तो {none_key} दबाइए।"
         ),
         "P14": (
             "कृपया बताइए, आपका काम इनमें से किसके सबसे क़रीब है? खेती का काम, तो 1 दबाइए। "
@@ -97,6 +95,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             " ख़ास महिलाओं के लिए होती हैं, इसलिए यह भी पूछेंगे कि आप महिला हैं या पुरुष।"
         ),
         "P29": "माफ़ कीजिए, यह बटन इस सवाल के लिए नहीं है। कृपया फिर से सुनिए।",
+        "P30": "हम अभी भी आपकी बात समझ रहे हैं। कृपया लाइन पर बने रहिए।",
     },
     "en-IN": {
         "P01": (
@@ -146,8 +145,8 @@ PROMPTS: dict[str, dict[str, str]] = {
             "advice will be. Speak after the beep, and press the hash key when you finish."
         ),
         "P13": (
-            "We understood that you work as {occupation_1}. If that is right, press 1. "
-            "If you work as {occupation_2}, press 2. If neither, press 3."
+            "We think your work is one of these. {options} "
+            "If it is none of these, press {none_key}."
         ),
         "P14": (
             "Please tell us which of these is closest to your work. Farming, press 1. "
@@ -195,6 +194,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "or a man."
         ),
         "P29": "Sorry, that key is not one of the options. Please listen again.",
+        "P30": "We are still working on your answer. Please stay on the line.",
     },
     "mr-IN": {
         "P01": (
@@ -246,9 +246,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "आमचा सल्ला योग्य असेल. बीपनंतर बोला, आणि बोलून झाल्यावर हॅशचं बटण दाबा."
         ),
         "P13": (
-            "आम्हाला समजलं की तुम्ही {occupation_1} म्हणून काम करता. हे बरोबर असेल, तर 1 दाबा. "
-            "तुम्ही {occupation_2} म्हणून काम करत असाल, तर 2 दाबा. "
-            "दोन्हीपैकी काहीच नसेल, तर 3 दाबा."
+            "आमच्या समजुतीनुसार तुमचं काम यांपैकी एक आहे. {options} यांपैकी काहीच नसेल, तर {none_key} दाबा."
         ),
         "P14": (
             "कृपया सांगा, तुमचं काम यापैकी कशाच्या सगळ्यात जवळ आहे? शेती, तर 1 दाबा. "
@@ -290,6 +288,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "विचारू."
         ),
         "P29": "माफ करा, हे बटण या प्रश्नासाठी नाही. कृपया पुन्हा ऐका.",
+        "P30": "आम्ही अजून तुमचं बोलणं समजून घेत आहोत. कृपया लाईनवर थांबा.",
     },
 }
 
@@ -305,6 +304,21 @@ def prerendered_ids(language: str = "hi-IN") -> list[str]:
 
 def fill(language: str, prompt_id: str, **values: str) -> str:
     return PROMPTS[language][prompt_id].format(**values)
+
+
+# one line per occupation in the read-back (P13): "For tailor, press 1."
+OPTION = {
+    "hi-IN": "{name} के लिए {key} दबाइए।",
+    "en-IN": "For {name}, press {key}.",
+    "mr-IN": "{name} साठी {key} दाबा.",
+}
+
+
+def readback_text(language: str, names: list[str]) -> str:
+    """P13 with one option per occupation (keys 1, 2, 3) and the next key for "none of these"."""
+    line = OPTION.get(language, OPTION["hi-IN"])
+    options = " ".join(line.format(name=n, key=i) for i, n in enumerate(names, 1))
+    return fill(language, "P13", options=options, none_key=str(len(names) + 1))
 
 
 def audio_dir_name(language: str) -> str:
