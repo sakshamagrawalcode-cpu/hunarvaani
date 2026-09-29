@@ -1,0 +1,116 @@
+course_id,kind,nco_codes,sector,title_en,nsqf_level,hours,min_education,min_age,max_age,fee_inr,placement,heavy_work,skills,scheme
+U7531,upskill,7531,apparel,Advanced Tailoring and Pattern Making,4,300,upto_5th,18,45,0,yes,no,pattern cutting|blouse and suit design|industrial sewing machine|pricing and finishing,PMKVY
+U7533,upskill,7533,apparel,Machine Embroidery and Zari Work,4,240,none,18,50,0,no,no,machine embroidery|zari and aari work|design transfer|selling to shops,PM-AJAY-GIA
+U7318,upskill,7318,apparel,Handloom Design and Natural Dyeing,4,200,none,18,55,0,no,no,new designs|natural dyeing|quality checking|selling online,PMKVY
+U7411,upskill,7411,electrical,Domestic Electrician (Advanced) and Solar Wiring,4,390,upto_8th,18,45,0,yes,no,house wiring to standard|earthing and safety|solar panel wiring|fault finding,PMKVY
+U7412,upskill,7412,electrical,Solar PV Installation Technician,4,300,upto_8th,18,45,0,yes,no,solar panel mounting|inverter and battery|motor rewinding|site safety,PMKVY
+U7127,upskill,7127,electrical,AC and Refrigerator Service Technician,4,390,10th,18,45,0,yes,no,split AC installation|gas charging|compressor fault finding|customer handling,PMKVY
+U7422,upskill,7422,electronics,Mobile Phone Hardware Repair Technician,4,360,10th,18,45,0,yes,no,chip-level repair|software flashing|soldering|shop management,PMKVY
+U7421,upskill,7421,electronics,Electronics and LED Repair Technician,4,360,upto_8th,18,45,0,yes,no,LED TV repair|circuit testing|soldering|inverter repair,PMKVY
+U7231,upskill,7231,automotive,Two-Wheeler Service Technician (Advanced),4,400,upto_8th,18,45,0,yes,no,fuel injection service|electrical diagnostics|brake and clutch|job card and billing,PMKVY
+U7233,upskill,7233,automotive,Tractor and Pump Mechanic,4,360,upto_8th,18,50,0,no,yes,tractor engine repair|hydraulics|diesel pump repair|spare parts,PMKVY
+U8322,upskill,8322,automotive,Commercial Driver (Light Motor Vehicle),3,240,upto_8th,20,45,0,yes,no,defensive driving|road rules and documents|basic car care|app-based taxi work,PMKVY
+U8332,upskill,8332,automotive,Heavy Vehicle Driver (Safety and Fuel Saving),4,240,upto_8th,20,50,0,yes,no,safe long-distance driving|fuel saving|loading rules|e-way documents,PMKVY
+U7112,upskill,7112,construction,Mason (Tiling and Finishing),4,300,none,18,50,0,yes,yes,plastering to line|tile fixing|reading simple drawings|site safety,PMKVY
+U7115,upskill,7115,construction,Carpenter (Modular Furniture),4,300,upto_5th,18,50,0,yes,no,modular furniture|power tools|laminate and polish|measurement and costing,PMKVY
+U7126,upskill,7126,construction,Plumber (General) Advanced,4,300,upto_5th,18,45,0,yes,no,CPVC and PVC fitting|leak testing|sanitary fittings|water tank and pump,PMKVY
+U9313,upskill,9313,construction,Assistant Mason and Bar Bender,3,240,none,18,45,0,yes,yes,bar bending|shuttering|concrete mixing ratios|site safety,PMKVY
+U7131,upskill,7131,construction,Decorative Painter,4,240,none,18,50,0,yes,no,surface preparation|texture and stencil painting|spray painting|estimating paint,PMKVY
+U7122,upskill,7122,construction,Tile and Marble Fixing Technician,4,240,none,18,50,0,yes,yes,marble and granite fixing|tile cutting machines|levelling|waterproofing,PMKVY
+U8342,upskill,8342,construction,Excavator Operator,4,300,upto_8th,20,45,0,yes,no,excavator controls|safe digging|daily machine check|site signals,PMKVY
+U9312,upskill,9312,construction,Assistant Surveyor and Road Work Supervisor,3,240,upto_8th,18,35,0,yes,no,measuring and levelling|keeping work records|quality of materials|site safety,DDU-GKY
+U7212,upskill,7212,metal,Welding Technician (Arc and MIG),4,360,upto_8th,18,45,0,yes,no,arc welding|MIG welding|reading drawings|welding safety,PMKVY
+U7214,upskill,7214,metal,Steel Fabricator (Gates and Grills),4,360,upto_8th,18,45,0,yes,yes,gate and grill fabrication|cutting and bending|welding|costing and quotation,PMKVY
+U7221,upskill,7221,metal,Blacksmith: Modern Tools and Forging,3,120,none,18,60,0,no,yes,power hammer|tool making|heat treatment|selling farm tools,PM-VISHWAKARMA
+U7223,upskill,7223,metal,CNC Operator (Turning),4,390,10th,18,35,0,yes,no,CNC turning basics|reading drawings|measuring instruments|machine setting,DDU-GKY
+U5141,upskill,5141,beauty,Hair Stylist (Advanced),4,360,upto_8th,18,45,0,yes,no,modern haircuts|hair colouring|salon hygiene|customer booking,PMKVY
+U5142,upskill,5142,beauty,Beauty Therapist (Advanced),4,390,upto_8th,18,45,0,yes,no,facials and skin care|bridal makeup|waxing and threading|running a home parlour,PMKVY
+U9211,upskill,9211,agriculture,Organic Farming Assistant,3,200,none,18,55,0,no,yes,compost and bio-inputs|seed treatment|drip irrigation|selling to local markets,RSETI
+U6111,upskill,6111,agriculture,Protected Cultivation (Polyhouse) Grower,4,200,upto_5th,18,55,0,no,no,polyhouse vegetables|drip and fertigation|pest management|market linkage,RSETI
+U6113,upskill,6113,agriculture,Nursery Raiser and Landscape Gardener,3,200,none,18,55,0,yes,no,seedling nursery|grafting|lawn and landscape care|selling plants,PMKVY
+U8341,upskill,8341,agriculture,Tractor Operator (Farm Mechanisation),3,200,upto_5th,18,50,0,no,no,tractor attachments|safe driving on roads|basic servicing|custom hiring work,PMKVY
+U6210,upskill,6210,agriculture,Forest Produce Processing,3,120,none,18,60,0,no,no,honey and lac processing|drying and grading|packaging|selling through producer groups,RSETI
+U6121,upskill,6121,livestock,Dairy Farming Entrepreneur,4,240,none,18,55,0,no,no,cattle feed and health|clean milk production|breeding basics|milk cooperative,RSETI
+U6122,upskill,6122,livestock,Poultry Farm Manager,4,200,none,18,55,0,no,no,broiler and layer care|vaccination|feed management|selling to traders,RSETI
+U6222,upskill,6222,livestock,Fish Farming (Pond Culture),3,160,none,18,55,0,no,yes,pond preparation|fish seed and feed|water quality|selling fish,RSETI
+U7512,upskill,7512,food,Bakery and Confectionery Products,4,240,upto_5th,18,45,0,yes,no,bread and biscuits|cakes|food hygiene (FSSAI)|packaging and pricing,PMKVY
+U7514,upskill,7514,food,"Food Processing: Pickles, Papad and Spices",3,120,none,18,55,0,no,no,hygienic processing|FSSAI registration|packaging and labelling|selling to shops,RSETI
+U5120,upskill,5120,food,Multi-Cuisine Cook,4,360,upto_5th,18,45,0,yes,no,Indian and continental dishes|kitchen hygiene|bulk cooking|food costing,PMKVY
+U5131,upskill,5131,food,Food and Beverage Service Steward,4,300,10th,18,35,0,yes,no,table service|customer handling|billing basics|hygiene,DDU-GKY
+U5223,upskill,5223,retail,Retail Sales Associate,4,280,10th,18,35,0,yes,no,customer service|stock keeping|billing software|UPI and digital payments,DDU-GKY
+U5211,upskill,5211,retail,Street Food Vendor: Hygiene and Business,3,40,none,18,60,0,no,no,food hygiene|UPI payments|record keeping|loan for vendors,PMKVY
+U5221,upskill,5221,retail,Small Shop Management and Digital Payments,3,80,upto_5th,18,60,0,no,no,stock and credit records|UPI and QR payments|GST basics|online ordering,RSETI
+U5230,upskill,5230,retail,Cashier and Billing Executive,4,240,12th,18,35,0,yes,no,billing software|cash handling|UPI and card payments|customer service,DDU-GKY
+U7536,upskill,7536,handicraft,Footwear Making and Repair,3,200,none,18,55,0,no,no,footwear stitching|sole fixing|new designs|selling,PM-VISHWAKARMA
+U7535,upskill,7535,handicraft,Leather Goods Maker,4,300,none,18,45,0,yes,no,bags and belts|leather cutting|machine stitching|finishing,PMKVY
+U7314,upskill,7314,handicraft,Pottery: Electric Wheel and Glazing,3,120,none,18,60,0,no,no,electric potter's wheel|glazing|kiln firing|selling decor items,PM-VISHWAKARMA
+U7317,upskill,7317,handicraft,Bamboo Products and Furniture,3,150,none,18,60,0,no,no,bamboo treatment|furniture and decor|design|selling at fairs,PM-VISHWAKARMA
+U7313,upskill,7313,handicraft,Jewellery Making and Hallmarking Basics,4,300,upto_5th,18,50,0,yes,no,jewellery design|casting and polishing|hallmark rules|gem setting,PMKVY
+U5311,upskill,5311,care,Early Childhood Care Assistant,4,300,10th,18,45,0,yes,no,child growth and nutrition|pre-school activities|first aid|record keeping,PMKVY
+U5321,upskill,5321,care,General Duty Assistant (Patient Care),4,420,10th,18,45,0,yes,no,patient care|infection control|vital signs|hospital safety,PMKVY
+U3253,upskill,3253,care,Home Health Aide,4,300,10th,18,45,0,yes,no,home nursing care|mother and child care|first aid|health records,PMKVY
+U9112,upskill,9112,facility,Housekeeping Attendant (Hotels and Hospitals),3,240,upto_5th,18,45,0,yes,no,mechanised cleaning|chemical safety|room make-up|hygiene standards,DDU-GKY
+U9613,upskill,9613,facility,Sanitation Worker: Safe and Mechanised Cleaning,3,120,none,18,55,0,yes,no,safety gear and rules|cleaning machines|waste segregation|health protection,PM-AJAY-GIA
+U9111,upskill,9111,facility,Domestic Housekeeper and Cook,3,240,none,18,50,0,yes,no,housekeeping|cooking basics|elder and child care|workers' rights,PMKVY
+U5414,upskill,5414,facility,Unarmed Security Guard,4,240,upto_8th,18,45,0,yes,no,access control|fire safety|emergency response|reporting,DDU-GKY
+U9621,upskill,9621,logistics,Delivery Associate (E-commerce),3,200,upto_8th,18,40,0,yes,no,route planning with maps|cash and UPI collection|customer handling|two-wheeler safety,DDU-GKY
+U9329,upskill,9329,logistics,Warehouse Packer and Picker,3,200,upto_5th,18,40,0,yes,no,packing and labelling|scanner and inventory|forklift safety|quality checks,DDU-GKY
+U9333,upskill,9333,logistics,Warehouse Loader and Forklift Helper,3,160,none,18,45,0,yes,yes,safe lifting|forklift assistance|stacking|inventory basics,PMKVY
+U4132,upskill,4132,it_ites,Data Entry Operator and Office Software,4,300,12th,18,35,0,yes,no,fast typing in Hindi and English|spreadsheets|government portals|email and documents,DDU-GKY
+U4222,upskill,4222,it_ites,Customer Care Executive (Voice),4,300,12th,18,35,0,yes,no,call handling|CRM software|spoken English basics|complaint resolution,DDU-GKY
+R7531,certificate,7531,rpl,"RPL certificate: Tailor, dressmaker",3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7533,certificate,7533,rpl,RPL certificate: Embroidery worker,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7318,certificate,7318,rpl,RPL certificate: Handloom weaver,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7411,certificate,7411,rpl,RPL certificate: Building electrician,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7412,certificate,7412,rpl,RPL certificate: Motor winding and solar technician,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7127,certificate,7127,rpl,RPL certificate: AC and refrigeration mechanic,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7422,certificate,7422,rpl,RPL certificate: Mobile phone and ICT servicer,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7421,certificate,7421,rpl,RPL certificate: Electronics mechanic,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7231,certificate,7231,rpl,RPL certificate: Motor vehicle mechanic,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7233,certificate,7233,rpl,RPL certificate: Farm and industrial machinery mechanic,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R8322,certificate,8322,rpl,"RPL certificate: Car, taxi and van driver",2,12,none,18,60,0,no,no,,PMKVY-RPL
+R8332,certificate,8332,rpl,RPL certificate: Truck and bus driver,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7112,certificate,7112,rpl,"RPL certificate: Mason, bricklayer",3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7115,certificate,7115,rpl,RPL certificate: Carpenter,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7126,certificate,7126,rpl,RPL certificate: Plumber,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R9313,certificate,9313,rpl,RPL certificate: Building construction labourer,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7131,certificate,7131,rpl,RPL certificate: Painter,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7122,certificate,7122,rpl,RPL certificate: Tile and floor layer,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R8342,certificate,8342,rpl,RPL certificate: JCB and crane operator,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7212,certificate,7212,rpl,RPL certificate: Welder,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7214,certificate,7214,rpl,RPL certificate: Metal fabricator,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7221,certificate,7221,rpl,RPL certificate: Blacksmith,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7223,certificate,7223,rpl,RPL certificate: Lathe operator and fitter,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5141,certificate,5141,rpl,RPL certificate: Hairdresser,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5142,certificate,5142,rpl,RPL certificate: Beautician,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R6111,certificate,6111,rpl,RPL certificate: Vegetable and field crop grower,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R6113,certificate,6113,rpl,RPL certificate: Gardener and nursery grower,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R8341,certificate,8341,rpl,RPL certificate: Tractor and farm machine operator,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R6121,certificate,6121,rpl,RPL certificate: Livestock and dairy producer,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R6122,certificate,6122,rpl,RPL certificate: Poultry farmer,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R6222,certificate,6222,rpl,RPL certificate: Fish farmer and fisher,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7512,certificate,7512,rpl,"RPL certificate: Baker, confectioner",3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7514,certificate,7514,rpl,"RPL certificate: Pickle, papad and spice maker",2,12,none,18,60,0,no,no,,PMKVY-RPL
+R5120,certificate,5120,rpl,RPL certificate: Cook,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5131,certificate,5131,rpl,RPL certificate: Waiter,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5223,certificate,5223,rpl,RPL certificate: Shop sales assistant,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5211,certificate,5211,rpl,RPL certificate: Street and market vendor,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R5230,certificate,5230,rpl,RPL certificate: Cashier,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7536,certificate,7536,rpl,RPL certificate: Shoemaker and cobbler,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7535,certificate,7535,rpl,RPL certificate: Leather worker and tanner,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R7314,certificate,7314,rpl,RPL certificate: Potter,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7317,certificate,7317,rpl,RPL certificate: Bamboo and basket craft worker,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R7313,certificate,7313,rpl,RPL certificate: Goldsmith and jeweller,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5311,certificate,5311,rpl,RPL certificate: Child care and anganwadi helper,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R5321,certificate,5321,rpl,RPL certificate: Hospital and patient care assistant,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R3253,certificate,3253,rpl,RPL certificate: Community health worker (ASHA),3,12,none,18,60,0,no,no,,PMKVY-RPL
+R9112,certificate,9112,rpl,RPL certificate: Cleaner and housekeeping helper,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R9613,certificate,9613,rpl,RPL certificate: Sweeper and sanitation worker,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R9111,certificate,9111,rpl,RPL certificate: Domestic helper,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R5414,certificate,5414,rpl,RPL certificate: Security guard,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R9621,certificate,9621,rpl,RPL certificate: Delivery and courier worker,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R9329,certificate,9329,rpl,RPL certificate: Factory helper and packer,2,12,none,18,60,0,no,no,,PMKVY-RPL
+R4132,certificate,4132,rpl,RPL certificate: Computer and data entry operator,3,12,none,18,60,0,no,no,,PMKVY-RPL
+R4222,certificate,4222,rpl,RPL certificate: Call centre and customer care executive,3,12,none,18,60,0,no,no,,PMKVY-RPL
+V0001,startup,5141|7112|7115|7221|7313|7314|7317|7531|7536,vishwakarma,PM Vishwakarma basic training and toolkit,3,40,none,18,60,0,no,no,modern tools|digital payments|branding and selling|getting a loan,PM-VISHWAKARMA
+E0001,startup,*,entrepreneurship,Start Your Own Work (Entrepreneurship Development Programme),3,80,none,18,45,0,no,no,business plan|costing and pricing|bank loan papers|selling and customers,RSETI

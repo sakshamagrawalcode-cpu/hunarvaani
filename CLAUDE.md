@@ -27,11 +27,14 @@ options from a sample dataset and say them on the call.**
   (P30 "stay on the line" every 8 s, up to 90 s), **English translation feeds the search**,
   read-back offers **3 occupations** (1–3, next key = none), up to 3 tries (schema 07 →
   `init_db.py`; new prompts P30, P31, P32 → `render_prompts.py`) · Exotel exchange aligned
-  with the SIH bridge (1 s send-ahead, `clear` on every prompt/key, clear log lines for a wrong URL).
+  with the SIH bridge (1 s send-ahead, `clear` on every prompt/key, clear log lines for a wrong URL) ·
+  **A8 sample dataset** (`database/sample/`: 59 occupations, 115 courses, 124 centres in 31
+  districts, demand, schemes) · **A9 recommender** (`core/recommend.py`, top 3 with reasons + skill
+  gap; try `python scripts\recommend.py --occupation 7531 --pin 411001 …`).
 - **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
-  check `/console/`). Then A8 (sample NSQF dataset in
-  `database/sample/`), A9 recommender, A10 say options on the call, A11 console v2. Open question: demo region (proposed: Maharashtra + a few Hindi-belt
-  districts).
+  check `/console/`). Then **A10** say the top options on the call (after the summary, 1/2 =
+  interested, saved) and **A11** console v2 (options, reasons, skill gap). Demo region used:
+  Maharashtra + the Hindi-belt cities of the PIN table.
 - Blocked: outbound calls / callbacks (Exotel needs business KYC; the team has none).
 
 ## Links (no secrets here; secrets live only in the laptop's `.env`)
