@@ -1,16 +1,25 @@
 import hmac
 import logging
 import re
+import secrets
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 import psycopg
 import redis
-from fastapi import FastAPI, HTTPException, Request, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+)
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from apps.voice import calls
+from apps.voice import calls, calls_page
 from apps.voice.exotel import ExotelSession, PromptAudio
 from core import interview_store, plivo_sig
 from core.config import load_settings
@@ -167,3 +176,26 @@ async def exotel_status(token: str, request: Request):
     if sid:
         await run_in_threadpool(interview_store.provider_status, settings, sid, status)
     return PlainTextResponse("OK")
+
+
+_basic = HTTPBasic(auto_error=False)
+
+
+def _team_only(credentials: Annotated[HTTPBasicCredentials | None, Depends(_basic)]) -> None:
+    user, password = settings.calls_page_user, settings.calls_page_password
+    if not password:
+        raise HTTPException(503, "Set CALLS_PAGE_PASSWORD in .env to open the calls page")
+    ok = credentials is not None and (
+        secrets.compare_digest(credentials.username.encode(), user.encode())
+        and secrets.compare_digest(credentials.password.encode(), password.encode())
+    )
+    if not ok:
+        raise HTTPException(401, headers={"WWW-Authenticate": 'Basic realm="HunarVaani"'})
+
+
+@app.get("/calls", response_class=HTMLResponse, dependencies=[Depends(_team_only)])
+def calls_list():
+    return HTMLResponse(
+        calls_page.render(settings),
+        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"},
+    )

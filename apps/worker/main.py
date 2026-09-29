@@ -15,6 +15,8 @@ from core.timeutil import in_quiet_hours, ist_day, next_allowed, utcnow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s worker %(message)s")
 log = logging.getLogger("worker")
+for _noisy in ("httpx", "huggingface_hub", "sentence_transformers"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 DIALABLE = {"queued", "queued_quiet_hours"}
 

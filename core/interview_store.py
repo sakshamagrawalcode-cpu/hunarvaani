@@ -177,3 +177,11 @@ def provider_status(settings: Settings, provider_call_id: str, status: str) -> N
                 status="no_answer" if status != "failed" else "dial_failed",
                 ended_at=utcnow(),
             )
+
+
+def occupation_title(settings: Settings, code: str) -> str | None:
+    if not code:
+        return None
+    with store.connect(settings.database_url) as conn:
+        row = conn.execute("SELECT title_hi FROM nco WHERE nco_code = %s", (code,)).fetchone()
+    return row["title_hi"] if row else None

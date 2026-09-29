@@ -153,3 +153,15 @@ docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
 docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py
 ```
+
+## Closing summary and calls page (Step 10)
+
+Every completed interview ends with P15, rendered during the call from what was recorded
+("धन्यवाद। हमने लिखा है: दसवीं पास, मोबाइल मिस्त्री। … हुनरवाणी कभी पैसे या ओटीपी नहीं माँगता।"); if
+rendering fails the fixed P20 closing plays instead. Render P20 once with
+`python scripts\render_prompts.py`.
+
+The team's calls page is at `<PUBLIC_BASE_URL>/calls` (or `http://localhost:8000/calls`), behind
+basic auth with `CALLS_PAGE_USER` / `CALLS_PAGE_PASSWORD` from `.env`. It shows the latest 50 calls:
+answers, the caller's own words, the search's top two, the confirmed occupation, timings,
+consents and flags. Numbers show only their last four digits.

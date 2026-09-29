@@ -29,7 +29,8 @@ def test_happy_path_with_recording():
     assert action.prompts == ("P14",)
     action, effects = iv.on_key("2")
     assert effects[0].data == {"step": "trades", "key": "2", "value": "7531"}
-    assert action == Hangup() and iv.state == "ended"
+    assert action == Hangup(("P15",)) and iv.state == "ended"
+    assert (iv.education, iv.occupation) == ("10th", "7531")
 
 
 def test_language_menu_is_skipped_without_a_second_language():
@@ -148,7 +149,7 @@ def test_confident_story_reads_back_two_occupations():
     assert action.step == "readback" and action.prompts == ("DYN:aa11bb22",)
     assert effects[0].data["top1"] == "7531"
     action, effects = iv.on_key("2")
-    assert action == Hangup()
+    assert action == Hangup(("P15",)) and iv.occupation == "7411"
     assert effects[0].data == {"key": "2", "confirmed": "7411", "candidates": ["7531", "7411"]}
     assert effects[1].data == {"step": "occupation", "key": "2", "value": "7411"}
 
@@ -176,3 +177,11 @@ def test_unconfident_story_goes_to_the_trade_list():
     _story(iv)
     action, effects = iv.on_recording("/r.wav", 5, [], None, {"top1": "5142"})
     assert action.prompts == ("P14",) and kinds(effects) == ["story_recorded"]
+
+
+def test_skipped_trade_list_still_ends_with_the_summary():
+    iv = Interview()
+    run(iv, ["1", "1", "2", "1", "1", "3", "3", "2"])
+    iv.on_timeout()
+    action, effects = iv.on_timeout()
+    assert action == Hangup(("P15",)) and iv.occupation == "" and kinds(effects) == ["skipped"]

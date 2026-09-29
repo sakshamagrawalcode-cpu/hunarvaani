@@ -436,3 +436,91 @@ def test_logs_hide_the_exotel_token():
     )
     main._HideTokens().filter(record)
     assert TOKEN not in record.getMessage() and "/exotel/ws/<token>" in record.getMessage()
+
+
+@pytest.fixture
+def fake_tts(monkeypatch, audio_dir):
+    from apps.voice import exotel
+
+    spoken = []
+
+    def ensure(text, language, api_key, speaker, folder):
+        spoken.append(text)
+        (folder / "dyn").mkdir(exist_ok=True)
+        with wave.open(str(folder / "dyn" / "aaaabbbbccccdddd11112222.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(8000)
+            w.writeframes(b"\x00\x00" * 400)
+        return "DYN:aaaabbbbccccdddd11112222"
+
+    monkeypatch.setattr(exotel.dynprompt, "ensure", ensure)
+    return spoken
+
+
+def _seed_titles():
+    with psycopg.connect(DB, autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO nco (nco_code, title_en, title_hi, aliases) VALUES "
+            "('7422', 'Mobile', 'मोबाइल मिस्त्री', 'mobile') ON CONFLICT DO NOTHING"
+        )
+
+
+def test_call_ends_with_the_spoken_summary(client, settings, fake_tts):
+    _seed_titles()
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P14")
+        p.press("5")
+        p.hear("DYN:aaaabbbbccccdddd11112222")
+        p.until_hangup()
+    [text] = fake_tts
+    assert "दसवीं पास, मोबाइल मिस्त्री" in text and "ओटीपी" in text
+    [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'summary'")
+    assert payload["text"] == text
+
+
+def test_summary_falls_back_to_p20_when_tts_fails(client, settings, monkeypatch):
+    from apps.voice import exotel
+
+    def broken(*a, **k):
+        raise RuntimeError("sarvam down")
+
+    monkeypatch.setattr(exotel.dynprompt, "ensure", broken)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P14")
+        p.press("2")
+        p.hear("P20")
+        p.until_hangup()
+    assert rows("SELECT status FROM call") == [("completed",)]
+
+
+def test_calls_page_needs_the_password_and_hides_numbers(client, settings, monkeypatch):
+    import dataclasses
+
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, calls_page_password="pw"))
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        p.hear("P01")
+        ws.close()
+    with psycopg.connect(DB, autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO story (call_id, transcript) "
+            "SELECT id, '<script>alert(1)</script>' FROM call"
+        )
+    assert client.get("/calls").status_code == 401
+    assert client.get("/calls", auth=("admin", "wrong")).status_code == 401
+    r = client.get("/calls", auth=("admin", "pw"))
+    assert r.status_code == 200
+    assert "xxxxxx3210" in r.text and "9876543210" not in r.text
+    assert "<script>alert(1)</script>" not in r.text and "&lt;script&gt;" in r.text
+
+
+def test_calls_page_is_closed_without_a_password(client, settings):
+    assert client.get("/calls", auth=("admin", "")).status_code == 503

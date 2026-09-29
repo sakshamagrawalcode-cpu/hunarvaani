@@ -24,6 +24,7 @@ from core import dynprompt, interview_store, story_job
 from core.config import Settings
 from core.dialogue.flow import Ask, Hangup, Interview
 from core.dialogue.prompts import audio_dir_name
+from core.dialogue.summary import summary_text
 from core.phone import last4
 
 with warnings.catch_warnings():
@@ -267,6 +268,27 @@ class ExotelSession:
         pcm, self.recording = bytes(self.recording), None
         return pcm, hung_up, why
 
+    async def _summary(self, call_id: str, engine: Interview) -> tuple[str, ...]:
+        """Render P15 with what we wrote down; fall back to the fixed P20 if that fails."""
+        try:
+            title = await run_in_threadpool(
+                interview_store.occupation_title, self.settings, engine.occupation
+            )
+            text = summary_text(engine.language, engine.education, title)
+            pid = await run_in_threadpool(
+                dynprompt.ensure,
+                text,
+                engine.language,
+                self.settings.sarvam_api_key,
+                self.settings.sarvam_speaker,
+                self.audio.dir,
+            )
+            await self._log(call_id, "summary", {"text": text})
+            return (pid,)
+        except Exception as exc:
+            log.warning("call %s: summary not rendered (%s); using P20", call_id[:8], exc)
+            return ("P20",)
+
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
         """Hand the story to the worker, play the 'one moment' filler, wait for the answer."""
         loop = asyncio.get_running_loop()
@@ -277,6 +299,8 @@ class ExotelSession:
             story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
         )
         waited = loop.time() - started
+        if result is not None:
+            result["wait_ms"] = int(waited * 1000)
         if result is None:
             log.info(
                 "call %s: no search result after %.1f s; using the trade list", call_id[:8], waited
@@ -332,8 +356,11 @@ class ExotelSession:
             while True:
                 self.language = engine.language
                 if isinstance(action, Hangup):
-                    log.info("call %s: goodbye %s", short, "+".join(action.prompts) or "(silent)")
-                    await self._sleep_unless_ended(await self.play(action.prompts) + 0.5)
+                    prompts = action.prompts
+                    if "P15" in prompts:
+                        prompts = await self._summary(call_id, engine)
+                    log.info("call %s: goodbye %s", short, "+".join(prompts) or "(silent)")
+                    await self._sleep_unless_ended(await self.play(prompts) + 0.5)
                     break
                 if isinstance(action, Ask):
                     log.info(
@@ -365,6 +392,7 @@ class ExotelSession:
                     "top2": scores[1]["code"] if len(scores) > 1 else None,
                     "stt_ms": result.get("stt_ms"),
                     "search_ms": result.get("search_ms"),
+                    "wait_ms": result.get("wait_ms"),
                     "scores": scores,
                     "error": result.get("error"),
                 }

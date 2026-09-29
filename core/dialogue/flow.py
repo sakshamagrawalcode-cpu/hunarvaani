@@ -84,6 +84,8 @@ class Interview:
     language: str = "hi-IN"
     readback_prompt: str = ""
     candidates: list[str] = field(default_factory=list)
+    education: str = ""
+    occupation: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -137,6 +139,10 @@ class Interview:
             if digit not in options:
                 return self._invalid()
             step = self.state
+            if step == "q_education":
+                self.education = options[digit]
+            elif step == "trades":
+                self.occupation = options[digit]
             effect = Effect("answer", {"step": step, "key": digit, "value": options[digit]})
             return self._after_question(step), [effect]
 
@@ -182,6 +188,7 @@ class Interview:
         if choice is None or choice >= len(self.candidates):
             return self._invalid()
         code = self.candidates[choice]
+        self.occupation = code
         return self._goto("summary"), [
             Effect("readback", {"key": digit, "confirmed": code, "candidates": self.candidates}),
             Effect("answer", {"step": "occupation", "key": digit, "value": code}),
@@ -224,7 +231,7 @@ class Interview:
             return self._goto("consent_recording")
         if state == "summary":
             self.state = "ended"
-            return Hangup()
+            return Hangup(("P15",))
         return self._action()
 
     def _action(self, prefix: tuple[str, ...] = ()) -> Action:
