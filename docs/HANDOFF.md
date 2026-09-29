@@ -1,6 +1,7 @@
 # HunarVaani: project handoff (status, plan, how it works)
 
-Last updated: 29 Sep 2026, after the code review fixes (commit `a22910d`), starting Step 11.
+Last updated: 29 Sep 2026, after the code review fixes (commits `a22910d`–`cb3b546`), starting
+Step 11.
 Read this first if you are a new teammate or a new Claude chat picking up the work.
 
 ---
@@ -40,8 +41,9 @@ It was designed for Smart India Hackathon by **Team Cognify** (IIIT Vadodara). T
 | Public URL (dev) | Cloudflare quick tunnel (`https://<random>.trycloudflare.com`), **changes on every restart** |
 
 **Secrets live only in `.env` on the laptop** (never in git, never in chat): `SARVAM_API_KEY`,
-`PHONE_HASH_SECRET`, `PHONE_ENC_KEY`, `EXOTEL_WS_TOKEN`, `CALLS_PAGE_PASSWORD`, and (still empty)
-`EXOTEL_SID / EXOTEL_API_KEY / EXOTEL_API_TOKEN / EXOTEL_CALLER_ID / EXOTEL_APP_ID`.
+`PHONE_HASH_SECRET`, `PHONE_ENC_KEY`, `EXOTEL_WS_TOKEN`, `CALLS_PAGE_PASSWORD`, and
+`EXOTEL_SID / EXOTEL_API_KEY / EXOTEL_API_TOKEN / EXOTEL_CALLER_ID / EXOTEL_APP_ID` (filled; the
+worker logs "placing callbacks via exotel").
 `scripts/gen_secrets.py` fills the generated ones.
 
 ---
@@ -174,7 +176,9 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 | 8b | Recording stops on silence; per-call logs; `show_call.py` | `49d145a`, `c9f3af8` |
 | 9 | Story → Sarvam STT → occupation search → spoken read-back (P13) | `ff5e1d6`, `279c8d2` |
 | 10 | Spoken summary (P15/P20); `/calls` page | `1c092b7` |
-| Review | 9 also deletes recordings; slow stories keep their transcript (worker saves it); "नई" no longer read back as नाई; callback matched by number if Exotel's call id differs | `a22910d` |
+| Review | 9 also deletes recordings; slow stories keep their transcript (worker saves it); "नई" no longer read back as नाई; callback matched by number if Exotel's call id differs; no shared "unknown" hash | `a22910d` |
+| Review | `init_db.py` safe to re-run again (it failed on every re-run since Step 8) | `d393857` |
+| Review | Simulator speaks in real time after the beep (simulated stories used to be dropped), skips P17 | `cb3b546` |
 
 **Measured so far:**
 - Real Exotel calls: prompts play, keys work, story recorded.
@@ -191,7 +195,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 
 | Check | Status |
 |---|---|
-| Missed call → callback within 30 s, caller not charged | ⏳ Needs a dedicated ExoPhone (trial asks for a PIN, the call is answered). Callback API untested: fill Exotel API keys, run `python scripts\exotel_call_me.py <number>` |
+| Missed call → callback within 30 s, caller not charged | ⏳ Needs a dedicated ExoPhone (trial asks for a PIN, the call is answered). Callback API: keys are filled; run `python scripts\exotel_call_me.py <number>` and check the `answered` event's `matched_by` (`call_id` or `number`) with `show_call.py` |
 | Silence at opening → P02; 9 blocks; blocked number gets no callback | ✅ code + tests; ⏳ confirm on a real call |
 | Language, consents, answers saved with keys and timestamps | ✅ (real calls) |
 | No to recording → keypad trade list | ✅ tests; ⏳ real call |
@@ -278,7 +282,8 @@ docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_
 
 Troubleshooting: "failed to connect to the docker API" → start Docker Desktop. No logs during a
 call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. `show_call.py` not found →
-`up -d --build`. Simulator: answer within 8 s.
+`up -d --build`. Simulator: answer within 8 s; at P12 give seconds to "speak" (a tone, so the
+story has no words and the trade list follows).
 
 ---
 

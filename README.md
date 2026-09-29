@@ -115,8 +115,9 @@ Integration tests use a throwaway Postgres and Redis:
 
 The keypad interview lives in `core/dialogue/flow.py`, a provider-neutral state machine
 (opening → safe to talk → language → 3 consents → education, travel, preference → work story
-or trade list → end). Global keys: 9 deletes the caller's data and blocks the number, 0 flags
-the call for a human (P19). Timeouts and wrong keys repeat once with P16, then skip.
+or trade list → end). Global keys: 9 deletes the caller's data (rows and story recordings) and
+blocks the number, 0 flags the call for a human (P19). Timeouts and wrong keys repeat once with
+P16, then skip.
 
 Exotel runs it through the **Voicebot** applet: one two-way WebSocket per call at
 `wss://<public address>/exotel/ws/<EXOTEL_WS_TOKEN>`. Callbacks use Exotel's
@@ -144,7 +145,8 @@ no speech, or 60 s. The api plays P17 ("एक पल रुकिए") and queu
 which transcribes it with Sarvam Saaras (≤28 s pieces), searches the 16 occupations
 (alias + BM25 + multilingual-e5 cosine), and renders P13 with Bulbul. If the answer arrives within
 `STORY_WAIT_SECONDS` and the best score is ≥ 0.35, the caller hears the top two and confirms with
-1 or 2 (3 = neither → trade list). Every read-back answer is stored as a labelled pair.
+1 or 2 (3 = neither → trade list). Every read-back answer is stored as a labelled pair. The worker
+also saves the transcript itself, so a story that takes longer than the wait is not lost.
 
 After pulling this step, re-seed the occupations (new Hindi aliases) and rebuild:
 
