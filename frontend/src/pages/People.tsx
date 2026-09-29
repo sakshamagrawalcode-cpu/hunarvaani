@@ -28,6 +28,7 @@ export default function People() {
                 <th className={th}>Education</th>
                 <th className={th}>Can travel</th>
                 <th className={th}>Physical</th>
+                <th className={th}>District</th>
                 <th className={th}>Wants</th>
                 <th className={th}>Occupation</th>
               </tr>
@@ -50,6 +51,7 @@ export default function People() {
                   <td className={td}>{value(p.answers.q_education)}</td>
                   <td className={td}>{value(p.answers.q_travel)}</td>
                   <td className={td}>{value(p.answers.q_physical)}</td>
+                  <td className={td}>{value(p.answers.q_district)}</td>
                   <td className={td}>{value(p.answers.q_lean)}</td>
                   <td className={td}>{occupationName(p.occupation)}</td>
                 </tr>

@@ -268,6 +268,30 @@ class ExotelSession:
             await self.stop_playback()
         return key
 
+    async def ask_digits(self, action: Ask) -> str | None:
+        """Collect up to `action.digits` keys, ended by # (or a * pressed first to skip).
+
+        Returns None when nothing was pressed in time; a half-typed entry is returned as it is
+        (the interview then asks again).
+        """
+        self._drain_keys()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + await self.play(action.prompts) + action.timeout
+        entry = ""
+        while True:
+            key = await self._wait_key(deadline - loop.time())
+            if key is None:
+                return entry or None
+            if not entry:
+                await self.stop_playback()
+            if key == "#" or (key == "*" and not entry):
+                return key if key == "*" else entry
+            if key.isdigit():
+                entry += key
+                if len(entry) >= action.digits:
+                    return entry
+            deadline = loop.time() + action.timeout
+
     async def record(self, action) -> tuple[bytes, bool, str]:
         """Record until #, silence after speech, no speech at all, or the time limit.
 
@@ -453,15 +477,18 @@ class ExotelSession:
                         "call %s: asking %s (%s)", short, action.step, "+".join(action.prompts)
                     )
                     await self._say(call_id, action.step, action.prompts)
-                    key = await self.ask(action)
+                    key = await (self.ask_digits(action) if action.digits else self.ask(action))
                     if key is None:
                         log.info("call %s: %s timed out", short, action.step)
                         await self._log(call_id, "timeout", {"step": action.step})
                         action, effects = engine.on_timeout()
                     else:
-                        log.info("call %s: %s key %s", short, action.step, key)
+                        shown = f"{len(key)} digits" if action.digits else f"key {key}"
+                        log.info("call %s: %s %s", short, action.step, shown)
                         await self._log(call_id, "key", {"step": action.step, "digit": key})
-                        action, effects = engine.on_key(key)
+                        action, effects = (
+                            engine.on_digits(key) if action.digits else engine.on_key(key)
+                        )
                     await self._apply(call_id, effects)
                     continue
                 await self._say(call_id, action.step, action.prompts, beep=True)

@@ -6,7 +6,7 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
-from core import callbacks, store, story_job
+from core import callbacks, geo, store, story_job
 from core.config import Settings
 from core.dialogue.flow import Effect
 from core.dialogue.prompts import PROMPTS, local_title
@@ -105,8 +105,15 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
     if e.kind == "answer":
         conn.execute(
             "INSERT INTO answer (call_id, step, key_pressed, value) VALUES (%s, %s, %s, %s)",
-            (call_id, e.data["step"], e.data["key"], e.data["value"]),
+            (call_id, e.data["step"], e.data["key"] or None, e.data["value"]),
         )
+        if e.data["step"] == "q_pin":  # the PIN code also gives a district (sample table)
+            row = geo.district_for_pin(e.data["value"])
+            conn.execute(
+                "INSERT INTO answer (call_id, step, key_pressed, value) "
+                "VALUES (%s, 'q_district', NULL, %s)",
+                (call_id, row["district_code"] if row else geo.UNKNOWN),
+            )
     elif e.kind == "skipped":
         conn.execute(
             "INSERT INTO answer (call_id, step, key_pressed, value) "

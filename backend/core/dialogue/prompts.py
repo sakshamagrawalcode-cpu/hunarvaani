@@ -97,6 +97,11 @@ PROMPTS: dict[str, dict[str, str]] = {
             " ख़ास महिलाओं के लिए होती हैं, इसलिए यह भी पूछेंगे कि आप महिला हैं या पुरुष।"
         ),
         "P29": "माफ़ कीजिए, यह बटन इस सवाल के लिए नहीं है। कृपया फिर से सुनिए।",
+        "P30": (
+            "आपके इलाके का छह अंकों का पिन कोड क्या है? इससे हम आपके पास की ट्रेनिंग ढूँढ़ पाएँगे। "
+            "पिन कोड दबाइए, और फिर हैश का बटन दबाइए। पिन कोड याद नहीं, तो स्टार दबाइए।"
+        ),
+        "P31": "माफ़ कीजिए, यह पिन कोड सही नहीं लगा। कृपया छह अंकों का पिन कोड फिर से दबाइए।",
     },
     "en-IN": {
         "P01": (
@@ -195,6 +200,12 @@ PROMPTS: dict[str, dict[str, str]] = {
             "or a man."
         ),
         "P29": "Sorry, that key is not one of the options. Please listen again.",
+        "P30": (
+            "What is the six-digit PIN code of your area? This helps us find training near you. "
+            "Press the PIN code, and then press the hash key. If you do not remember it, "
+            "press star."
+        ),
+        "P31": "Sorry, that PIN code does not look right. Please press the six digits again.",
     },
     "mr-IN": {
         "P01": (
@@ -290,6 +301,11 @@ PROMPTS: dict[str, dict[str, str]] = {
             "विचारू."
         ),
         "P29": "माफ करा, हे बटण या प्रश्नासाठी नाही. कृपया पुन्हा ऐका.",
+        "P30": (
+            "तुमच्या भागाचा सहा अंकी पिन कोड कोणता आहे? यामुळे आम्हाला तुमच्या जवळचे प्रशिक्षण "
+            "शोधता येईल. पिन कोड दाबा आणि नंतर हॅशचे बटण दाबा. पिन कोड आठवत नसेल, तर स्टार दाबा."
+        ),
+        "P31": "माफ करा, हा पिन कोड बरोबर वाटत नाही. कृपया सहा अंकी पिन कोड पुन्हा दाबा.",
     },
 }
 

@@ -99,13 +99,14 @@ has its own README.
 | `backend/core/stt.py`, `tts.py`, `dynprompt.py` | Sarvam speech-to-text / text-to-speech, cached generated prompts |
 | `backend/core/story_job.py` | Worker job: transcribe → search → render "you said" + read-back (in parallel) |
 | `backend/core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
+| `backend/core/geo.py` | PIN code → district (first 3 digits, sample table) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 263 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 277 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
-| `database/sample/` | Sample recommendation data (A8) |
+| `database/sample/` | Sample data: `pin_districts.csv` (A7), recommendation data (A8) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
 
 ---
@@ -123,7 +124,7 @@ flowchart TD
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
     P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: use without name/number to train our AI"]
     P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
-    P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P11["P11 job / own work / unsure"]
+    P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P30["P30 PIN code: 6 digits (# to end, * to skip)"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 अपने शब्दों में काम बताइए<br/>(stops on silence, # or 60 s)"]
     P11 -- "recording = no" --> P14
     P12 --> P17["P17 धन्यवाद, एक पल रुकिए…<br/>worker: Sarvam STT → search → TTS"]
@@ -139,7 +140,9 @@ flowchart TD
     P15 --> END([hang up])
 ```
 
-**Anywhere in a menu:** `9` = delete all my data (calls, answers, recordings) + block my number
+**PIN code (P30):** the caller types the 6 digits (they end by themselves; `#` ends early, `*` skips). Too short or wrong → P31 and once more, then skipped. The first 3 digits give the district from `database/sample/pin_districts.csv` (approximate sample table); saved as answers `q_pin` and `q_district`. While typing the PIN, 9 and 0 are ordinary digits (they do not delete or flag).
+
+**Anywhere in a menu (except while typing the PIN):** `9` = delete all my data (calls, answers, recordings) + block my number
 (P18, hang up); `0` = flag the call for a human officer (P19) and repeat the question.
 **No key:** P16 "माफ़ कीजिए, हमें आपका जवाब नहीं मिला…"; **wrong key:** P29 "माफ़ कीजिए, यह बटन इस सवाल
 के लिए नहीं है…"; then the question once more, then it is recorded as `skipped` and the call moves
@@ -217,6 +220,7 @@ The console shows both tries.
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
 | B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English shown in the console); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
+| A7 | **District from the PIN code**: P30/P31 in 3 languages, digit-collecting `Ask.digits` + `Interview.on_digits`, `core/geo.py` + `database/sample/pin_districts.csv` (Maharashtra + Hindi-belt, 3-digit prefixes), console shows District | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -225,7 +229,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 263 automated tests pass (1 skipped where ffmpeg is missing).
+- 277 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -253,7 +257,7 @@ hours, the rest is testing on real calls.
 | A4 | 59 occupations | better matching of what callers say | Claude | — | ✅ `710657e` |
 | A5 | Team console v1 | calls, call detail, people, occupations | Claude | — | ✅ `44dd869` |
 | A6 | **Test A1–A5 on real calls** | prompts already rendered (needs Sarvam credits for calls), rebuild, 3 calls (one per language), check the console | You | 0.5 day | ⏳ next |
-| A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ☐ |
+| A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ✅ (needs `render_prompts.py` for P30, P31) |
 | A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ☐ |
 | A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ☐ |
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ☐ |
