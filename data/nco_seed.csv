@@ -1,7 +1,7 @@
 nco_code,title_en,title_hi,title_mr,aliases
 7531,"Tailor, dressmaker",दर्ज़ी,शिंपी,silai | darzi | tailor | kapde silna | blouse | suit | tailoring | stitching | garment | सिलाई | दर्जी | कपड़े सिलना | ब्लाउज | सूट | टेलर | सिलाई मशीन | कपड़े | सिलती | सिलता | सीती | कपड़े सीना | stitch | sew | sewing | clothes | dress | शिंपी | शिवणकाम | शिवण | शिवते | शिवतो | कपडे शिवणे | ड्रेस
 7411,Building electrician,बिजली मिस्त्री,इलेक्ट्रिशियन,bijli | wiring | electrician | switch board | fitting | बिजली | वायरिंग | इलेक्ट्रीशियन | स्विच बोर्ड | बिजली मिस्त्री | बिजली का काम | electrical | electric | wireman | वीजकाम | वायरमन | इलेक्ट्रिशियन | वीज
-7233,Farm and industrial machinery mechanic,मशीन और पंप मिस्त्री,पंप आणि मशीन मेकॅनिक,pump | motor pump | water motor | tractor repair | machine theek | पंप | मोटर | ट्रैक्टर | मशीन ठीक | ट्रैक्टर रिपेयर | machine repair | pump repair | ट्रॅक्टर | मशीन दुरुस्ती | पंप दुरुस्ती
+7233,Farm and industrial machinery mechanic,मशीन और पंप मिस्त्री,पंप आणि मशीन मेकॅनिक,pump | motor pump | water motor | tractor repair | machine theek | पंप | मोटर | मशीन ठीक | ट्रैक्टर रिपेयर | machine repair | pump repair | मशीन दुरुस्ती | पंप दुरुस्ती
 7422,Mobile phone and ICT servicer,मोबाइल मिस्त्री,मोबाईल मेकॅनिक,mobile repair | phone theek | screen | charging | मोबाइल | फोन ठीक | स्क्रीन | चार्जिंग | मोबाइल रिपेयर | phone repair | mobile phones | मोबाईल | मोबाईल दुरुस्ती | फोन दुरुस्ती
 7112,"Mason, bricklayer",राजमिस्त्री,गवंडी,mistri | chinai | int | plaster | raj mistri | rajmistri | masonry | building work | मिस्त्री | चिनाई | ईंट | प्लास्टर | राज मिस्त्री | राजमिस्त्री | mason | bricks | brick | गवंडी | गवंडीकाम | वीट | विटा
 7115,Carpenter,बढ़ई,सुतार,badhai | lakdi | furniture | carpenter | बढ़ई | लकड़ी | फर्नीचर | कारपेंटर | wood | woodwork | सुतार | सुतारकाम | लाकूड | फर्निचर
@@ -15,3 +15,46 @@ nco_code,title_en,title_hi,title_mr,aliases
 9313,Building construction labourer,निर्माण मज़दूर,बांधकाम मजूर,construction | site | beldari | कंस्ट्रक्शन | साइट | बेलदारी | construction work | construction site | labourer | बांधकाम | बिगारी
 7512,"Baker, confectioner",हलवाई,हलवाई,halwai | mithai | bakery | हलवाई | मिठाई | बेकरी | sweets | sweet shop | baker | मिठाईचं दुकान
 5223,Shop sales assistant,दुकान सहायक,दुकान सहाय्यक,dukaan | counter | bikri | shop sales | retail helper | दुकान | काउंटर | बिक्री | shop | sales | shop work | दुकानात | विक्री
+6111,Vegetable and field crop grower,सब्ज़ी और फसल उगाने वाले किसान,भाजीपाला आणि पीक उत्पादक शेतकरी,vegetable farming | growing vegetables | own farm | own land | apni zameen | sabzi ugana | सब्ज़ी उगाना | सब्जी की खेती | अपनी ज़मीन | अपने खेत | भाजीपाला | भाजी पिकवणे | स्वतःची शेती
+6113,Gardener and nursery grower,माली,माळी,gardener | gardening | nursery | plants | mali | बागवानी | माली | नर्सरी | पौधे | बाग | माळी | रोपवाटिका | बागकाम
+6122,Poultry farmer,मुर्गी पालक,कुक्कुटपालक,poultry | poultry farm | chicken farm | hens | murgi palan | मुर्गी पालन | मुर्गियां | मुर्गी | अंडे | कोंबडी | कोंबड्या | कुक्कुटपालन | अंडी
+6222,Fish farmer and fisher,मछुआरा,मच्छीमार,fishing | fish farming | fish | fisherman | machhli | मछली | मछली पालन | मछली पकड़ना | मछुआरा | मासे | मासेमारी | मत्स्यपालन | मच्छीमार
+6210,Forest produce collector,वन उपज संग्रहकर्ता,वनोपज गोळा करणारे,forest produce | tendu leaves | mahua | jungle | वन उपज | तेंदू पत्ता | महुआ | जंगल | लकड़ी बीनना | जंगलातून | मोहफुले | तेंदूपत्ता | वनोपज
+7318,Handloom weaver,बुनकर,विणकर,weaver | weaving | handloom | loom | bunkar | बुनकर | बुनाई | हथकरघा | करघा | साड़ी बुनना | विणकर | विणकाम | हातमाग
+7536,Shoemaker and cobbler,मोची,चांभार,cobbler | shoemaker | shoe repair | shoes | mochi | मोची | जूते | जूता | चप्पल | जूते बनाना | जूते सिलना | जूता पॉलिश | चांभार | चप्पल शिवणे | बूट
+7535,Leather worker and tanner,चमड़ा कारीगर,चर्मकार,leather | tanning | leather work | hides | chamda | चमड़ा | चमड़े का काम | खाल | चर्मकार | चामडे | चामड्याचं काम
+7314,Potter,कुम्हार,कुंभार,potter | pottery | clay pots | kumhar | कुम्हार | मिट्टी के बर्तन | मटके | मटका | दीये | कुंभार | मातीची भांडी | मडकी
+7317,Bamboo and basket craft worker,बांस कारीगर,बांबू कारागीर,bamboo | basket | baskets | cane | बांस | टोकरी | टोकरियां | चटाई | बांबू | टोपली | टोपल्या | बुरुड
+7533,Embroidery worker,कढ़ाई कारीगर,भरतकाम कारागीर,embroidery | zari | zardozi | crochet | kadhai | कढ़ाई | ज़री | जरदोजी | चिकनकारी | भरतकाम | जरीकाम
+7212,Welder,वेल्डर,वेल्डर,welder | welding | gas welding | arc welding | वेल्डिंग | वेल्डर | गैस वेल्डिंग
+7214,Metal fabricator,फैब्रिकेशन कारीगर,फॅब्रिकेशन कारागीर,fabrication | grill | gate making | steel fabrication | फैब्रिकेशन | ग्रिल | लोहे का गेट | ग्रील | फॅब्रिकेशन | लोखंडी गेट
+7221,Blacksmith,लोहार,लोहार,blacksmith | lohar | iron tools | लोहार | लोहे के औज़ार | लोहारकाम | अवजारे
+7223,Lathe operator and fitter,खराद मशीन ऑपरेटर,लेथ मशीन ऑपरेटर,lathe | turner | fitter | cnc | machinist | खराद | लेथ | फिटर | टर्नर | सीएनसी | लेथ मशीन
+7131,Painter,पेंटर,रंगारी,painter | house painting | wall painting | पेंटर | पुताई | रंगाई पुताई | दीवार पेंट | रंगारी | रंगकाम | भिंती रंगवणे
+7122,Tile and floor layer,टाइल मिस्त्री,टाइल्स कारागीर,tiles | tile fitting | flooring | marble | टाइल | टाइल्स | फर्श | मार्बल | संगमरमर | फरशी | टाईल्स
+7127,AC and refrigeration mechanic,एसी फ्रिज मिस्त्री,एसी फ्रीज मेकॅनिक,ac repair | air conditioner | refrigerator | fridge | cooler repair | एसी | फ्रिज | कूलर | एसी रिपेयर | फ्रीज | एसी दुरुस्ती
+7421,Electronics mechanic,इलेक्ट्रॉनिक्स मिस्त्री,इलेक्ट्रॉनिक्स मेकॅनिक,tv repair | television | electronics | radio | टीवी | टीवी रिपेयर | इलेक्ट्रॉनिक | इलेक्ट्रॉनिक्स | टीव्ही | टीव्ही दुरुस्ती
+7412,Motor winding and solar technician,मोटर वाइंडिंग और सोलर मिस्त्री,मोटर वाइंडिंग आणि सोलर तंत्रज्ञ,motor winding | rewinding | solar panel | solar | सोलर | सोलर पैनल | मोटर वाइंडिंग | वाइंडिंग | सौर | सोलर पॅनल
+5120,Cook,रसोइया,स्वयंपाकी,cook | cooking | chef | catering | dhaba | khana banana | रसोइया | खाना बनाना | खाना बनाती | खाना बनाता | कुक | ढाबा | कैटरिंग | स्वयंपाक | आचारी | केटरिंग
+5131,Waiter,वेटर,वेटर,waiter | restaurant | hotel work | serving | वेटर | होटल में काम | रेस्टोरेंट | हॉटेलमध्ये काम | हॉटेल
+9112,Cleaner and housekeeping helper,सफ़ाई और हाउसकीपिंग सहायक,साफसफाई आणि हाउसकीपिंग मदतनीस,housekeeping | cleaning | office boy | cleaner | सफाई | हाउसकीपिंग | ऑफिस बॉय | झाड़ू पोछा | पोछा | साफसफाई | स्वच्छता
+9613,Sweeper and sanitation worker,सफ़ाई कर्मचारी,सफाई कामगार,sweeper | sanitation | municipal cleaning | safai karmachari | सफाई कर्मचारी | झाड़ू लगाना | नगर पालिका | कचरा | नाली सफाई | झाडू | कचरा गोळा करणे | नगरपालिका
+9111,Domestic helper,घरेलू कामगार,घरकाम करणारी,domestic work | maid | house help | housework | घरेलू काम | कामवाली | बर्तन धोना | बर्तन मांजना | घरकाम | धुणीभांडी | मोलकरीण
+5311,Child care and anganwadi helper,आंगनवाड़ी और बाल देखभाल,अंगणवाडी आणि बालसंगोपन,anganwadi | child care | creche | babysitting | आंगनवाड़ी | बच्चों की देखभाल | अंगणवाडी | पाळणाघर | बालसंगोपन
+5321,Hospital and patient care assistant,अस्पताल सहायक,रुग्णालय सहाय्यक,hospital | patient care | ward boy | nursing assistant | caregiver | अस्पताल | मरीज़ | मरीजों की देखभाल | वार्ड बॉय | नर्सिंग | बुजुर्गों की देखभाल | दवाखाना | रुग्णालय | रुग्णसेवा
+3253,Community health worker (ASHA),आशा कार्यकर्ता,आशा सेविका,asha worker | community health | आशा वर्कर | आशा दीदी | आशा कार्यकर्ता | आशा सेविका
+5414,Security guard,सिक्योरिटी गार्ड,सुरक्षा रक्षक,security guard | watchman | guard | chowkidar | सिक्योरिटी | गार्ड | चौकीदार | वॉचमैन | सुरक्षा रक्षक | वॉचमन
+9621,Delivery and courier worker,डिलीवरी बॉय,डिलिव्हरी बॉय,delivery | courier | parcel | delivery boy | swiggy | zomato | डिलीवरी | कूरियर | पार्सल | डिलिव्हरी | कुरिअर
+8332,Truck and bus driver,ट्रक ड्राइवर,ट्रक ड्रायव्हर,truck | truck driver | bus driver | heavy vehicle | lorry | ट्रक | बस चलाना | ट्रक चलाना | भारी वाहन | ट्रक चालक | बस ड्रायव्हर
+8341,Tractor and farm machine operator,ट्रैक्टर चालक,ट्रॅक्टर चालक,tractor driver | tractor driving | harvester | ट्रैक्टर चलाना | ट्रैक्टर चालक | हार्वेस्टर | ट्रैक्टर ड्राइवर | ट्रॅक्टर चालवणे
+8342,JCB and crane operator,जेसीबी ऑपरेटर,जेसीबी ऑपरेटर,jcb | earth mover | crane operator | जेसीबी | क्रेन | पोकलेन
+4132,Computer and data entry operator,कंप्यूटर ऑपरेटर,संगणक ऑपरेटर,computer operator | data entry | typing | ms office | कंप्यूटर | डाटा एंट्री | टाइपिंग | कॉम्प्युटर | संगणक
+4222,Call centre and customer care executive,कॉल सेंटर कर्मचारी,कॉल सेंटर कर्मचारी,call centre | call center | bpo | customer care | telecalling | कॉल सेंटर | कस्टमर केयर | टेलीकॉलिंग
+5211,Street and market vendor,ठेला और फेरी विक्रेता,फेरीवाला,street vendor | hawker | cart | market stall | thela | ठेला | रेहड़ी | फेरी | सब्ज़ी बेचना | फल बेचना | फेरीवाला | हातगाडी | भाजी विकणे | बाजारात विक्री
+5221,Shopkeeper,दुकानदार,दुकानदार,shopkeeper | own shop | kirana | general store | दुकानदार | किराना | किराने | अपनी दुकान | जनरल स्टोर | किराणा | स्वतःचं दुकान
+5230,Cashier,कैशियर,कॅशियर,cashier | billing | counter billing | कैशियर | बिलिंग | कॅशियर
+9312,Road and MGNREGA worker,सड़क और मनरेगा मज़दूर,रस्ते आणि रोजगार हमी मजूर,mgnrega | nrega | road work | canal digging | मनरेगा | नरेगा | सड़क का काम | गड्ढे खोदना | रोजगार हमी | रस्त्याचं काम | खोदकाम
+9329,Factory helper and packer,फैक्ट्री हेल्पर,कारखाना मदतनीस,factory | factory work | packing | company job | फैक्ट्री | कारखाना | पैकिंग | कंपनी में काम | हेल्पर | कारखान्यात | पॅकिंग | कंपनीत काम
+9333,Loader and porter,हमाल / पल्लेदार,हमाल,loader | porter | loading unloading | coolie | हमाल | पल्लेदार | लोडिंग | कुली | माल उठाना | हमाली | माल चढवणे
+7313,Goldsmith and jeweller,सुनार,सोनार,goldsmith | jeweller | jewellery | sunar | सुनार | ज्वेलरी | गहने | सोनार | दागिने
+7514,"Pickle, papad and spice maker",अचार-पापड़ बनाने वाले,लोणचं-पापड बनवणारे,pickle | papad | food processing | masala | achar | अचार | पापड़ | मसाले | मुरब्बा | लोणचं | पापड | मसाले बनवणे

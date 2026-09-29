@@ -6,10 +6,10 @@ from core.search.seed import load_seed, passage_text, vector_literal
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
 
-def test_seed_has_sixteen_unique_occupations():
+def test_seed_has_unique_occupations():
     rows = load_seed()
-    assert len(rows) == 16
-    assert len({r.nco_code for r in rows}) == 16
+    assert len(rows) == 59
+    assert len({r.nco_code for r in rows}) == 59
 
 
 def test_every_row_has_hindi_title_and_aliases():
