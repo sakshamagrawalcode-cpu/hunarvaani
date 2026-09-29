@@ -8,8 +8,8 @@ from core.tts import MAX_CHARS
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
 
-def test_all_eighteen_hindi_prompts_exist():
-    assert list(PROMPTS["hi-IN"]) == [f"P{i:02d}" for i in range(1, 19)]
+def test_all_nineteen_hindi_prompts_exist():
+    assert list(PROMPTS["hi-IN"]) == [f"P{i:02d}" for i in range(1, 20)]
 
 
 def test_prompts_are_hindi_and_within_the_tts_limit():
@@ -25,7 +25,7 @@ def test_only_dynamic_prompts_have_placeholders():
 
 def test_prerendered_ids_exclude_dynamic():
     ids = prerendered_ids("hi-IN")
-    assert len(ids) == 16 and not set(ids) & DYNAMIC
+    assert len(ids) == 17 and not set(ids) & DYNAMIC
 
 
 def test_fill_dynamic_prompts():

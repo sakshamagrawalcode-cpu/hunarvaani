@@ -85,20 +85,15 @@ def rows(sql, *args):
         return conn.execute(sql, args).fetchall()
 
 
-class FakeCalls:
+class FakeDialer:
     def __init__(self, fail=False):
         self.made, self.fail = [], fail
 
-    def create(self, **kwargs):
+    def dial(self, number, call_id):
         if self.fail:
-            raise RuntimeError("plivo down")
-        self.made.append(kwargs)
-        return {"request_uuid": "req-" + str(len(self.made))}
-
-
-class FakePlivo:
-    def __init__(self, fail=False):
-        self.calls = FakeCalls(fail)
+            raise RuntimeError("provider down")
+        self.made.append((number, call_id))
+        return "prov-" + str(len(self.made))
 
 
 def later(seconds=10):
@@ -169,36 +164,33 @@ def test_missed_call_in_quiet_hours_waits_until_nine(client, settings, monkeypat
     assert datetime.fromtimestamp(score, IST) == datetime(2026, 10, 11, 9, 0, tzinfo=IST)
 
 
-def test_worker_places_callback_with_signed_urls(client, settings):
+def test_worker_places_callback(client, settings):
     missed(client)
-    fake = FakePlivo()
+    fake = FakeDialer()
     r = redis.Redis.from_url(RD)
     assert process_one(r, settings, fake, now=later()) is True
     assert process_one(r, settings, fake, now=later()) is False
 
-    [kw] = fake.calls.made
-    [(call_id, status, req)] = rows("SELECT id::text, status, plivo_request_uuid FROM call")
-    assert kw["to_"] == "+919876543210"
-    assert kw["from_"] == "+918000000000"
-    assert kw["answer_url"] == f"{BASE}/pv/ivr/start?call={call_id}"
-    assert kw["hangup_url"] == f"{BASE}/pv/hangup?call={call_id}"
-    assert (status, req) == ("dialing", "req-1")
+    [(number, dialled_id)] = fake.made
+    [(call_id, status, prov)] = rows("SELECT id::text, status, provider_call_id FROM call")
+    assert (number, dialled_id) == ("+919876543210", call_id)
+    assert (status, prov) == ("dialing", "prov-1")
 
 
 def test_worker_waits_until_the_callback_is_due(client, settings):
     missed(client)
-    fake = FakePlivo()
+    fake = FakeDialer()
     assert process_one(redis.Redis.from_url(RD), settings, fake, now=later(0)) is False
-    assert fake.calls.made == []
+    assert fake.made == []
 
 
 def test_worker_respects_quiet_hours(client, settings):
     missed(client)
     quiet = Settings(**{**settings.__dict__, "quiet_hours": "21:00-09:00"})
     night = datetime(2030, 1, 1, 23, 0, tzinfo=IST)
-    fake = FakePlivo()
+    fake = FakeDialer()
     assert process_one(redis.Redis.from_url(RD), quiet, fake, now=night) is True
-    assert fake.calls.made == []
+    assert fake.made == []
     assert rows("SELECT status FROM call") == [("queued_quiet_hours",)]
     [(_, score)] = redis.Redis.from_url(RD).zrange(callbacks.QUEUE, 0, -1, withscores=True)
     assert datetime.fromtimestamp(score, IST) == datetime(2030, 1, 2, 9, 0, tzinfo=IST)
@@ -208,24 +200,24 @@ def test_worker_respects_daily_budget(client, settings):
     missed(client)
     missed(client, number="919876500000")
     tight = Settings(**{**settings.__dict__, "daily_call_budget": 1})
-    fake = FakePlivo()
+    fake = FakeDialer()
     r = redis.Redis.from_url(RD)
     process_one(r, tight, fake, now=later())
     process_one(r, tight, fake, now=later())
-    assert len(fake.calls.made) == 1
+    assert len(fake.made) == 1
     assert sorted(s for (s,) in rows("SELECT status FROM call")) == ["budget_exceeded", "dialing"]
 
 
 def test_worker_records_dial_failure(client, settings):
     missed(client)
-    process_one(redis.Redis.from_url(RD), settings, FakePlivo(fail=True), now=later())
+    process_one(redis.Redis.from_url(RD), settings, FakeDialer(fail=True), now=later())
     assert rows("SELECT status FROM call") == [("dial_failed",)]
     assert rows("SELECT kind FROM event WHERE kind = 'dial_failed'") == [("dial_failed",)]
 
 
 def test_answer_then_hangup_records_the_call(client, settings):
     missed(client)
-    process_one(redis.Redis.from_url(RD), settings, FakePlivo(), now=later())
+    process_one(redis.Redis.from_url(RD), settings, FakeDialer(), now=later())
     [(call_id,)] = rows("SELECT id::text FROM call")
 
     r = post(client, f"/pv/ivr/start?call={call_id}", {"CallUUID": "out-1", "From": "x"})
@@ -242,7 +234,7 @@ def test_answer_then_hangup_records_the_call(client, settings):
 
 def test_unanswered_callback_is_marked_no_answer(client, settings):
     missed(client)
-    process_one(redis.Redis.from_url(RD), settings, FakePlivo(), now=later())
+    process_one(redis.Redis.from_url(RD), settings, FakeDialer(), now=later())
     [(call_id,)] = rows("SELECT id::text FROM call")
     post(client, f"/pv/hangup?call={call_id}", {"HangupCause": "NO_ANSWER", "Duration": "0"})
     assert rows("SELECT status FROM call") == [("no_answer",)]

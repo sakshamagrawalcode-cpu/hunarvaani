@@ -1,4 +1,4 @@
-"""Fill PHONE_HASH_SECRET and PHONE_ENC_KEY in .env if they are empty.
+"""Fill PHONE_HASH_SECRET, PHONE_ENC_KEY and EXOTEL_WS_TOKEN in .env if they are empty.
 
 Run from the project root:  python scripts/gen_secrets.py
 Values are written to .env only and never printed. Existing values are kept.
@@ -14,6 +14,7 @@ ENV = Path(__file__).resolve().parent.parent / ".env"
 GENERATORS = {
     "PHONE_HASH_SECRET": lambda: secrets.token_hex(32),
     "PHONE_ENC_KEY": lambda: base64.urlsafe_b64encode(os.urandom(32)).decode(),
+    "EXOTEL_WS_TOKEN": lambda: secrets.token_urlsafe(24),
 }
 
 

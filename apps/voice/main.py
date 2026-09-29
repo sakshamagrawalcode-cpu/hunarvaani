@@ -1,3 +1,4 @@
+import hmac
 import logging
 import re
 from functools import lru_cache
@@ -5,12 +6,13 @@ from pathlib import Path
 
 import psycopg
 import redis
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
 from apps.voice import calls
-from core import plivo_sig
+from apps.voice.exotel import ExotelSession, PromptAudio
+from core import interview_store, plivo_sig
 from core.config import load_settings
 from core.plivo_xml import REJECT
 
@@ -117,4 +119,34 @@ async def pv_ivr_start(request: Request):
 async def pv_hangup(request: Request):
     params = await _verified_params(request)
     await run_in_threadpool(calls.hangup, request.query_params.get("call"), params, settings)
+    return PlainTextResponse("OK")
+
+
+def _exotel_token_ok(token: str) -> bool:
+    expected = settings.exotel_ws_token
+    return bool(expected) and hmac.compare_digest(token.encode(), expected.encode())
+
+
+@app.websocket("/exotel/ws/{token}")
+async def exotel_ws(websocket: WebSocket, token: str):
+    if not _exotel_token_ok(token):
+        log.warning("rejected Exotel websocket: bad token")
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    session = ExotelSession(
+        websocket, settings, PromptAudio(AUDIO_DIR), _redis_for(settings.redis_url)
+    )
+    await session.run()
+
+
+@app.post("/exotel/status/{token}")
+async def exotel_status(token: str, request: Request):
+    if not _exotel_token_ok(token):
+        raise HTTPException(403)
+    form = await request.form()
+    sid = str(form.get("CallSid") or "")
+    status = str(form.get("Status") or form.get("CallStatus") or "")
+    if sid:
+        await run_in_threadpool(interview_store.provider_status, settings, sid, status)
     return PlainTextResponse("OK")

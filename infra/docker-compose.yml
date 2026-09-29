@@ -34,6 +34,7 @@ services:
     env_file: ../.env
     volumes:
       - ../audio:/app/audio
+      - recordings:/app/recordings
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -51,6 +52,7 @@ services:
     volumes:
       - hf_cache:/models
       - ../audio:/app/audio
+      - recordings:/app/recordings
     depends_on:
       db:
         condition: service_healthy
@@ -67,3 +69,4 @@ services:
 volumes:
   pgdata:
   hf_cache:
+  recordings:

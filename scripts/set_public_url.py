@@ -36,6 +36,14 @@ def set_env_value(text: str, key: str, value: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def env_value(text: str, key: str) -> str:
+    for line in text.splitlines():
+        k, sep, v = line.partition("=")
+        if sep and k.strip() == key:
+            return v.strip()
+    return ""
+
+
 def check(url: str) -> str:
     try:
         with urllib.request.urlopen(f"{url}/health", timeout=15) as resp:
@@ -69,6 +77,10 @@ def main() -> None:
     ENV.write_text(set_env_value(ENV.read_text(encoding="utf-8"), "PUBLIC_BASE_URL", url))
     print(f"PUBLIC_BASE_URL={url}")
     print(check(url))
+    token = env_value(ENV.read_text(encoding="utf-8"), "EXOTEL_WS_TOKEN")
+    if token:
+        host = url.removeprefix("https://")
+        print(f"Exotel Voicebot URL: wss://{host}/exotel/ws/{token}")
     print("Now run: docker compose -f infra/docker-compose.yml up -d api worker")
 
 

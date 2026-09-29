@@ -110,3 +110,29 @@ Setup once the Plivo account exists:
 
 Integration tests use a throwaway Postgres and Redis:
 `TEST_DATABASE_URL=... TEST_REDIS_URL=... pytest` (they wipe that database).
+
+## Interview over Exotel (Step 8)
+
+The keypad interview lives in `core/dialogue/flow.py`, a provider-neutral state machine
+(opening → safe to talk → language → 3 consents → education, travel, preference → work story
+or trade list → end). Global keys: 9 deletes the caller's data and blocks the number, 0 flags
+the call for a human (P19). Timeouts and wrong keys repeat once with P16, then skip.
+
+Exotel runs it through the **Voicebot** applet: one two-way WebSocket per call at
+`wss://<public address>/exotel/ws/<EXOTEL_WS_TOKEN>`. Callbacks use Exotel's
+"connect a number to a flow" API and report back to `/exotel/status/<EXOTEL_WS_TOKEN>`.
+
+Setup:
+
+1. `python scripts\gen_secrets.py` (adds `EXOTEL_WS_TOKEN`), then fill `EXOTEL_SID`,
+   `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN`, `EXOTEL_CALLER_ID` (your ExoPhone) and `EXOTEL_APP_ID`
+   (the number at the end of your flow's URL in App Bazaar). Use `api.in.exotel.com` for
+   `EXOTEL_SUBDOMAIN` if your dashboard is `my.in.exotel.com`.
+2. `python scripts\render_prompts.py` (renders the new P19).
+3. `docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py`
+4. `docker compose -f infra/docker-compose.yml up -d --build`
+5. Tunnel: `python scripts\set_public_url.py --from-tunnel` prints the Voicebot URL; paste it
+   into the Voicebot applet (Call Start), put a Hangup applet in Next, save.
+
+Try it without a phone: `docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py`
+Try the callback: `python scripts\exotel_call_me.py 98XXXXXXXX`

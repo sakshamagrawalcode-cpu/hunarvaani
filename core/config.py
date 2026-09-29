@@ -28,6 +28,16 @@ class Settings:
     plivo_number: str = ""
     phone_hash_secret: str = ""
     phone_enc_key: str = ""
+    telephony_provider: str = "exotel"
+    exotel_sid: str = ""
+    exotel_api_key: str = ""
+    exotel_api_token: str = ""
+    exotel_subdomain: str = "api.exotel.com"
+    exotel_caller_id: str = ""
+    exotel_app_id: str = ""
+    exotel_ws_token: str = ""
+    ivr_timeout_seconds: int = 8
+    recordings_dir: str = "/app/recordings"
 
 
 def load_settings() -> Settings:
@@ -46,4 +56,14 @@ def load_settings() -> Settings:
         plivo_number=_str("PLIVO_NUMBER"),
         phone_hash_secret=_str("PHONE_HASH_SECRET"),
         phone_enc_key=_str("PHONE_ENC_KEY"),
+        telephony_provider=_str("TELEPHONY_PROVIDER", "exotel").lower(),
+        exotel_sid=_str("EXOTEL_SID"),
+        exotel_api_key=_str("EXOTEL_API_KEY"),
+        exotel_api_token=_str("EXOTEL_API_TOKEN"),
+        exotel_subdomain=_str("EXOTEL_SUBDOMAIN", "api.exotel.com"),
+        exotel_caller_id=_str("EXOTEL_CALLER_ID"),
+        exotel_app_id=_str("EXOTEL_APP_ID"),
+        exotel_ws_token=_str("EXOTEL_WS_TOKEN"),
+        ivr_timeout_seconds=_int("IVR_TIMEOUT_SECONDS", 8),
+        recordings_dir=_str("RECORDINGS_DIR", "/app/recordings"),
     )

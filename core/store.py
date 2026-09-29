@@ -14,7 +14,7 @@ CALL_COLUMNS = {
     "keypad_only",
     "human_flag",
     "status",
-    "plivo_request_uuid",
+    "provider_call_id",
 }
 
 
