@@ -1,8 +1,10 @@
 """A full Exotel Voicebot call over a real WebSocket, against real Postgres and Redis."""
 
 import base64
+import json
 import os
 import struct
+import threading
 import time
 import wave
 from pathlib import Path
@@ -15,7 +17,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from apps.voice import main
-from core import callbacks
+from core import callbacks, story_job
 from core.config import Settings
 from core.dialogue.prompts import PROMPTS
 from core.phone import phone_hash
@@ -67,6 +69,7 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         ivr_timeout_seconds=0.3,
         record_silence_seconds=0.6,
         record_no_speech_seconds=0.6,
+        story_wait_seconds=0.5,
         recordings_dir=str(tmp_path / "recordings"),
     )
     with psycopg.connect(DB, autocommit=True) as conn:
@@ -327,3 +330,109 @@ def test_story_with_no_speech_moves_on(client, settings):
         ws.close()
     assert rows("SELECT count(*) FROM story") == [(0,)]
     assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(1,)]
+
+
+def fake_worker(audio_dir, candidates, transcript="मैं सिलाई का काम करती हूं"):
+    """Answer one story job the way the real worker would."""
+    r = redis.Redis.from_url(RD)
+
+    def serve():
+        item = r.blpop(story_job.QUEUE, timeout=10)
+        if not item:
+            return
+        job = json.loads(item[1])
+        prompt = None
+        if candidates:
+            prompt = "DYN:0123456789abcdef01234567"
+            (audio_dir / "dyn").mkdir(exist_ok=True)
+            with wave.open(str(audio_dir / "dyn" / "0123456789abcdef01234567.wav"), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(8000)
+                w.writeframes(b"\x00\x00" * 400)
+        story_job.publish(
+            r,
+            job["call_id"],
+            {
+                "transcript": transcript,
+                "candidates": candidates,
+                "prompt": prompt,
+                "scores": [{"code": c, "score": 0.7} for c in candidates]
+                or [{"code": "5142", "score": 0.1}],
+                "stt_ms": 900,
+                "search_ms": 12,
+            },
+        )
+
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    return t
+
+
+def test_story_is_read_back_and_confirmed(client, settings, audio_dir):
+    worker = fake_worker(audio_dir, ["7531", "7411"])
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        heard = p.hear("DYN:0123456789abcdef01234567")
+        assert "P17" in heard and "P14" not in heard
+        p.press("1")
+        p.until_hangup()
+    worker.join(2)
+    [(transcript, top1, top2, confirmed, stt_ms)] = rows(
+        "SELECT transcript, top1, top2, confirmed, stt_ms FROM story"
+    )
+    assert (transcript, top1, top2, confirmed, stt_ms) == (
+        "मैं सिलाई का काम करती हूं",
+        "7531",
+        "7411",
+        "7531",
+        900,
+    )
+    assert dict(rows("SELECT step, value FROM answer"))["occupation"] == "7531"
+    [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'readback'")
+    assert payload == {"key": "1", "confirmed": "7531", "candidates": ["7531", "7411"]}
+
+
+def test_unclear_story_offers_the_trade_list(client, settings, audio_dir):
+    worker = fake_worker(audio_dir, [], transcript="आज मौसम अच्छा है")
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    worker.join(2)
+    [(transcript, top1, confirmed)] = rows("SELECT transcript, top1, confirmed FROM story")
+    assert (transcript, top1, confirmed) == ("आज मौसम अच्छा है", "5142", None)
+
+
+def test_no_worker_answer_in_time_offers_the_trade_list(client, settings):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    [(transcript,)] = rows("SELECT transcript FROM story")
+    assert transcript is None
+
+
+def test_logs_hide_the_exotel_token():
+    import logging
+
+    record = logging.LogRecord(
+        "uvicorn.error",
+        logging.INFO,
+        "",
+        0,
+        '%s - "WebSocket %s" [accepted]',
+        ("1.2.3.4:5", f"/exotel/ws/{TOKEN}"),
+        None,
+    )
+    main._HideTokens().filter(record)
+    assert TOKEN not in record.getMessage() and "/exotel/ws/<token>" in record.getMessage()

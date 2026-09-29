@@ -1,12 +1,16 @@
+import json
 import logging
 import time
+from pathlib import Path
 
 import redis
 
-from core import callbacks, store
+from core import callbacks, dynprompt, store, story_job
 from core.config import Settings, load_settings
 from core.dialers import make_dialer, missing_config
 from core.phone import decrypt, last4
+from core.search.nco_search import NcoIndex, load_occupations
+from core.stt import transcribe_file
 from core.timeutil import in_quiet_hours, ist_day, next_allowed, utcnow
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s worker %(message)s")
@@ -62,6 +66,47 @@ def process_one(r, settings: Settings, dialer, now=None) -> bool:
     return True
 
 
+AUDIO_DIR = Path(__file__).resolve().parents[2] / "audio"
+EMBED_MODEL = "intfloat/multilingual-e5-base"
+
+
+def load_encoder():
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        model = SentenceTransformer(EMBED_MODEL)
+    except Exception as exc:
+        log.warning("embedding model unavailable (%s); search uses keywords only", exc)
+        return None
+    log.info("embedding model loaded")
+    return lambda text: model.encode("query: " + text, normalize_embeddings=True)
+
+
+def handle_story(raw, r, settings: Settings, encode) -> None:
+    job = json.loads(raw)
+    with store.connect(settings.database_url) as conn:
+        occupations = load_occupations(conn)
+    index = NcoIndex(occupations) if occupations else None
+
+    def render(text: str, language: str) -> str:
+        return dynprompt.ensure(
+            text, language, settings.sarvam_api_key, settings.sarvam_speaker, AUDIO_DIR
+        )
+
+    result = story_job.process(job, settings, index, encode, transcribe_file, render)
+    story_job.publish(r, job["call_id"], result)
+    log.info(
+        "story %s: stt %s ms, search %s ms, tts %s ms, top %s, read-back %s%s",
+        job["call_id"][:8],
+        result.get("stt_ms"),
+        result.get("search_ms"),
+        result.get("tts_ms"),
+        result.get("scores"),
+        "yes" if result.get("prompt") else "no",
+        f", error: {result['error']}" if result.get("error") else "",
+    )
+
+
 def main() -> None:
     settings = load_settings()
     r = redis.Redis.from_url(settings.redis_url, socket_connect_timeout=3, socket_timeout=5)
@@ -71,19 +116,29 @@ def main() -> None:
         dialer = None
     else:
         dialer = make_dialer(settings)
-        log.info("started; placing callbacks via %s", settings.telephony_provider)
+        log.info("placing callbacks via %s", settings.telephony_provider)
+    if not settings.sarvam_api_key:
+        log.warning("SARVAM_API_KEY is empty; work stories cannot be transcribed")
+    encode = load_encoder()
+    log.info("started; waiting for work stories and callbacks")
 
     last_heartbeat = 0.0
     while True:
         try:
+            raw = r.lpop(story_job.QUEUE)
+            if raw:
+                handle_story(raw, r, settings, encode)
+                continue
             worked = dialer is not None and process_one(r, settings, dialer)
             if time.monotonic() - last_heartbeat > 60:
                 log.info("heartbeat: %d callback(s) queued", r.zcard(callbacks.QUEUE))
                 last_heartbeat = time.monotonic()
+            if not worked:
+                item = r.blpop(story_job.QUEUE, timeout=1)
+                if item:
+                    handle_story(item[1], r, settings, encode)
         except Exception:
-            log.exception("callback processing error")
-            worked = False
-        if not worked:
+            log.exception("worker error")
             time.sleep(1)
 
 

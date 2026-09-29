@@ -82,6 +82,8 @@ class Interview:
     opening_warned: bool = False
     keypad_only: bool = False
     language: str = "hi-IN"
+    readback_prompt: str = ""
+    candidates: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -122,6 +124,9 @@ class Interview:
             self.language = choices[digit]
             return self._goto("consent_recording"), [Effect("language", {"code": self.language})]
 
+        if self.state == "readback":
+            return self._readback(digit)
+
         if self.state in CONSENTS:
             if digit not in "12":
                 return self._invalid()
@@ -146,14 +151,41 @@ class Interview:
             return Hangup(), [Effect("no_response")]
         return self._invalid()
 
-    def on_recording(self, path: str | None, seconds: float) -> tuple[Action, list[Effect]]:
+    def on_recording(
+        self,
+        path: str | None,
+        seconds: float,
+        candidates: list[str] | None = None,
+        prompt: str | None = None,
+        details: dict | None = None,
+    ) -> tuple[Action, list[Effect]]:
+        """After the story: read back the top two occupations if the search was confident."""
         if self.state != "story":
             return self._action(), []
-        if path:
-            effects = [Effect("story_recorded", {"path": path, "seconds": round(seconds, 1)})]
-        else:
-            effects = [Effect("story_empty")]
+        if not path:
+            return self._goto("trades"), [Effect("story_empty")]
+        data = {"path": path, "seconds": round(seconds, 1), **(details or {})}
+        effects = [Effect("story_recorded", data)]
+        if candidates and prompt:
+            self.candidates = list(candidates)[:2]
+            self.readback_prompt = prompt
+            return self._goto("readback"), effects
         return self._goto("trades"), effects
+
+    def _readback(self, digit: str) -> tuple[Action, list[Effect]]:
+        choice = {"1": 0, "2": 1}.get(digit)
+        if digit == "3":
+            effect = Effect(
+                "readback", {"key": "3", "confirmed": None, "candidates": self.candidates}
+            )
+            return self._goto("trades"), [effect]
+        if choice is None or choice >= len(self.candidates):
+            return self._invalid()
+        code = self.candidates[choice]
+        return self._goto("summary"), [
+            Effect("readback", {"key": digit, "confirmed": code, "candidates": self.candidates}),
+            Effect("answer", {"step": "occupation", "key": digit, "value": code}),
+        ]
 
     def _invalid(self) -> tuple[Action, list[Effect]]:
         if self.attempts == 0:
@@ -165,6 +197,8 @@ class Interview:
             return self._goto("language"), skipped
         if step == "language":
             return self._goto("consent_recording"), skipped
+        if step == "readback":
+            return self._goto("trades"), skipped
         if step in CONSENTS:
             action, effects = self._consent(granted=False)
             return action, skipped + effects
@@ -211,4 +245,7 @@ class Interview:
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)
         if s == "story":
             return Record(s, prefix + ("P12",))
+        if s == "readback":
+            valid = "123"[: len(self.candidates)] + "3"
+            return Ask(s, prefix + (self.readback_prompt,), valid + GLOBAL_KEYS, self.timeout)
         return Hangup()

@@ -133,3 +133,46 @@ def test_empty_story_records_nothing_and_offers_the_trade_list():
     run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
     action, effects = iv.on_recording(None, 0.0)
     assert kinds(effects) == ["story_empty"] and action.prompts == ("P14",)
+
+
+def _story(iv):
+    run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
+
+
+def test_confident_story_reads_back_two_occupations():
+    iv = Interview()
+    _story(iv)
+    action, effects = iv.on_recording(
+        "/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22", {"top1": "7531"}
+    )
+    assert action.step == "readback" and action.prompts == ("DYN:aa11bb22",)
+    assert effects[0].data["top1"] == "7531"
+    action, effects = iv.on_key("2")
+    assert action == Hangup()
+    assert effects[0].data == {"key": "2", "confirmed": "7411", "candidates": ["7531", "7411"]}
+    assert effects[1].data == {"step": "occupation", "key": "2", "value": "7411"}
+
+
+def test_neither_goes_to_the_trade_list():
+    iv = Interview()
+    _story(iv)
+    iv.on_recording("/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22")
+    action, effects = iv.on_key("3")
+    assert action.prompts == ("P14",) and effects[0].data["confirmed"] is None
+
+
+def test_read_back_timeouts_repeat_then_fall_back():
+    iv = Interview()
+    _story(iv)
+    iv.on_recording("/r.wav", 5, ["7531", "7411"], "DYN:aa11bb22")
+    action, _ = iv.on_timeout()
+    assert action.prompts == ("P16", "DYN:aa11bb22")
+    action, effects = iv.on_timeout()
+    assert action.prompts == ("P14",) and kinds(effects) == ["skipped"]
+
+
+def test_unconfident_story_goes_to_the_trade_list():
+    iv = Interview()
+    _story(iv)
+    action, effects = iv.on_recording("/r.wav", 5, [], None, {"top1": "5142"})
+    assert action.prompts == ("P14",) and kinds(effects) == ["story_recorded"]

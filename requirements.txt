@@ -5,3 +5,4 @@ redis>=5,<7
 psycopg[binary]>=3.2,<4
 plivo>=4.50,<5
 cryptography>=42
+requests>=2.31,<3

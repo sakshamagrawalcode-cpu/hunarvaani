@@ -39,6 +39,9 @@ class Settings:
     ivr_timeout_seconds: int = 8
     recordings_dir: str = "/app/recordings"
     vad_threshold: int = 500
+    sarvam_api_key: str = ""
+    sarvam_speaker: str = ""
+    story_wait_seconds: float = 6.0
     record_silence_seconds: float = 2.5
     record_no_speech_seconds: float = 12.0
 
@@ -70,6 +73,9 @@ def load_settings() -> Settings:
         ivr_timeout_seconds=_int("IVR_TIMEOUT_SECONDS", 8),
         recordings_dir=_str("RECORDINGS_DIR", "/app/recordings"),
         vad_threshold=_int("VAD_THRESHOLD", 500),
+        sarvam_api_key=_str("SARVAM_API_KEY"),
+        sarvam_speaker=_str("SARVAM_SPEAKER"),
+        story_wait_seconds=float(_str("STORY_WAIT_SECONDS", "6")),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
         record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
     )

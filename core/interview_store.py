@@ -111,9 +111,24 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
     elif e.kind == "human_flag":
         store.update_call(conn, call_id, human_flag=True)
     elif e.kind == "story_recorded":
+        d = e.data
         conn.execute(
-            "INSERT INTO story (call_id, recording_url) VALUES (%s, %s)",
-            (call_id, e.data["path"]),
+            "INSERT INTO story (call_id, recording_url, transcript, top1, top2, stt_ms, search_ms) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (
+                call_id,
+                d["path"],
+                d.get("transcript"),
+                d.get("top1"),
+                d.get("top2"),
+                d.get("stt_ms"),
+                d.get("search_ms"),
+            ),
+        )
+    elif e.kind == "readback":
+        conn.execute(
+            "UPDATE story SET confirmed = %s WHERE call_id = %s",
+            (e.data["confirmed"] or "none", call_id),
         )
     elif e.kind == "callback_tomorrow":
         _callback_tomorrow(conn, settings, r, call)

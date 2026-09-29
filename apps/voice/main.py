@@ -18,6 +18,23 @@ from core.plivo_xml import REJECT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 log = logging.getLogger("voice")
+
+
+class _HideTokens(logging.Filter):
+    """Keep the Exotel URL token out of uvicorn's access and websocket logs."""
+
+    pattern = re.compile(r"(/exotel/(?:ws|status)/)[^\s\"'?]+")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        hidden = self.pattern.sub(r"\1<token>", message)
+        if hidden != message:
+            record.msg, record.args = hidden, ()
+        return True
+
+
+for _name in ("uvicorn.access", "uvicorn.error"):
+    logging.getLogger(_name).addFilter(_HideTokens())
 settings = load_settings()
 app = FastAPI(title="HunarVaani voice API", docs_url=None, redoc_url=None, openapi_url=None)
 

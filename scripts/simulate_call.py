@@ -94,7 +94,10 @@ async def main() -> None:
             for pid in name.split("+"):
                 print(f"  {pid}: {PROMPTS['hi-IN'].get(pid, '(no text)')}")
             if name.endswith("P12"):
-                raw = await asyncio.to_thread(input, "seconds to speak (Enter = 3)> ")
+                try:
+                    raw = await asyncio.to_thread(input, "seconds to speak (Enter = 3)> ")
+                except EOFError:
+                    raw = ""
                 seconds = float(raw.strip() or 3)
                 await asyncio.sleep(0.6)
                 for frame in tone_frames(seconds):
@@ -102,7 +105,10 @@ async def main() -> None:
                 await send({"event": "dtmf", "dtmf": {"digit": "#"}})
                 print(f"  [spoke {seconds:g} s, pressed #]")
                 continue
-            line = (await asyncio.to_thread(input, "keys> ")).strip()
+            try:
+                line = (await asyncio.to_thread(input, "keys> ")).strip()
+            except EOFError:
+                line = "q"
             if line.lower() == "q":
                 await send({"event": "stop"})
                 break

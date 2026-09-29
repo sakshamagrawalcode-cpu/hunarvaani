@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import math
+import re
 import struct
 import warnings
 import wave
@@ -19,7 +20,7 @@ from pathlib import Path
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 
-from core import interview_store
+from core import dynprompt, interview_store, story_job
 from core.config import Settings
 from core.dialogue.flow import Ask, Hangup, Interview
 from core.dialogue.prompts import audio_dir_name
@@ -30,6 +31,7 @@ with warnings.catch_warnings():
     import audioop
 
 log = logging.getLogger("exotel")
+_DYN_NAME = re.compile(r"^[0-9a-f]{8,64}$")
 CHUNK_MS = 200
 START_TIMEOUT = 15
 
@@ -59,6 +61,13 @@ class PromptAudio:
         return self._cache[key]
 
     def _load(self, prompt_id: str, language: str, rate: int) -> bytes:
+        if prompt_id.startswith(dynprompt.PREFIX):
+            name = prompt_id[len(dynprompt.PREFIX) :]
+            path = self.dir / "dyn" / f"{name}.wav"
+            if not (_DYN_NAME.match(name) and path.is_file()):
+                log.warning("missing generated prompt %s", prompt_id)
+                return b""
+            return self._read(path, rate)
         for folder in dict.fromkeys((audio_dir_name(language), "hi")):
             path = self.dir / folder / f"{prompt_id}.wav"
             if path.is_file():
@@ -66,6 +75,10 @@ class PromptAudio:
         else:
             log.warning("no audio for %s; render it with scripts/render_prompts.py", prompt_id)
             return b""
+        return self._read(path, rate)
+
+    @staticmethod
+    def _read(path: Path, rate: int) -> bytes:
         with wave.open(str(path)) as w:
             if w.getnchannels() != 1 or w.getsampwidth() != 2:
                 log.warning("%s is not 16-bit mono; re-render it", path)
@@ -254,6 +267,32 @@ class ExotelSession:
         pcm, self.recording = bytes(self.recording), None
         return pcm, hung_up, why
 
+    async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
+        """Hand the story to the worker, play the 'one moment' filler, wait for the answer."""
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        await run_in_threadpool(story_job.submit, self.r, call_id, path, language)
+        await self.play(("P17",))
+        result = await run_in_threadpool(
+            story_job.wait_result, self.r, call_id, self.settings.story_wait_seconds
+        )
+        waited = loop.time() - started
+        if result is None:
+            log.info(
+                "call %s: no search result after %.1f s; using the trade list", call_id[:8], waited
+            )
+        elif result.get("error"):
+            log.warning("call %s: story processing failed: %s", call_id[:8], result["error"])
+        else:
+            log.info(
+                "call %s: understood in %.1f s, %d words, top %s",
+                call_id[:8],
+                waited,
+                len((result.get("transcript") or "").split()),
+                result.get("scores"),
+            )
+        return result
+
     def _save_recording(self, call_id: str, pcm: bytes) -> str:
         folder = Path(self.settings.recordings_dir)
         folder.mkdir(parents=True, exist_ok=True)
@@ -316,7 +355,22 @@ class ExotelSession:
                 keep = pcm and why != "no_speech"
                 path = await run_in_threadpool(self._save_recording, call_id, pcm) if keep else None
                 log.info("call %s: story recorded, %.1f s, stopped by %s", short, seconds, why)
-                action, effects = engine.on_recording(path, seconds)
+                result = {}
+                if path and not hung_up:
+                    result = await self._understand(call_id, path, engine.language) or {}
+                scores = result.get("scores") or []
+                details = {
+                    "transcript": result.get("transcript"),
+                    "top1": scores[0]["code"] if scores else None,
+                    "top2": scores[1]["code"] if len(scores) > 1 else None,
+                    "stt_ms": result.get("stt_ms"),
+                    "search_ms": result.get("search_ms"),
+                    "scores": scores,
+                    "error": result.get("error"),
+                }
+                action, effects = engine.on_recording(
+                    path, seconds, result.get("candidates"), result.get("prompt"), details
+                )
                 await self._apply(call_id, effects)
                 if hung_up:
                     break

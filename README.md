@@ -136,3 +136,20 @@ Setup:
 
 Try it without a phone: `docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py`
 Try the callback: `python scripts\exotel_call_me.py 98XXXXXXXX`
+
+## Work story understanding and read-back (Step 9)
+
+After the beep the caller speaks; recording stops on #, 2.5 s of silence after speech, 12 s with
+no speech, or 60 s. The api plays P17 ("एक पल रुकिए") and queues the recording for the worker,
+which transcribes it with Sarvam Saaras (≤28 s pieces), searches the 16 occupations
+(alias + BM25 + multilingual-e5 cosine), and renders P13 with Bulbul. If the answer arrives within
+`STORY_WAIT_SECONDS` and the best score is ≥ 0.35, the caller hears the top two and confirms with
+1 or 2 (3 = neither → trade list). Every read-back answer is stored as a labelled pair.
+
+After pulling this step, re-seed the occupations (new Hindi aliases) and rebuild:
+
+```powershell
+docker compose -f infra/docker-compose.yml up -d --build
+docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
+docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py
+```
