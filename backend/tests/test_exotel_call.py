@@ -878,3 +878,14 @@ def test_worker_timeout_is_logged_as_a_problem(client, settings, monkeypatch):
     [row] = get("/calls").json()
     problems = [e for e in get(f"/calls/{row['id']}").json()["events"] if e["kind"] == "problem"]
     assert problems and "No answer from the worker" in problems[0]["payload"]["what"]
+
+
+def test_key_press_formats_exotel_may_send():
+    from apps.voice.exotel import _digit
+
+    assert _digit({"event": "dtmf", "dtmf": {"digit": "3", "duration": "240"}}) == "3"
+    assert _digit({"event": "dtmf", "dtmf": {"digits": "7"}}) == "7"
+    assert _digit({"event": "DTMF", "dtmf": "5"}) == "5"
+    assert _digit({"event": "dtmf", "digit": "#"}) == "#"
+    assert _digit({"event": "dtmf", "dtmf": {}}) == ""
+    assert _digit({"event": "dtmf", "dtmf": {"digit": "x"}}) == ""

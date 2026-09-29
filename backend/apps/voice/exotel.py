@@ -42,6 +42,17 @@ class CallEnded(Exception):
     pass
 
 
+def _digit(data: dict) -> str:
+    """The key pressed, from Exotel's dtmf message ({"dtmf": {"digit": "1"}}, or close variants)."""
+    inner = data.get("dtmf")
+    if isinstance(inner, dict):
+        value = inner.get("digit") or inner.get("digits") or inner.get("value")
+    else:
+        value = inner or data.get("digit") or data.get("digits")
+    value = str(value or "").strip()
+    return value[:1] if value and value[0] in "0123456789*#" else ""
+
+
 def beep(rate: int, seconds: float = 0.4, freq: int = 1000) -> bytes:
     n = int(rate * seconds)
     return b"".join(
@@ -170,12 +181,17 @@ class ExotelSession:
                             now = asyncio.get_running_loop().time()
                             self.voice_started = self.voice_started or now
                             self.last_voice = now
-                elif event == "dtmf":
-                    digit = str((data.get("dtmf") or {}).get("digit") or "")
+                elif str(event).lower() == "dtmf":
+                    digit = _digit(data)
+                    log.info("exotel key press received: %s", digit or f"(no digit in {data})")
                     if digit:
                         self.keys.put_nowait(digit)
                 elif event == "stop":
+                    log.info("exotel sent stop (call ended by Exotel or the caller)")
                     break
+                elif event not in ("media", "mark", "connected", "start"):
+                    # anything unexpected is logged, so a missing key press can be traced
+                    log.info("exotel sent an unknown message: %s", str(data)[:300])
         except WebSocketDisconnect:
             pass
         except Exception:
