@@ -735,10 +735,10 @@ def test_caller_picks_marathi_at_the_start(client, settings, monkeypatch):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
-        p.hear("P01")
-        p.press("1")
         p.hear("P05@hi-IN+P05@en-IN+P05@mr-IN")
         p.press("3")
+        p.hear("P01")
+        p.press("1")
         for prompt, key in (("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
             p.hear(prompt)
             p.press(key)

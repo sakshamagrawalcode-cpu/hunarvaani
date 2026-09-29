@@ -97,7 +97,14 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
         )
 
     result = story_job.process(
-        job, settings, index, encode, transcribe_file, render, translate=to_english
+        job,
+        settings,
+        index,
+        encode,
+        transcribe_file,
+        render,
+        # English copy of the caller's words costs Sarvam credits: off unless asked for
+        translate=to_english if settings.translate_for_console else None,
     )
     try:
         with store.connect(settings.database_url) as conn:

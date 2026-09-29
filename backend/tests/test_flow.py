@@ -42,40 +42,55 @@ def test_happy_path_with_recording():
 
 def test_language_menu_is_skipped_with_one_language():
     iv = Interview()
+    assert iv.start().prompts == ("P01",)
     action = iv.on_key("1")[0]
     assert action.prompts == ("P03",) and iv.language == "hi-IN"
     action, _ = iv.on_key("1")
     assert action.prompts == ("P06",)
 
 
-def test_language_menu_comes_right_after_the_greeting():
+def test_the_call_starts_with_the_language_menu_then_greets_in_that_language():
     iv = Interview(languages=["hi-IN", "en-IN", "mr-IN"])
-    action, _ = iv.on_key("1")
+    action = iv.start()
     assert iv.state == "language"
     assert action.prompts == ("P05@hi-IN", "P05@en-IN", "P05@mr-IN")
     assert action.valid == "123" + "90"
     action, effects = iv.on_key("3")
     assert effects[0].data == {"code": "mr-IN"} and iv.language == "mr-IN"
+    assert action.prompts == ("P01",) and iv.state == "opening"
+    action, _ = iv.on_key("1")
     assert action.prompts == ("P03",) and iv.state == "safe_to_talk"
 
 
 def test_language_keys_stay_fixed_when_one_is_left_out():
     iv = Interview(languages=["hi-IN", "mr-IN"])
-    action, _ = iv.on_key("1")
+    action = iv.start()
     assert action.prompts == ("P05@hi-IN", "P05@mr-IN") and action.valid == "13" + "90"
-    iv.on_key("2")
-    assert iv.state == "language"
+    action, _ = iv.on_key("2")
+    assert iv.state == "language" and action.prompts == ("P05@hi-IN", "P05@mr-IN")
     iv.on_key("3")
     assert iv.language == "mr-IN"
 
 
-def test_no_language_choice_keeps_hindi():
+def test_no_language_choice_keeps_hindi_and_greets():
     iv = Interview(languages=["hi-IN", "en-IN"])
-    iv.on_key("1")
-    iv.on_timeout()
+    iv.start()
+    action, _ = iv.on_timeout()
+    assert action.prompts == ("P05@hi-IN", "P05@en-IN")  # menu again, no apology yet
     action, effects = iv.on_timeout()
     assert effects == [Effect("skipped", {"step": "language"})]
-    assert iv.language == "hi-IN" and action.prompts == ("P03",)
+    assert iv.language == "hi-IN" and action.prompts == ("P01",)
+
+
+def test_wrong_key_and_no_key_get_different_apologies():
+    iv = Interview()
+    run(iv, ["1"])
+    action, _ = iv.on_key("7")
+    assert action.prompts == ("P29", "P03")
+    iv2 = Interview()
+    run(iv2, ["1"])
+    action, _ = iv2.on_timeout()
+    assert action.prompts == ("P16", "P03")
 
 
 def test_no_to_recording_means_keypad_only_and_no_story():
@@ -100,7 +115,7 @@ def test_wrong_key_counts_like_a_timeout():
     iv = Interview()
     run(iv, ["1", "1", "1", "1", "1"])
     action, _ = iv.on_key("8")
-    assert action.prompts == ("P16", "P25")
+    assert action.prompts == ("P29", "P25")
 
 
 def test_age_gender_and_physical_questions_come_around_education():

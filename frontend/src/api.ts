@@ -22,7 +22,6 @@ export type CallRow = {
 export type Story = {
   n: number;
   transcript: string | null;
-  transcript_en: string | null;
   top1: Occupation | null;
   top2: Occupation | null;
   confirmed: string | null;

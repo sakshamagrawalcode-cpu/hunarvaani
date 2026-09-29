@@ -1,7 +1,7 @@
 // Readable names for the values the interview stores. English first, the caller's words in
 // brackets where that helps.
 
-import type { CallEvent, Occupation } from "./api";
+import type { Occupation } from "./api";
 
 export const LANGUAGE: Record<string, string> = {
   "hi-IN": "Hindi (हिंदी)",
@@ -100,54 +100,4 @@ export function when(iso: string | null | undefined): string {
 export function seconds(s: number | null | undefined): string {
   if (s === null || s === undefined) return "—";
   return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
-}
-
-// One line per timeline event, in plain words. `name` turns an NCO code into a readable name.
-export function describeEvent(e: CallEvent, name: (code: string) => string = (c) => c): string {
-  const p = (e.payload ?? {}) as Record<string, unknown>;
-  const step = STEP[String(p.step ?? "")] ?? String(p.step ?? "");
-  switch (e.kind) {
-    case "inbound_call":
-      return "Caller rang in; call connected";
-    case "answered":
-      return `Our callback was answered${p.matched_by ? ` (matched by ${p.matched_by})` : ""}`;
-    case "callback_requested":
-      return "Callback requested for tomorrow";
-    case "key":
-      return `Pressed ${p.digit} at “${step}”`;
-    case "timeout":
-      return `No key pressed at “${step}”`;
-    case "language":
-      return `Chose language: ${LANGUAGE[String(p.code)] ?? p.code}`;
-    case "consent":
-      return `${CONSENT[String(p.kind)] ?? p.kind}: ${p.granted ? "yes" : "no"}`;
-    case "answer":
-      return p.step === "occupation" || p.step === "trades"
-        ? `${step}: ${name(String(p.value ?? ""))}`
-        : `${step}: ${value(String(p.value ?? ""))}`;
-    case "skipped":
-      return `${step}: skipped after two tries`;
-    case "keypad_only":
-      return "No recording consent, so keypad questions only";
-    case "human_flag":
-      return `Asked for a human officer (pressed 0 at “${step}”)`;
-    case "story_recorded":
-      return `Work story recorded (${p.seconds ?? "?"} s)${p.transcript ? `: “${p.transcript}”` : ""}`;
-    case "story_empty":
-      return "No speech heard in the story";
-    case "readback":
-      return p.confirmed
-        ? `Read-back: pressed ${p.key}, confirmed ${name(String(p.confirmed))}`
-        : `Read-back: pressed ${p.key}, neither was right`;
-    case "summary":
-      return `Summary spoken: “${p.text}”`;
-    case "no_response":
-      return "Nobody answered the greeting";
-    case "call_ended":
-      return `Call ended after ${seconds(Number(p.duration))}`;
-    case "provider_status":
-      return `Exotel status: ${p.status}`;
-    default:
-      return e.kind;
-  }
 }

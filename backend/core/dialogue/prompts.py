@@ -96,6 +96,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "इससे हम आपके लिए सही ट्रेनिंग, काम और सरकारी योजनाएँ ढूँढ़ पाएँगे। कुछ योजनाएँ"
             " ख़ास महिलाओं के लिए होती हैं, इसलिए यह भी पूछेंगे कि आप महिला हैं या पुरुष।"
         ),
+        "P29": "माफ़ कीजिए, यह बटन इस सवाल के लिए नहीं है। कृपया फिर से सुनिए।",
     },
     "en-IN": {
         "P01": (
@@ -193,6 +194,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "Some schemes are only for women, so we will also ask whether you are a woman "
             "or a man."
         ),
+        "P29": "Sorry, that key is not one of the options. Please listen again.",
     },
     "mr-IN": {
         "P01": (
@@ -287,6 +289,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "काही योजना फक्त महिलांसाठी असतात, म्हणून तुम्ही महिला आहात की पुरुष, हेही "
             "विचारू."
         ),
+        "P29": "माफ करा, हे बटण या प्रश्नासाठी नाही. कृपया पुन्हा ऐका.",
     },
 }
 

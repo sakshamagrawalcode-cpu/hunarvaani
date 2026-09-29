@@ -19,8 +19,9 @@ options from a sample dataset and say them on the call.**
 - Done: A1 three languages · A2 "you said…" read-back + retell + polite prompts · A3 age, gender,
   physical difficulty, one "why we ask" (P28) · consents reviewed (P06–P08, simple words; P08 =
   "use without name/number to train our AI") · A4 59 occupations · A5 team console · folder
-  layout frontend/ backend/ database/ · B2 live call view with English translation (new
-  schema file 06: run `init_db.py`).
+  layout frontend/ backend/ database/ · B2 live call view (three panels: conversation /
+  processing / errors; schema 06 → run `init_db.py`) · language menu first, then the greeting ·
+  P29 "wrong key" apology (render it: `python scripts\render_prompts.py`).
 - **Next:** A6 = the user tests on real calls (prompts are rendered; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then A7 (district by PIN code) + A8 (sample NSQF dataset in
   `database/sample/`). Open question: demo region (proposed: Maharashtra + a few Hindi-belt

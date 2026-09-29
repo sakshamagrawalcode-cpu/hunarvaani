@@ -114,12 +114,12 @@ has its own README.
 
 ```mermaid
 flowchart TD
-    A([Caller dials 09513886363 + PIN]) --> P01["P01 नमस्ते जी! … आगे बढ़ने के लिए 1"]
-    P01 -- 1 --> P05["P05 language: 1 हिंदी / 2 English / 3 मराठी<br/>(no choice = Hindi; everything after is in that language)"]
+    A([Caller dials 09513886363 + PIN]) --> P05["P05 language first: 1 हिंदी / 2 English / 3 मराठी<br/>(no choice after two tries = Hindi)"]
+    P05 --> P01["P01 greeting in the chosen language … आगे बढ़ने के लिए 1"]
     P01 -- "silence 8 s" --> P02["P02 क्या आप सुन पा रहे हैं? 1 / कॉल नहीं किया तो 9"]
-    P02 -- 1 --> P05
+    P02 -- 1 --> P03
     P02 -- "silence" --> END0([hang up, no data])
-    P05 --> P03["P03 बात करने का समय है? (~4 min) 1 हाँ / 2 बाद में"]
+    P01 -- 1 --> P03["P03 बात करने का समय है? (~4 min) 1 हाँ / 2 बाद में"]
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
     P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: use without name/number to train our AI"]
     P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
@@ -141,8 +141,9 @@ flowchart TD
 
 **Anywhere in a menu:** `9` = delete all my data (calls, answers, recordings) + block my number
 (P18, hang up); `0` = flag the call for a human officer (P19) and repeat the question.
-**No key or a wrong key:** P16 "माफ़ कीजिए, हमें आपका जवाब नहीं मिला…" + the question once more, then
-it is recorded as `skipped` and the call moves on. A skipped consent counts as **no**.
+**No key:** P16 "माफ़ कीजिए, हमें आपका जवाब नहीं मिला…"; **wrong key:** P29 "माफ़ कीजिए, यह बटन इस सवाल
+के लिए नहीं है…"; then the question once more, then it is recorded as `skipped` and the call moves
+on. A skipped consent counts as **no**.
 
 After step A10 (section 6), P15 will be followed by the recommendations: "आपके लिए दो रास्ते हैं: …"
 with 1/2 to choose.
@@ -151,8 +152,8 @@ with 1/2 to choose.
 
 | # | Phone says | Sunita does | System does |
 |---|---|---|---|
-| 1 | P01 नमस्ते जी! … | presses 1 | logs key |
-| 2 | P05 language menu | 1 (Hindi) | `call.language = hi-IN` |
+| 1 | P05 language menu | 1 (Hindi) | `call.language = hi-IN` |
+| 2 | P01 नमस्ते जी! … (in Hindi) | presses 1 | logs key |
 | 3 | P03 बात करने का समय है? | 1 | |
 | 4 | P06, P07, P08 consents | 1, 1, 2 | recording yes, share yes, research no |
 | 5 | P28 (why we ask, once) + P25 age, P26 gender | 3, 1 | `26_35`, `female` |
@@ -215,7 +216,7 @@ The console shows both tries.
 | A5 | **Team console** (React): overview, calls, call detail with recording + timeline, people, occupations | `44dd869` |
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
 | Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
-| B2 | **Live call view** (done early): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
+| B2 | **Live call view** (done early; redesigned: sidebar layout, three panels Conversation / Processing / Errors & warnings, no English translation shown; translation API off unless `TRANSLATE_FOR_CONSOLE=true`); language menu now comes **before** the greeting; wrong key gets its own apology (P29): every step saved as an event (what the system said with English, keys, answers, the caller's words + English translation via Sarvam translate, occupation scores, worker timings, problems); the call page shows a categorised live log (filters, search, follow live), LIVE badges and a "call happening now" banner | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**

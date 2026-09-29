@@ -50,6 +50,7 @@ class Settings:
     calls_page_password: str = ""
     record_silence_seconds: float = 2.5
     record_no_speech_seconds: float = 12.0
+    translate_for_console: bool = False
 
 
 def load_settings() -> Settings:
@@ -86,4 +87,6 @@ def load_settings() -> Settings:
         calls_page_password=_str("CALLS_PAGE_PASSWORD"),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
         record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
+        translate_for_console=_str("TRANSLATE_FOR_CONSOLE", "false").lower()
+        in ("1", "true", "yes"),
     )

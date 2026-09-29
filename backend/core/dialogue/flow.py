@@ -5,13 +5,15 @@ out, and feeds back what happened: a key, a timeout, or a finished recording. Ev
 comes with a list of effects for the adapter to persist. Nothing here touches I/O.
 
 Rules from the build spec:
-- every question waits `timeout` seconds; after a timeout or a wrong key it plays P16 and asks
-  once more, then records "skipped" and moves on (a skipped consent counts as "no");
+- the call starts with the language menu (P05, one line per language; skipped when only one is
+  offered); the greeting (P01) and everything after it play in the chosen language; no choice
+  after two tries keeps Hindi;
+- every question waits `timeout` seconds; after a timeout (P16 "no answer") or a wrong key
+  (P29 "that key is not an option") it asks once more, then records "skipped" and moves on
+  (a skipped consent counts as "no");
 - 9 at any menu deletes the caller's data, blocks the number, plays P18 and hangs up;
 - 0 at any menu flags the call for a human (P19) and repeats the question;
-- silence at the opening plays P02 once ("press 9 if you did not call"), then hangs up;
-- right after the opening the caller picks a language (skipped when only one is offered);
-  every later prompt plays in that language;
+- silence at the greeting plays P02 once ("press 9 if you did not call"), then hangs up;
 - after the work story the caller hears what we heard (P21) and what we understood (P13); if we
   could not understand it, or the caller says neither guess is right, they may tell it once more
   in more detail (P23) before the keypad trade list (P14).
@@ -92,7 +94,7 @@ CONSENTS = {
 class Interview:
     languages: list[str] = field(default_factory=lambda: ["hi-IN"])
     timeout: int = 8
-    state: str = "opening"
+    state: str = "language"
     attempts: int = 0
     opening_warned: bool = False
     keypad_only: bool = False
@@ -116,7 +118,7 @@ class Interview:
         return {k: code for k, code in LANGUAGE_KEYS.items() if code in self.languages}
 
     def start(self) -> Action:
-        return self._action()
+        return self._goto(self.state)
 
     def on_key(self, digit: str) -> tuple[Action, list[Effect]]:
         if self.state in ("ended", "story"):
@@ -128,7 +130,7 @@ class Interview:
             return self._action(prefix=("P19",)), [Effect("human_flag", {"step": self.state})]
 
         if self.state == "opening":
-            return (self._goto("language"), []) if digit == "1" else self.on_timeout()
+            return (self._goto("safe_to_talk"), []) if digit == "1" else self.on_timeout()
 
         if self.state == "safe_to_talk":
             if digit == "1":
@@ -136,27 +138,27 @@ class Interview:
             if digit == "2":
                 self.state = "ended"
                 return Hangup(("P04",)), [Effect("callback_tomorrow")]
-            return self._invalid()
+            return self._invalid(wrong_key=True)
 
         if self.state == "language":
             choices = self._menu()
             if digit not in choices:
-                return self._invalid()
+                return self._invalid(wrong_key=True)
             self.language = choices[digit]
-            return self._goto("safe_to_talk"), [Effect("language", {"code": self.language})]
+            return self._goto("opening"), [Effect("language", {"code": self.language})]
 
         if self.state == "readback":
             return self._readback(digit)
 
         if self.state in CONSENTS:
             if digit not in "12":
-                return self._invalid()
+                return self._invalid(wrong_key=True)
             return self._consent(granted=digit == "1")
 
         if self.state in QUESTIONS:
             prompt, options, _ = QUESTIONS[self.state]
             if digit not in options:
-                return self._invalid()
+                return self._invalid(wrong_key=True)
             step = self.state
             if step == "q_education":
                 self.education = options[digit]
@@ -218,7 +220,7 @@ class Interview:
             again = self.story_attempts < MAX_STORY_ATTEMPTS
             return self._goto("story" if again else "trades"), [effect]
         if choice is None or choice >= len(self.candidates):
-            return self._invalid()
+            return self._invalid(wrong_key=True)
         code = self.candidates[choice]
         self.occupation = code
         return self._goto("summary"), [
@@ -226,16 +228,18 @@ class Interview:
             Effect("answer", {"step": "occupation", "key": digit, "value": code}),
         ]
 
-    def _invalid(self) -> tuple[Action, list[Effect]]:
+    def _invalid(self, wrong_key: bool = False) -> tuple[Action, list[Effect]]:
         if self.attempts == 0:
             self.attempts = 1
-            return self._action(prefix=("P16",)), []
+            if self.state == "language":  # no language yet: just play the menu again
+                return self._action(), []
+            return self._action(prefix=("P29",) if wrong_key else ("P16",)), []
         step = self.state
         skipped = [Effect("skipped", {"step": step})]
         if step == "safe_to_talk":
             return self._goto("consent_recording"), skipped
         if step == "language":
-            return self._goto("safe_to_talk"), skipped
+            return self._goto("opening"), skipped
         if step == "readback":
             return self._goto("trades"), skipped
         if step in CONSENTS:
@@ -263,7 +267,7 @@ class Interview:
             menu = self._menu()
             if menu:
                 self.language = next(iter(menu.values()))
-            return self._goto("safe_to_talk", prefix)
+            return self._goto("opening", prefix)
         if state == "summary":
             self.state = "ended"
             return Hangup(prefix + ("P15",))
