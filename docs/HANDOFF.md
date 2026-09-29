@@ -195,7 +195,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 
 | Check | Status |
 |---|---|
-| Missed call → callback within 30 s, caller not charged | ⏳ Needs a dedicated ExoPhone (trial asks for a PIN, the call is answered). Callback API: keys are filled; run `python scripts\exotel_call_me.py <number>` and check the `answered` event's `matched_by` (`call_id` or `number`) with `show_call.py` |
+| Missed call → callback within 30 s, caller not charged | ⏳ Needs a dedicated ExoPhone (trial asks for a PIN, the call is answered). Callback API: keys are filled and accepted, but Exotel answers **HTTP 403 "account is not yet KYC compliant"**, so outbound calls are blocked until KYC is done. After KYC: run `python scripts\exotel_call_me.py <number>` and check the `answered` event's `matched_by` (`call_id` or `number`) with `show_call.py` |
 | Silence at opening → P02; 9 blocks; blocked number gets no callback | ✅ code + tests; ⏳ confirm on a real call |
 | Language, consents, answers saved with keys and timestamps | ✅ (real calls) |
 | No to recording → keypad trade list | ✅ tests; ⏳ real call |
@@ -223,7 +223,7 @@ slides.
 
 ### Open decisions and loose ends
 - **Second language**: not chosen yet (P05 needs its line; prompts need rendering in it).
-- **Dedicated ExoPhone + KYC**: needed for a true free missed call and for the pilot.
+- **Dedicated ExoPhone + KYC**: KYC is **required for any outbound call** (confirmed: 403 on the callback API); also needed for a true free missed call and for the pilot. Until then the demo uses inbound calls (caller dials the trial number + PIN).
 - **Plivo**: waiting on Contact-Sales reply (backup only).
 - **NCO codes**: check each of the 16 against NCO-2015 Vol II before the demo.
 - **Prompts**: a native speaker should check the Hindi; voice is Sarvam's default
