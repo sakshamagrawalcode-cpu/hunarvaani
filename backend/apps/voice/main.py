@@ -43,8 +43,19 @@ class _HideTokens(logging.Filter):
         return True
 
 
+class _HideConsolePolling(logging.Filter):
+    """Drop the console's every-few-seconds refreshes (and health checks) from the access log,
+    so the call's own lines stay easy to read."""
+
+    quiet = re.compile(r'"GET /(console/api/|ready |health |audio/)[^"]*" (200|304)')
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not self.quiet.search(record.getMessage())
+
+
 for _name in ("uvicorn.access", "uvicorn.error"):
     logging.getLogger(_name).addFilter(_HideTokens())
+logging.getLogger("uvicorn.access").addFilter(_HideConsolePolling())
 settings = load_settings()
 app = FastAPI(title="HunarVaani voice API", docs_url=None, redoc_url=None, openapi_url=None)
 
