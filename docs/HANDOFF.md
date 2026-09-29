@@ -185,7 +185,7 @@ On `/calls`: time, `xxxxxx1234`, up to 8th / up to 10 km / own work, her words, 
 | Review | `init_db.py` safe to re-run again (it failed on every re-run since Step 8) | `d393857` |
 | Review | Simulator speaks in real time after the beep (simulated stories used to be dropped), skips P17 | `cb3b546` |
 | Fix | Calls no longer drop after the story when the worker needs over 3 s (Redis socket timeout < story wait) | `3652ddf` |
-| 11c | **Read-back says what we heard** ("आपने बताया: …") before what we understood; unclear story or "neither" → tell it once more in more detail (P23); all prompts rewritten to be polite and clear (P01–P24); "you said" audio deleted when the call ends; STORY_WAIT_SECONDS 6 → 8 | see git log |
+| 11c | **Read-back says what we heard** ("आपने बताया: …") before what we understood; unclear story or "neither" → tell it once more in more detail (P23); all prompts rewritten to be polite and clear (P01–P24); "you said" audio deleted when the call ends; STORY_WAIT_SECONDS 6 → 8 | `4e15b34` |
 | 11b | **Three languages**: Hindi, English, Marathi; menu right after the greeting; all prompts, read-back and summary in the caller's language; English + Marathi occupation words | `32890f5` |
 
 **Measured so far:**
