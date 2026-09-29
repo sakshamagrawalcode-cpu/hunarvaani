@@ -6,14 +6,15 @@ comes with a list of effects for the adapter to persist. Nothing here touches I/
 
 Rules from the build spec:
 - the call starts with the language menu (P05, one line per language; skipped when only one is
-  offered); the greeting (P01) and everything after it play in the chosen language; no choice
-  after two tries keeps Hindi;
+  offered); the greeting (P01) and everything after it play in the chosen language;
 - every question waits `timeout` seconds; after a timeout (P16 "no answer") or a wrong key
-  (P29 "that key is not an option") it asks once more, then records "skipped" and moves on
-  (a skipped consent counts as "no");
+  (P29 "that key is not an option") it asks the same question again, as often as needed: the
+  call never skips a question and never hangs up for lack of an answer (the language menu just
+  plays again, because no language is chosen yet);
 - 9 at any menu deletes the caller's data, blocks the number, plays P18 and hangs up;
 - 0 at any menu flags the call for a human (P19) and repeats the question;
-- silence at the greeting plays P02 once ("press 9 if you did not call"), then hangs up;
+- silence at the greeting plays P02 ("can you hear us? press 1; press 9 if you did not call"),
+  then P16 + P02 until the caller answers or hangs up;
 - after the work story the caller hears what we heard (P21) and what we understood (P13); if we
   could not understand it, or the caller says neither guess is right, they may tell it once more
   in more detail (P23) before the keypad trade list (P14).
@@ -130,7 +131,7 @@ class Interview:
             return self._action(prefix=("P19",)), [Effect("human_flag", {"step": self.state})]
 
         if self.state == "opening":
-            return (self._goto("safe_to_talk"), []) if digit == "1" else self.on_timeout()
+            return (self._goto("safe_to_talk"), []) if digit == "1" else self._invalid(True)
 
         if self.state == "safe_to_talk":
             if digit == "1":
@@ -170,12 +171,9 @@ class Interview:
         return self._action(), []
 
     def on_timeout(self) -> tuple[Action, list[Effect]]:
-        if self.state == "opening":
-            if not self.opening_warned:
-                self.opening_warned = True
-                return self._action(), []
-            self.state = "ended"
-            return Hangup(), [Effect("no_response")]
+        if self.state == "opening" and not self.opening_warned:
+            self.opening_warned = True  # first silence: "can you hear us?" (P02)
+            return self._action(), []
         return self._invalid()
 
     def on_recording(
@@ -229,23 +227,11 @@ class Interview:
         ]
 
     def _invalid(self, wrong_key: bool = False) -> tuple[Action, list[Effect]]:
-        if self.attempts == 0:
-            self.attempts = 1
-            if self.state == "language":  # no language yet: just play the menu again
-                return self._action(), []
-            return self._action(prefix=("P29",) if wrong_key else ("P16",)), []
-        step = self.state
-        skipped = [Effect("skipped", {"step": step})]
-        if step == "safe_to_talk":
-            return self._goto("consent_recording"), skipped
-        if step == "language":
-            return self._goto("opening"), skipped
-        if step == "readback":
-            return self._goto("trades"), skipped
-        if step in CONSENTS:
-            action, effects = self._consent(granted=False)
-            return action, skipped + effects
-        return self._after_question(step), skipped
+        """No key or a wrong key: say so and ask the same question again, however many times."""
+        self.attempts += 1
+        if self.state == "language":  # no language yet: just play the menu again
+            return self._action(), []
+        return self._action(prefix=("P29",) if wrong_key else ("P16",)), []
 
     def _consent(self, granted: bool) -> tuple[Action, list[Effect]]:
         prompt, kind, nxt = CONSENTS[self.state]

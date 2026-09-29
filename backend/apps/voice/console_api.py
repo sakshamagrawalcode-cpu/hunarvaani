@@ -12,7 +12,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from core import store
+from core import prompt_check, store
 from core.config import Settings
 from core.phone import decrypt, last4
 from core.timeutil import IST, utcnow
@@ -129,7 +129,9 @@ def _calls(conn, limit: int) -> list[dict]:
     ).fetchall()
 
 
-def build_router(get_settings: Callable[[], Settings]) -> APIRouter:
+def build_router(
+    get_settings: Callable[[], Settings], audio_dir: Callable[[], Path] | None = None
+) -> APIRouter:
     router = APIRouter()
 
     def rows(conn, calls: list[dict]) -> list[dict]:
@@ -299,6 +301,14 @@ def build_router(get_settings: Callable[[], Settings]) -> APIRouter:
                     "ORDER BY title_en"
                 )
             ]
+
+    @router.get("/prompts")
+    def prompts():
+        """Every voice prompt per language: words, file, length, loudness and problems."""
+        if audio_dir is None:
+            raise HTTPException(404)
+        s = get_settings()
+        return prompt_check.check_all(audio_dir(), tuple(s.languages), s.sarvam_speaker)
 
     return router
 

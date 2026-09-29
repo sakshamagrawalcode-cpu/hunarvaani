@@ -77,7 +77,7 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
             key: `${base.key}-wrong`,
             icon: "🔢",
             title: `Wrong key${prev.digit ? ` ${prev.digit}` : ""} at “${stepName(p.step)}”`,
-            text: "not one of the options; the question is repeated once",
+            text: "not one of the options; the question is asked again",
             tone: "warn",
           });
         }
@@ -133,7 +133,7 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
           ...base,
           icon: "⏳",
           title: `No answer at “${stepName(p.step)}”`,
-          text: "the question is repeated once, then skipped",
+          text: "the question is asked again until the caller answers",
           tone: "warn",
         });
         break;

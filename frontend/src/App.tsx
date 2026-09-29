@@ -7,6 +7,7 @@ import Calls from "./pages/Calls";
 import Occupations from "./pages/Occupations";
 import Overview from "./pages/Overview";
 import People from "./pages/People";
+import Prompts from "./pages/Prompts";
 
 const ICON: Record<string, string> = {
   overview: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
@@ -16,6 +17,8 @@ const ICON: Record<string, string> = {
     "M16 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm-8 0c1.7 0 3-1.3 3-3S9.7 5 8 5 5 6.3 5 8s1.3 3 3 3zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13zm8 0c-.3 0-.6 0-1 .1 1.2.8 2 2 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z",
   occupations:
     "M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z",
+  prompts:
+    "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z",
 };
 
 const NAV = [
@@ -23,6 +26,7 @@ const NAV = [
   { to: "/calls", label: "Calls", icon: "calls", end: false },
   { to: "/people", label: "People", icon: "people", end: false },
   { to: "/occupations", label: "Occupations", icon: "occupations", end: false },
+  { to: "/prompts", label: "Voice prompts", icon: "prompts", end: false },
 ];
 
 const TITLES: [RegExp, string, string][] = [
@@ -30,6 +34,7 @@ const TITLES: [RegExp, string, string][] = [
   [/^\/calls/, "Calls", "every call, newest first"],
   [/^\/people/, "People", "one row per caller with their latest answers"],
   [/^\/occupations/, "Occupations", "the occupations a call can recognise"],
+  [/^\/prompts/, "Voice prompts", "listen to every rendered sentence and spot bad files"],
   [/.*/, "Overview", "what is happening across all calls"],
 ];
 
@@ -112,6 +117,7 @@ export default function App() {
             <Route path="/calls/:id" element={<CallDetail />} />
             <Route path="/people" element={<People />} />
             <Route path="/occupations" element={<Occupations />} />
+            <Route path="/prompts" element={<Prompts />} />
             <Route path="*" element={<Overview />} />
           </Routes>
         </main>

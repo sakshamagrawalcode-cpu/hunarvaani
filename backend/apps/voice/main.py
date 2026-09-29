@@ -206,7 +206,7 @@ def calls_list():
 # The team console: a React app (frontend/) built into frontend/dist, plus its JSON API.
 # Both live under /console/ so the browser reuses the password it was asked for once.
 app.include_router(
-    console_api.build_router(lambda: settings),
+    console_api.build_router(lambda: settings, lambda: AUDIO_DIR),
     prefix="/console/api",
     dependencies=[Depends(_team_only)],
 )

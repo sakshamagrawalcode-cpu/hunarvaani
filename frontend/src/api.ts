@@ -75,6 +75,23 @@ export type Person = {
 
 export type OccupationRow = Occupation & { aliases: string[]; callers: number };
 
+export type PromptFile = {
+  text: string | null;
+  audio?: string;
+  missing?: boolean;
+  seconds?: number;
+  level_db?: number | null;
+  peak_db?: number | null;
+  silence_start?: number;
+  silence_end?: number;
+  issues?: string[];
+};
+
+export type PromptCheck = {
+  languages: string[];
+  prompts: { id: string; used_for: string; dynamic: boolean; languages: Record<string, PromptFile> }[];
+};
+
 export const API = "/console/api";
 
 export function audioUrl(callId: string, n: number): string {

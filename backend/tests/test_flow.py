@@ -1,4 +1,4 @@
-from core.dialogue.flow import Ask, Effect, Hangup, Interview, Record
+from core.dialogue.flow import Ask, Hangup, Interview, Record
 
 
 def kinds(effects):
@@ -72,14 +72,15 @@ def test_language_keys_stay_fixed_when_one_is_left_out():
     assert iv.language == "mr-IN"
 
 
-def test_no_language_choice_keeps_hindi_and_greets():
+def test_no_language_choice_plays_the_menu_again_and_again():
     iv = Interview(languages=["hi-IN", "en-IN"])
     iv.start()
-    action, _ = iv.on_timeout()
-    assert action.prompts == ("P05@hi-IN", "P05@en-IN")  # menu again, no apology yet
-    action, effects = iv.on_timeout()
-    assert effects == [Effect("skipped", {"step": "language"})]
-    assert iv.language == "hi-IN" and action.prompts == ("P01",)
+    for _ in range(5):
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P05@hi-IN", "P05@en-IN") and effects == []
+        assert iv.state == "language"
+    action, _ = iv.on_key("2")
+    assert iv.language == "en-IN" and action.prompts == ("P01",)
 
 
 def test_wrong_key_and_no_key_get_different_apologies():
@@ -100,15 +101,17 @@ def test_no_to_recording_means_keypad_only_and_no_story():
     assert isinstance(action, Ask) and action.prompts == ("P14",)
 
 
-def test_timeout_repeats_once_with_p16_then_skips():
+def test_no_answer_repeats_the_question_and_never_skips():
     iv = Interview()
     run(iv, ["1", "1", "1", "1", "1", "3", "1"])
     assert iv.state == "q_education"
-    action, effects = iv.on_timeout()
-    assert action.prompts == ("P16", "P09") and effects == []
-    action, effects = iv.on_timeout()
-    assert effects[0].data == {"step": "q_education"} and effects[0].kind == "skipped"
-    assert action.prompts == ("P10",)
+    for _ in range(6):
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P16", "P09") and effects == []
+    action, _ = iv.on_key("8")
+    assert action.prompts == ("P29", "P09") and iv.state == "q_education"
+    action, effects = iv.on_key("4")
+    assert action.prompts == ("P10",) and effects[0].data["value"] == "10th"
 
 
 def test_wrong_key_counts_like_a_timeout():
@@ -134,13 +137,13 @@ def test_age_gender_and_physical_questions_come_around_education():
     assert effects[0].data == {"step": "q_physical", "key": "1", "value": "none"}
 
 
-def test_skipped_consent_counts_as_no():
+def test_unanswered_consent_is_asked_again_not_taken_as_no():
     iv = Interview()
     run(iv, ["1", "1"])
-    iv.on_timeout()
-    _, effects = iv.on_timeout()
-    assert kinds(effects) == ["skipped", "consent", "keypad_only"]
-    assert effects[1].data["granted"] is False
+    for _ in range(3):
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P16", "P06") and effects == []
+    assert not iv.keypad_only and iv.state == "consent_recording"
 
 
 def test_nine_anywhere_deletes_and_blocks():
@@ -159,13 +162,18 @@ def test_zero_flags_a_human_and_repeats_the_question():
     assert iv.state == "safe_to_talk"
 
 
-def test_silent_opening_warns_then_hangs_up():
+def test_silent_opening_asks_can_you_hear_us_and_never_hangs_up():
     iv = Interview()
     iv.start()
     action, _ = iv.on_timeout()
     assert action.prompts == ("P02",)
-    action, effects = iv.on_timeout()
-    assert action == Hangup() and kinds(effects) == ["no_response"]
+    for _ in range(4):
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P16", "P02") and effects == []
+    action, _ = iv.on_key("4")
+    assert action.prompts == ("P29", "P02")
+    action, _ = iv.on_key("1")
+    assert action.prompts == ("P03",)
 
 
 def test_silent_opening_then_nine_blocks():
@@ -233,14 +241,15 @@ def test_neither_lets_the_caller_tell_it_again_once():
     assert action.prompts == ("P14",)
 
 
-def test_read_back_timeouts_repeat_then_fall_back():
+def test_read_back_timeouts_keep_repeating_the_read_back():
     iv = Interview()
     _story(iv)
     iv.on_recording("/r.wav", 5, ["7531", "7411"], readback=["DYN:bb"], heard=["DYN:aa"])
-    action, _ = iv.on_timeout()
-    assert action.prompts == ("P16", "DYN:aa", "DYN:bb")
-    action, effects = iv.on_timeout()
-    assert action.prompts == ("P14",) and kinds(effects) == ["skipped"]
+    for _ in range(3):
+        action, effects = iv.on_timeout()
+        assert action.prompts == ("P16", "DYN:aa", "DYN:bb") and effects == []
+    action, _ = iv.on_key("1")
+    assert action == Hangup(("P15",)) and iv.occupation == "7531"
 
 
 def test_unclear_story_says_what_we_heard_and_asks_for_more_detail():
@@ -270,9 +279,11 @@ def test_slow_or_failed_processing_goes_straight_to_the_trade_list():
     assert action.prompts == ("P14",)
 
 
-def test_skipped_trade_list_still_ends_with_the_summary():
+def test_trade_list_is_repeated_until_the_caller_picks_one():
     iv = Interview()
     run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "2"])
-    iv.on_timeout()
-    action, effects = iv.on_timeout()
-    assert action == Hangup(("P15",)) and iv.occupation == "" and kinds(effects) == ["skipped"]
+    for _ in range(3):
+        action, _ = iv.on_timeout()
+        assert action.prompts == ("P16", "P14")
+    action, _ = iv.on_key("5")
+    assert action == Hangup(("P15",)) and iv.occupation == "7422"

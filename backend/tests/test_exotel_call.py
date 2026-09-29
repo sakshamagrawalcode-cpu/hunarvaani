@@ -233,7 +233,7 @@ def test_nine_after_the_story_also_deletes_the_recordings(client, settings, audi
     assert redis.Redis.from_url(RD).exists(story_job.result_key(str(old_id))) == 0
 
 
-def test_timeouts_repeat_then_skip(client, settings):
+def test_timeouts_repeat_the_question_until_answered(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
@@ -245,6 +245,10 @@ def test_timeouts_repeat_then_skip(client, settings):
             p.press(key)
         p.hear("P09")
         p.hear("P16+P09")
+        p.hear("P16+P09")
+        p.press("8")
+        p.hear("P29+P09")
+        p.press("4")
         p.hear("P10")
         p.press("3")
         p.hear("P27")
@@ -254,7 +258,7 @@ def test_timeouts_repeat_then_skip(client, settings):
         p.hear("P12")
         ws.close()
     answers = dict(rows("SELECT step, value FROM answer"))
-    assert answers["q_education"] == "skipped" and answers["q_travel"] == "30km"
+    assert answers["q_education"] == "10th" and answers["q_travel"] == "30km"
     assert rows("SELECT count(*) FROM event WHERE kind = 'timeout'") == [(2,)]
 
 
@@ -296,14 +300,18 @@ def test_not_now_schedules_tomorrow(client, settings):
     assert redis.Redis.from_url(RD).zcard(callbacks.QUEUE) == 1
 
 
-def test_silent_opening_hangs_up(client, settings):
+def test_silent_opening_keeps_asking_until_the_caller_answers(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
         p.start()
         p.hear("P01")
         p.hear("P02")
-        p.until_hangup()
-    assert rows("SELECT kind FROM event WHERE kind = 'no_response'") == [("no_response",)]
+        p.hear("P16+P02")
+        p.hear("P16+P02")
+        p.press("1")
+        p.hear("P03")
+        ws.close()
+    assert rows("SELECT count(*) FROM event WHERE kind = 'no_response'") == [(0,)]
 
 
 def test_callback_row_is_matched_by_provider_call_id(client, settings):
@@ -889,3 +897,14 @@ def test_key_press_formats_exotel_may_send():
     assert _digit({"event": "dtmf", "digit": "#"}) == "#"
     assert _digit({"event": "dtmf", "dtmf": {}}) == ""
     assert _digit({"event": "dtmf", "dtmf": {"digit": "x"}}) == ""
+
+
+def test_console_lists_every_voice_prompt(client, settings, monkeypatch):
+    get = _console(client, settings, monkeypatch)
+    out = get("/prompts").json()
+    assert out["languages"] == ["hi-IN"]
+    ids = [p["id"] for p in out["prompts"]]
+    assert sorted(ids) == sorted(PROMPTS["hi-IN"])
+    p01 = next(p for p in out["prompts"] if p["id"] == "P01")["languages"]["hi-IN"]
+    assert p01["audio"] == "/audio/hi/P01.wav" and p01["seconds"] == 0.05
+    assert client.get("/console/api/prompts").status_code == 401
