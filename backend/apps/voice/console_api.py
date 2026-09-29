@@ -1,4 +1,4 @@
-"""JSON for the team console (apps/console): calls, one call in detail, people, occupations.
+"""JSON for the team console (frontend/): calls, one call in detail, people, occupations.
 
 Everything here is read-only and sits behind the same team password as /calls. Phone numbers
 never leave the server whole: only the last four digits.

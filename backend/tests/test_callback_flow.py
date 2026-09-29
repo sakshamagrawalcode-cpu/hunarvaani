@@ -36,7 +36,9 @@ NUMBER = "919876543210"
 def schema():
     with psycopg.connect(DB, autocommit=True) as conn:
         conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-        for f in sorted((Path(__file__).resolve().parent.parent / "db").glob("*.sql")):
+        for f in sorted(
+            (Path(__file__).resolve().parents[2] / "database" / "schema").glob("*.sql")
+        ):
             conn.execute(f.read_text(encoding="utf-8"))
 
 

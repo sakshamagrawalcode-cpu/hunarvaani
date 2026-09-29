@@ -22,7 +22,7 @@ import uuid
 
 import websockets
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from core.dialogue.prompts import LANGUAGE_KEYS, PROMPTS, split_language  # noqa: E402
 
 RATE = 8000

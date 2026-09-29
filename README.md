@@ -20,7 +20,7 @@ docker compose -f infra/docker-compose.yml down
 
 ## Database and occupation data (Step 4)
 
-A brand-new database applies `db/*.sql` on first start. If the `pgdata` volume already exists,
+A brand-new database applies `database/schema/*.sql` on first start. If the `pgdata` volume already exists,
 apply them yourself (safe to repeat), then load the 59 seed occupations with embeddings:
 
 ```powershell
@@ -36,7 +36,7 @@ Docker volume, so later runs are fast. The api service needs a restart only for 
 ## Tests
 
 ```powershell
-pip install -r requirements-dev.txt
+pip install -r backend/requirements-dev.txt
 pytest
 ruff check .
 ```
@@ -44,20 +44,26 @@ ruff check .
 ## Layout
 
 ```
-apps/voice/    FastAPI: Plivo webhooks, IVR XML, calls page
-apps/worker/   callback queue, transcription, search
-core/          config, dialogue, search
-data/          NCO seed data
-audio/hi/      pre-rendered Hindi prompts (8 kHz)
-scripts/       secrets, prompt rendering, seeding, measurement
-infra/         Dockerfile, docker-compose.yml
-tests/         unit tests
-docs/          measurements, honesty table
+frontend/            team console: React + TypeScript + Tailwind (served at /console/)
+backend/
+  apps/voice/        FastAPI: the live call (Exotel WebSocket), prompts audio, /calls, console API
+  apps/worker/       story understanding (speech-to-text, search, read-back audio), callbacks
+  core/              interview state machine, prompts (3 languages), search, storage, speech
+  tests/             unit and integration tests
+  requirements*.txt  Python packages
+database/
+  schema/            SQL tables (applied by scripts/init_db.py)
+  seed/              59 occupations (nco_seed.csv)
+  sample/            sample recommendation data (step A8)
+scripts/             run from the laptop or inside a container: secrets, prompts, seeding, tests calls
+audio/               rendered prompts per language (hi/, en/, mr/; not in git)
+infra/               Dockerfile, docker-compose.yml
+docs/                HANDOFF.md (status and plan), PROBLEM_STATEMENT.md
 ```
 
 ## Voice prompts (Step 5)
 
-The prompts (P01–P27, in Hindi, English and Marathi) live in `core/dialogue/prompts.py`. Render them on your laptop (needs
+The prompts (P01–P28, in Hindi, English and Marathi) live in `backend/core/dialogue/prompts.py`. Render them on your laptop (needs
 ffmpeg on PATH and `SARVAM_API_KEY` in `.env`; `SARVAM_SPEAKER` is optional):
 
 ```powershell
@@ -115,7 +121,7 @@ Integration tests use a throwaway Postgres and Redis:
 
 ## Interview over Exotel (Step 8)
 
-The keypad interview lives in `core/dialogue/flow.py`, a provider-neutral state machine
+The keypad interview lives in `backend/core/dialogue/flow.py`, a provider-neutral state machine
 (opening → safe to talk → language → 3 consents → education, travel, preference → work story
 or trade list → end). Global keys: 9 deletes the caller's data (rows and story recordings) and
 blocks the number, 0 flags the call for a human (P19). Timeouts and wrong keys repeat once with
@@ -172,8 +178,8 @@ consents and flags. Numbers show only their last four digits.
 
 ## Team console (Step A5)
 
-A React web app (`apps/console`, Vite + TypeScript + Tailwind) at
+A React web app (`frontend/`, Vite + TypeScript + Tailwind) at
 `http://localhost:8000/console/` (same user and password as `/calls`): overview, all calls with
 search, one call in detail (profile, the caller's words and recording, what was understood,
 consents, spoken summary, timeline), people and occupations. Docker builds it; for development
-run `npm install` and `npm run dev` in `apps/console` and open `http://localhost:5173/console/`.
+run `npm install` and `npm run dev` in `frontend/` and open `http://localhost:5173/console/`.

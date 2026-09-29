@@ -10,7 +10,7 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from apps.worker.main import load_encoder  # noqa: E402
 from core import store  # noqa: E402
 from core.search.nco_search import THRESHOLD, NcoIndex, load_occupations  # noqa: E402

@@ -1,10 +1,11 @@
 [tool.ruff]
 line-length = 100
+src = ["backend", "scripts"]
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]

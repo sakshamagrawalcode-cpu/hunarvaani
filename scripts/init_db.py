@@ -10,7 +10,7 @@ from pathlib import Path
 
 import psycopg
 
-DB_DIR = Path(__file__).resolve().parent.parent / "db"
+DB_DIR = Path(__file__).resolve().parent.parent / "database" / "schema"
 
 
 def main() -> None:

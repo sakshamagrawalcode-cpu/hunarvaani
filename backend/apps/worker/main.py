@@ -68,7 +68,7 @@ def process_one(r, settings: Settings, dialer, now=None) -> bool:
     return True
 
 
-AUDIO_DIR = Path(__file__).resolve().parents[2] / "audio"
+AUDIO_DIR = Path(__file__).resolve().parents[3] / "audio"
 EMBED_MODEL = "intfloat/multilingual-e5-base"
 
 

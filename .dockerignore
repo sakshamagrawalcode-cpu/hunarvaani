@@ -4,7 +4,7 @@
 __pycache__
 *.pyc
 recordings
-tests
+backend/tests
 docs
-apps/console/node_modules
-apps/console/dist
+frontend/node_modules
+frontend/dist

@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "backend"))
 
 from core.config import load_settings  # noqa: E402
 from core.dialers import REQUIRED, DialError, ExotelDialer  # noqa: E402

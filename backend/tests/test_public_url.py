@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
-    "set_public_url", Path(__file__).resolve().parent.parent / "scripts" / "set_public_url.py"
+    "set_public_url", Path(__file__).resolve().parents[2] / "scripts" / "set_public_url.py"
 )
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)

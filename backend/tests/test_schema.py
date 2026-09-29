@@ -9,7 +9,7 @@ import pytest
 DB = os.environ.get("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DB, reason="TEST_DATABASE_URL unset")
 
-SQL = sorted((Path(__file__).resolve().parent.parent / "db").glob("*.sql"))
+SQL = sorted((Path(__file__).resolve().parents[2] / "database" / "schema").glob("*.sql"))
 
 
 def test_schema_files_can_be_applied_again():

@@ -1,6 +1,7 @@
 # HunarVaani: project handoff (status, plan, how it works)
 
-Last updated: 29 Sep 2026, after Step A5 (team console, `44dd869`).
+Last updated: 29 Sep 2026, after A3b (one "why" before the personal questions) and the
+frontend / backend / database folder layout.
 Read this first if you are a new teammate or a new Claude chat picking up the work.
 - The SIH problem statement and what we cover of it: `docs/PROBLEM_STATEMENT.md`.
 - **The plan, in order, with a timeline: section 6.** Tick items there as they are finished.
@@ -66,9 +67,9 @@ section 6.
 flowchart LR
     Phone["Keypad phone"] -- "call + PIN" --> Exotel["Exotel<br/>flow: Voicebot → Hangup"]
     Exotel -- "wss:// audio + key presses" --> Tunnel["Cloudflare tunnel"]
-    Tunnel --> API["api (FastAPI)<br/>apps/voice"]
+    Tunnel --> API["api (FastAPI)<br/>backend/apps/voice"]
     API -- "prompts (8 kHz WAV)" --> Exotel
-    API -- "story job (Redis list)" --> Worker["worker<br/>apps/worker"]
+    API -- "story job (Redis list)" --> Worker["worker<br/>backend/apps/worker"]
     Worker -- "speech-to-text, TTS" --> Sarvam["Sarvam (India)"]
     Worker -- "transcript, top 2, 'you said' + read-back audio" --> API
     API --> DB[("Postgres + pgvector<br/>calls, answers, consents,<br/>stories, events, 59 occupations")]
@@ -80,26 +81,32 @@ Docker Compose services (`infra/docker-compose.yml`): `api` (also serves the con
 Node stage of the Dockerfile), `worker`, `db` (Postgres 16 + pgvector), `redis`, `tunnel`
 (optional profile).
 
+**Folders:** `frontend/` (team console) · `backend/` (voice API, worker, shared logic, tests) ·
+`database/` (schema, seed data, sample data) · `scripts/` (tools you run) · `audio/` (rendered
+prompts, not in git) · `infra/` (Docker) · `docs/`. Each of `frontend/`, `backend/`, `database/`
+has its own README.
+
 | Folder / file | Job |
 |---|---|
-| `core/dialogue/flow.py` | **The interview** as a pure state machine (no I/O). Provider-neutral |
-| `core/dialogue/prompts.py` | 27 prompts × 3 languages (P13, P15, P21 are filled in during the call) |
-| `core/dialogue/summary.py` | The closing summary text in each language |
-| `apps/voice/exotel.py` | Exotel Voicebot WebSocket: plays prompts, reads keys, records the story |
-| `apps/voice/main.py` | Routes: `/health`, `/ready`, `/audio/..`, `/exotel/ws/<token>`, `/exotel/status/<token>`, `/pv/*` (Plivo), `/calls`, `/console/…` |
-| `apps/voice/console_api.py` | Read-only JSON for the console (`/console/api/summary`, `/calls`, `/calls/<id>`, `/calls/<id>/audio/<n>`, `/people`, `/occupations`) |
-| `apps/console/` | **Team console**: Vite + React + TypeScript + Tailwind (`npm run dev` for development) |
-| `apps/voice/calls_page.py` | The older one-table calls page |
-| `apps/worker/main.py` | Background worker: story understanding + callbacks |
-| `core/stt.py`, `core/tts.py`, `core/dynprompt.py` | Sarvam speech-to-text / text-to-speech, cached generated prompts |
-| `core/story_job.py` | Worker job: transcribe → search → render "you said" + read-back (in parallel) |
-| `core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
-| `core/interview_store.py`, `core/store.py` | Database writes (incl. 9 = delete everything, recordings too) |
-| `core/callbacks.py`, `core/dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `data/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
-| `db/*.sql` | Schema (applied by `scripts/init_db.py`) |
+| `backend/core/dialogue/flow.py` | **The interview** as a pure state machine (no I/O). Provider-neutral |
+| `backend/core/dialogue/prompts.py` | 28 prompts × 3 languages (P13, P15, P21 are filled in during the call) |
+| `backend/core/dialogue/summary.py` | The closing summary text in each language |
+| `backend/apps/voice/exotel.py` | Exotel Voicebot WebSocket: plays prompts, reads keys, records the story |
+| `backend/apps/voice/main.py` | Routes: `/health`, `/ready`, `/audio/..`, `/exotel/ws/<token>`, `/exotel/status/<token>`, `/pv/*` (Plivo), `/calls`, `/console/…` |
+| `backend/apps/voice/console_api.py` | Read-only JSON for the console (`/console/api/summary`, `/calls`, `/calls/<id>`, `/calls/<id>/audio/<n>`, `/people`, `/occupations`) |
+| `backend/apps/voice/calls_page.py` | The older one-table calls page |
+| `backend/apps/worker/main.py` | Background worker: story understanding + callbacks |
+| `backend/core/stt.py`, `tts.py`, `dynprompt.py` | Sarvam speech-to-text / text-to-speech, cached generated prompts |
+| `backend/core/story_job.py` | Worker job: transcribe → search → render "you said" + read-back (in parallel) |
+| `backend/core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
+| `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
+| `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
+| `backend/tests/` | 263 tests (unit + real-Postgres/Redis integration) |
+| `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
+| `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
+| `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
+| `database/sample/` | Sample recommendation data (A8) |
 | `scripts/` | `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
-| `tests/` | 263 tests (unit + real-Postgres/Redis integration) |
 
 ---
 
@@ -114,8 +121,8 @@ flowchart TD
     P02 -- "silence" --> END0([hang up, no data])
     P05 --> P03["P03 बात करने का समय है? (~4 min) 1 हाँ / 2 बाद में"]
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
-    P03 -- 1 --> P06["P06 consent: recording (says why)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: anonymised research"]
-    P08 --> P25["P25 age band 1–6 (why: age limits)"] --> P26["P26 gender 1–4 (why: women-only schemes)"]
+    P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: anonymised research"]
+    P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
     P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 अपने शब्दों में काम बताइए<br/>(stops on silence, # or 60 s)"]
     P11 -- "recording = no" --> P14
@@ -148,7 +155,7 @@ with 1/2 to choose.
 | 2 | P05 language menu | 1 (Hindi) | `call.language = hi-IN` |
 | 3 | P03 बात करने का समय है? | 1 | |
 | 4 | P06, P07, P08 consents | 1, 1, 2 | recording yes, share yes, research no |
-| 5 | P25 age, P26 gender | 3, 1 | `26_35`, `female` |
+| 5 | P28 (why we ask, once) + P25 age, P26 gender | 3, 1 | `26_35`, `female` |
 | 6 | P09, P10, P27, P11 | 3, 2, 1, 2 | up to 8th, 10 km, no difficulty, own work |
 | 7 | P12 + beep | "मैं घर पर ब्लाउज़ और सूट सिलती हूं, दस साल से" | recording stops 2.5 s after she goes quiet |
 | 8 | P17 धन्यवाद, एक पल रुकिए… | waits ~2–4 s | worker: transcript → 7531 दर्ज़ी (0.8) / 7533 कढ़ाई → renders two audio pieces at once |
@@ -206,6 +213,8 @@ The console shows both tries.
 | A3 | **Age, gender, physical difficulty** questions; each question says **why** we ask | `c588c06` |
 | A4 | **59 occupations** (was 16) incl. traditional crafts and rural work, words in 3 languages | `710657e` |
 | A5 | **Team console** (React): overview, calls, call detail with recording + timeline, people, occupations | `44dd869` |
+| A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
+| Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | see git log |
 
 **Measured so far:**
 - Real Exotel calls: prompts play, keys work, story recorded, read-back and summary heard.
@@ -237,12 +246,12 @@ hours, the rest is testing on real calls.
 |---|---|---|---|---|---|
 | A1 | Three languages | Hindi, English, Marathi | Claude | — | ✅ `32890f5` |
 | A2 | Better read-back, polite prompts | "you said…", retell once, polite wording | Claude | — | ✅ `4e15b34` |
-| A3 | Age, gender, physical difficulty; "why we ask" | keypad questions P25–P27 | Claude | — | ✅ `c588c06` |
+| A3 | Age, gender, physical difficulty; "why we ask" once (P28) | keypad questions P25–P27 | Claude | — | ✅ `c588c06`, `bd15a36` |
 | A4 | 59 occupations | better matching of what callers say | Claude | — | ✅ `710657e` |
 | A5 | Team console v1 | calls, call detail, people, occupations | Claude | — | ✅ `44dd869` |
 | A6 | **Test A1–A5 on real calls** | re-render prompts (`--force`), rebuild, 3 calls (one per language), check the console | You | 0.5 day | ⏳ next |
 | A7 | **Where the caller lives** | keypad PIN code (6 digits + #) → district, from a PIN-prefix table for the demo state (Maharashtra) + a few Hindi-belt districts; spoken fallback "say your district" later | Claude | 0.5 day | ☐ |
-| A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `data/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ☐ |
+| A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ☐ |
 | A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ☐ |
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ☐ |
 | A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ☐ |
@@ -356,7 +365,7 @@ call → tunnel URL changed; re-run `set_public_url.py` and update Exotel. Conso
 restart the api. Simulator: answer within 8 s; at P12 give seconds to "speak" (a tone, so the story
 has no words and the retell / trade list follows).
 
-Console development (optional, needs Node 22): `cd apps/console`, `npm install`, `npm run dev`,
+Console development (optional, needs Node 22): `cd frontend`, `npm install`, `npm run dev`,
 open `http://localhost:5173/console/` while the api runs on port 8000.
 
 ---
@@ -369,13 +378,13 @@ open `http://localhost:5173/console/` while the api runs on port 8000.
 - Secrets only in `.env`; never print, log or commit them. Logs and the console show only the
   last four digits.
 - Callbacks only to Indian mobiles, ≤ 3 triggers per number per day, never 21:00–09:00 IST.
-- The interview logic stays in `core/dialogue/flow.py` (pure, provider-neutral); providers are
+- The interview logic stays in `backend/core/dialogue/flow.py` (pure, provider-neutral); providers are
   adapters.
 - Sample data is always labelled as sample.
 - Workflow: one Claude chat at a time; `git pull` first; edit, run lint + all tests, commit to
   `main`, push; **update this file**. The laptop runs `git pull` + `docker compose … up -d --build`.
-  Tests: `pip install -r requirements-dev.txt`, then `pytest` (set `TEST_DATABASE_URL` and
+  Tests: `pip install -r backend/requirements-dev.txt`, then `pytest` (set `TEST_DATABASE_URL` and
   `TEST_REDIS_URL` to a throwaway Postgres with pgvector and Redis to run the integration tests;
-  they wipe that database). Console: `npm run build` in `apps/console` must pass (strict TypeScript).
+  they wipe that database). Console: `npm run build` in `frontend/` must pass (strict TypeScript).
 - Suggested models: Sonnet (medium) for setup and guidance; Opus (high) for call-flow, search,
   recommendation and deployment code.

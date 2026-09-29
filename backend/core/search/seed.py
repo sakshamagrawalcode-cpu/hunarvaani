@@ -2,7 +2,7 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-SEED_PATH = Path(__file__).resolve().parents[2] / "data" / "nco_seed.csv"
+SEED_PATH = Path(__file__).resolve().parents[3] / "database" / "seed" / "nco_seed.csv"
 
 
 @dataclass(frozen=True)

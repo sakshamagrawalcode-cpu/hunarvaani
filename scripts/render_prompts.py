@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "backend"))
 
 from core.dialogue.prompts import PROMPTS, audio_dir_name, prerendered_ids  # noqa: E402
 from core.tts import TtsError, synthesize, to_8k_mono  # noqa: E402

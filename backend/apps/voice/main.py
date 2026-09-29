@@ -48,7 +48,8 @@ for _name in ("uvicorn.access", "uvicorn.error"):
 settings = load_settings()
 app = FastAPI(title="HunarVaani voice API", docs_url=None, redoc_url=None, openapi_url=None)
 
-AUDIO_DIR = Path(__file__).resolve().parents[2] / "audio"
+ROOT = Path(__file__).resolve().parents[3]
+AUDIO_DIR = ROOT / "audio"
 _LANG = re.compile(r"^[a-z]{2,3}$")
 _NAME = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
@@ -202,14 +203,14 @@ def calls_list():
     )
 
 
-# The team console: a React app (apps/console) built into apps/console/dist, plus its JSON API.
+# The team console: a React app (frontend/) built into frontend/dist, plus its JSON API.
 # Both live under /console/ so the browser reuses the password it was asked for once.
 app.include_router(
     console_api.build_router(lambda: settings),
     prefix="/console/api",
     dependencies=[Depends(_team_only)],
 )
-CONSOLE_DIR = Path(__file__).resolve().parents[1] / "console" / "dist"
+CONSOLE_DIR = ROOT / "frontend" / "dist"
 _NO_STORE = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
 
 
@@ -222,7 +223,7 @@ def console_root():
 def console_files(path: str):
     index = CONSOLE_DIR / "index.html"
     if not index.is_file():
-        raise HTTPException(503, "The console is not built: run npm run build in apps/console")
+        raise HTTPException(503, "The console is not built: run npm run build in frontend/")
     if path.startswith("api/"):
         raise HTTPException(404)
     file = (CONSOLE_DIR / path).resolve()

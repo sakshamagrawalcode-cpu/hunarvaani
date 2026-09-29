@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: hv
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../db:/docker-entrypoint-initdb.d:ro
+      - ../database/schema:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
