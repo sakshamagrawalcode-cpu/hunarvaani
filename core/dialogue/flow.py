@@ -149,7 +149,10 @@ class Interview:
     def on_recording(self, path: str | None, seconds: float) -> tuple[Action, list[Effect]]:
         if self.state != "story":
             return self._action(), []
-        effects = [Effect("story_recorded", {"path": path, "seconds": round(seconds, 1)})]
+        if path:
+            effects = [Effect("story_recorded", {"path": path, "seconds": round(seconds, 1)})]
+        else:
+            effects = [Effect("story_empty")]
         return self._goto("trades"), effects
 
     def _invalid(self) -> tuple[Action, list[Effect]]:

@@ -23,6 +23,7 @@ from core import interview_store
 from core.config import Settings
 from core.dialogue.flow import Ask, Hangup, Interview
 from core.dialogue.prompts import audio_dir_name
+from core.phone import last4
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -88,6 +89,8 @@ class ExotelSession:
         self.language = "hi-IN"
         self.recording: bytearray | None = None
         self.max_record_bytes = 0
+        self.voice_started: float | None = None
+        self.last_voice: float | None = None
         self.player: asyncio.Task | None = None
         self._send_lock = asyncio.Lock()
 
@@ -125,7 +128,13 @@ class ExotelSession:
                 elif event == "media" and self.recording is not None:
                     payload = (data.get("media") or {}).get("payload")
                     if payload and len(self.recording) < self.max_record_bytes:
-                        self.recording.extend(base64.b64decode(payload))
+                        chunk = base64.b64decode(payload)
+                        self.recording.extend(chunk)
+                        even = chunk[: len(chunk) // 2 * 2]
+                        if even and audioop.rms(even, 2) >= self.settings.vad_threshold:
+                            now = asyncio.get_running_loop().time()
+                            self.voice_started = self.voice_started or now
+                            self.last_voice = now
                 elif event == "dtmf":
                     digit = str((data.get("dtmf") or {}).get("digit") or "")
                     if digit:
@@ -208,25 +217,42 @@ class ExotelSession:
             await self.stop_playback()
         return key
 
-    async def record(self, action) -> tuple[bytes, bool]:
-        """Returns (pcm, caller_hung_up)."""
+    async def record(self, action) -> tuple[bytes, bool, str]:
+        """Record until #, silence after speech, no speech at all, or the time limit.
+
+        Returns (pcm, caller_hung_up, why_it_stopped).
+        """
         self._drain_keys()
         await self._sleep_unless_ended(await self.play(action.prompts, extra=beep(self.rate)))
         self._drain_keys()
         self.max_record_bytes = action.max_seconds * self.rate * 2
+        self.voice_started = self.last_voice = None
         self.recording = bytearray()
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + action.max_seconds
-        hung_up = False
+        started = loop.time()
+        deadline = started + action.max_seconds
+        silence = self.settings.record_silence_seconds
+        no_speech = self.settings.record_no_speech_seconds
+        hung_up, why = False, "time_limit"
         try:
             while True:
-                key = await self._wait_key(deadline - loop.time())
-                if key is None or key == action.finish_key:
+                now = loop.time()
+                if now >= deadline:
+                    break
+                if self.last_voice is not None and now - self.last_voice >= silence:
+                    why = "silence"
+                    break
+                if self.voice_started is None and now - started >= no_speech:
+                    why = "no_speech"
+                    break
+                key = await self._wait_key(min(0.25, deadline - now))
+                if key == action.finish_key:
+                    why = "key"
                     break
         except CallEnded:
-            hung_up = True
+            hung_up, why = True, "hangup"
         pcm, self.recording = bytes(self.recording), None
-        return pcm, hung_up
+        return pcm, hung_up, why
 
     def _save_recording(self, call_id: str, pcm: bytes) -> str:
         folder = Path(self.settings.recordings_dir)
@@ -257,6 +283,8 @@ class ExotelSession:
             call_id = await run_in_threadpool(
                 interview_store.begin_call, self.settings, self.call_sid, self.caller
             )
+            short = call_id[:8]
+            log.info("call %s: started, caller %s", short, last4(self.caller))
             engine = Interview(
                 second_language=self.settings.second_language,
                 timeout=self.settings.ivr_timeout_seconds,
@@ -265,26 +293,36 @@ class ExotelSession:
             while True:
                 self.language = engine.language
                 if isinstance(action, Hangup):
+                    log.info("call %s: goodbye %s", short, "+".join(action.prompts) or "(silent)")
                     await self._sleep_unless_ended(await self.play(action.prompts) + 0.5)
                     break
                 if isinstance(action, Ask):
+                    log.info(
+                        "call %s: asking %s (%s)", short, action.step, "+".join(action.prompts)
+                    )
                     key = await self.ask(action)
                     if key is None:
+                        log.info("call %s: %s timed out", short, action.step)
                         await self._log(call_id, "timeout", {"step": action.step})
                         action, effects = engine.on_timeout()
                     else:
+                        log.info("call %s: %s key %s", short, action.step, key)
                         await self._log(call_id, "key", {"step": action.step, "digit": key})
                         action, effects = engine.on_key(key)
                     await self._apply(call_id, effects)
                     continue
-                pcm, hung_up = await self.record(action)
-                path = await run_in_threadpool(self._save_recording, call_id, pcm) if pcm else None
-                action, effects = engine.on_recording(path, len(pcm) / (2 * self.rate))
+                pcm, hung_up, why = await self.record(action)
+                seconds = len(pcm) / (2 * self.rate)
+                keep = pcm and why != "no_speech"
+                path = await run_in_threadpool(self._save_recording, call_id, pcm) if keep else None
+                log.info("call %s: story recorded, %.1f s, stopped by %s", short, seconds, why)
+                action, effects = engine.on_recording(path, seconds)
                 await self._apply(call_id, effects)
                 if hung_up:
                     break
         except (CallEnded, asyncio.TimeoutError):
-            pass
+            if call_id:
+                log.info("call %s: caller hung up", call_id[:8])
         except Exception:
             log.exception("call failed")
         finally:
@@ -292,6 +330,7 @@ class ExotelSession:
                 self.player.cancel()
             reader.cancel()
             if call_id:
+                log.info("call %s: ended", call_id[:8])
                 try:
                     await run_in_threadpool(interview_store.end_call, self.settings, call_id)
                 except Exception:

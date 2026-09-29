@@ -65,6 +65,8 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         phone_enc_key=Fernet.generate_key().decode(),
         exotel_ws_token=TOKEN,
         ivr_timeout_seconds=0.3,
+        record_silence_seconds=0.6,
+        record_no_speech_seconds=0.6,
         recordings_dir=str(tmp_path / "recordings"),
     )
     with psycopg.connect(DB, autocommit=True) as conn:
@@ -289,3 +291,39 @@ def test_status_callback_marks_unanswered_callbacks(client, settings):
     r = client.post(f"/exotel/status/{TOKEN}", data={"CallSid": "cb-9", "Status": "no-answer"})
     assert r.status_code == 200
     assert rows("SELECT status FROM call") == [("no_answer",)]
+
+
+def _to_story(p):
+    for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
+        p.hear(prompt)
+        p.press(key)
+    for prompt, key in (("P09", "4"), ("P10", "2"), ("P11", "1")):
+        p.hear(prompt)
+        p.press(key)
+    p.hear("P12")
+
+
+def test_story_ends_by_itself_after_silence(client, settings):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    [(path,)] = rows("SELECT recording_url FROM story")
+    with wave.open(path) as w:
+        assert w.getnframes() / 8000 == pytest.approx(1, abs=0.2)
+    [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'story_recorded'")
+    assert payload["seconds"] == pytest.approx(1, abs=0.2)
+
+
+def test_story_with_no_speech_moves_on(client, settings):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P14")
+        ws.close()
+    assert rows("SELECT count(*) FROM story") == [(0,)]
+    assert rows("SELECT count(*) FROM event WHERE kind = 'story_empty'") == [(1,)]

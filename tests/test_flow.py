@@ -126,3 +126,10 @@ def test_state_survives_serialisation():
     copy = Interview.from_dict(iv.to_dict())
     assert copy == iv
     assert copy.on_key("1")[0] == iv.on_key("1")[0]
+
+
+def test_empty_story_records_nothing_and_offers_the_trade_list():
+    iv = Interview()
+    run(iv, ["1", "1", "1", "1", "1", "4", "2", "1"])
+    action, effects = iv.on_recording(None, 0.0)
+    assert kinds(effects) == ["story_empty"] and action.prompts == ("P14",)

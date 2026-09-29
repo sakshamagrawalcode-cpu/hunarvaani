@@ -38,6 +38,9 @@ class Settings:
     exotel_ws_token: str = ""
     ivr_timeout_seconds: int = 8
     recordings_dir: str = "/app/recordings"
+    vad_threshold: int = 500
+    record_silence_seconds: float = 2.5
+    record_no_speech_seconds: float = 8.0
 
 
 def load_settings() -> Settings:
@@ -66,4 +69,7 @@ def load_settings() -> Settings:
         exotel_ws_token=_str("EXOTEL_WS_TOKEN"),
         ivr_timeout_seconds=_int("IVR_TIMEOUT_SECONDS", 8),
         recordings_dir=_str("RECORDINGS_DIR", "/app/recordings"),
+        vad_threshold=_int("VAD_THRESHOLD", 500),
+        record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
+        record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "8")),
     )
