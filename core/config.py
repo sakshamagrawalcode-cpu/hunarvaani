@@ -40,7 +40,7 @@ class Settings:
     recordings_dir: str = "/app/recordings"
     vad_threshold: int = 500
     record_silence_seconds: float = 2.5
-    record_no_speech_seconds: float = 8.0
+    record_no_speech_seconds: float = 12.0
 
 
 def load_settings() -> Settings:
@@ -71,5 +71,5 @@ def load_settings() -> Settings:
         recordings_dir=_str("RECORDINGS_DIR", "/app/recordings"),
         vad_threshold=_int("VAD_THRESHOLD", 500),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
-        record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "8")),
+        record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
     )
