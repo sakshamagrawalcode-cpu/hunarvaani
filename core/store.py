@@ -60,6 +60,24 @@ def update_call(conn, call_id: str, **fields: Any) -> None:
     conn.execute(f"UPDATE call SET {assignments} WHERE id = %s", (*fields.values(), call_id))
 
 
+STORY_FIELDS = ("transcript", "top1", "top2", "stt_ms", "search_ms")
+
+
+def save_story(conn, call_id: str, recording_url: str, **fields: Any) -> None:
+    """Insert or fill in the story for one recording.
+
+    The api and the worker both save it, in either order; a value one side already stored is
+    kept when the other side has none (e.g. the api stopped waiting before the transcript came).
+    """
+    values = [fields.get(k) for k in STORY_FIELDS]
+    updates = ", ".join(f"{k} = COALESCE(EXCLUDED.{k}, story.{k})" for k in STORY_FIELDS)
+    conn.execute(
+        f"INSERT INTO story (call_id, recording_url, {', '.join(STORY_FIELDS)}) "
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (recording_url) DO UPDATE SET {updates}",
+        (call_id, recording_url, *values),
+    )
+
+
 def add_event(conn, call_id: str, kind: str, payload: dict | None = None) -> None:
     conn.execute(
         "INSERT INTO event (call_id, kind, payload) VALUES (%s, %s, %s)",

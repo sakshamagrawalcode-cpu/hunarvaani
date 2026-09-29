@@ -96,6 +96,15 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
         )
 
     result = story_job.process(job, settings, index, encode, transcribe_file, render)
+    try:
+        with store.connect(settings.database_url) as conn:
+            kept = story_job.save(conn, job, result)
+    except Exception:
+        log.exception("story %s: could not save the transcript", job["call_id"][:8])
+        kept = True
+    if not kept:
+        log.info("story %s: the caller deleted their data; result dropped", job["call_id"][:8])
+        return
     story_job.publish(r, job["call_id"], result)
     log.info(
         "story %s: stt %s ms, search %s ms, tts %s ms, top %s, read-back %s%s",

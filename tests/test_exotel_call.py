@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from apps.voice import main
-from core import callbacks, story_job
+from core import callbacks, store, story_job
 from core.config import Settings
 from core.dialogue.prompts import PROMPTS
 from core.phone import phone_hash
@@ -195,6 +195,35 @@ def test_nine_deletes_data_and_blocks_the_hashed_number(client, settings):
     assert rows("SELECT count(*) FROM call") == [(0,)]
 
 
+def test_nine_after_the_story_also_deletes_the_recordings(client, settings, audio_dir):
+    folder = Path(settings.recordings_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    h = phone_hash("+919876543210", "hash-secret")
+    [(old_id,)] = rows(
+        "INSERT INTO call (phone_hash, status) VALUES (%s, 'completed') RETURNING id", h
+    )
+    (folder / f"{old_id}-20260101T000000.wav").write_bytes(b"old story")
+    (folder / "someone-else-20260101T000000.wav").write_bytes(b"not theirs")
+    redis.Redis.from_url(RD).rpush(story_job.result_key(str(old_id)), "{}")
+
+    worker = fake_worker(audio_dir, ["7531", "7411"])
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("DYN:0123456789abcdef01234567")
+        assert len(list(folder.glob("*.wav"))) == 3
+        p.press("9")
+        p.hear("P18")
+        p.until_hangup()
+    worker.join(2)
+    assert [f.name for f in folder.glob("*.wav")] == ["someone-else-20260101T000000.wav"]
+    assert rows("SELECT count(*) FROM call") == [(0,)]
+    assert rows("SELECT count(*) FROM story") == [(0,)]
+    assert redis.Redis.from_url(RD).exists(story_job.result_key(str(old_id))) == 0
+
+
 def test_timeouts_repeat_then_skip(client, settings):
     with dial(client) as ws:
         p = Phone(ws)
@@ -275,6 +304,34 @@ def test_callback_row_is_matched_by_provider_call_id(client, settings):
         p.hear("P01")
         ws.close()
     assert rows("SELECT status FROM call") == [("completed",)]
+
+
+def test_callback_is_matched_by_number_when_the_call_id_differs(client, settings):
+    h = phone_hash("+919876543210", "hash-secret")
+    with psycopg.connect(DB, autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO call (phone_hash, status, provider_call_id, callback_at) "
+            "VALUES (%s, 'dialing', 'dial-api-sid', now())",
+            (h,),
+        )
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start(call_sid="stream-sid")
+        p.hear("P01")
+        ws.close()
+    assert rows("SELECT status FROM call") == [("completed",)]
+    [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'answered'")
+    assert payload == {"matched_by": "number"}
+
+
+def test_calls_without_a_number_do_not_share_a_hash(client, settings):
+    for sid in ("anon-1", "anon-2"):
+        with dial(client) as ws:
+            p = Phone(ws)
+            p.start(caller=None, call_sid=sid)
+            p.hear("P01")
+            ws.close()
+    assert rows("SELECT count(DISTINCT phone_hash) FROM call") == [(2,)]
 
 
 def test_bad_token_is_refused(client, settings):
@@ -420,6 +477,39 @@ def test_no_worker_answer_in_time_offers_the_trade_list(client, settings):
         ws.close()
     [(transcript,)] = rows("SELECT transcript FROM story")
     assert transcript is None
+
+
+def test_late_worker_answer_is_still_saved(client, settings):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.speak(1)
+        p.hear("P14")
+        ws.close()
+    assert rows("SELECT transcript FROM story") == [(None,)]
+    job = json.loads(redis.Redis.from_url(RD).lpop(story_job.QUEUE))
+    late = {
+        "transcript": "मैं सिलाई का काम करती हूं",
+        "scores": [{"code": "7531", "score": 0.8}, {"code": "7411", "score": 0.1}],
+        "stt_ms": 7000,
+        "search_ms": 30,
+    }
+    with store.connect(DB) as conn:
+        assert story_job.save(conn, job, late) is True
+    assert rows("SELECT transcript, top1, top2, stt_ms FROM story") == [
+        ("मैं सिलाई का काम करती हूं", "7531", "7411", 7000)
+    ]
+
+
+def test_story_saves_merge_in_either_order_and_skip_deleted_calls(settings):
+    [(cid,)] = rows("INSERT INTO call (phone_hash, status) VALUES ('h', 'in_call') RETURNING id")
+    with store.connect(DB) as conn:
+        store.save_story(conn, str(cid), "/r/a.wav", transcript="खेती करता हूं", top1="9211")
+        store.save_story(conn, str(cid), "/r/a.wav", transcript=None, top1=None, stt_ms=None)
+        gone = {"call_id": "00000000-0000-0000-0000-000000000000", "path": "/r/b.wav"}
+        assert story_job.save(conn, gone, {"transcript": "x"}) is False
+    assert rows("SELECT transcript, top1 FROM story") == [("खेती करता हूं", "9211")]
 
 
 def test_logs_hide_the_exotel_token():

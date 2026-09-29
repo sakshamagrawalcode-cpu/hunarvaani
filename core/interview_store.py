@@ -2,9 +2,11 @@
 
 import hashlib
 import logging
+import uuid
 from datetime import timedelta
+from pathlib import Path
 
-from core import callbacks, store
+from core import callbacks, store, story_job
 from core.config import Settings
 from core.dialogue.flow import Effect
 from core.dialogue.prompts import PROMPTS
@@ -14,24 +16,43 @@ from core.timeutil import next_allowed, utcnow
 log = logging.getLogger("interview")
 
 
+CALLBACK_MATCH_MINUTES = 10
+
+
 def begin_call(settings: Settings, provider_call_id: str | None, caller: str | None) -> str:
-    """Find the callback row this live call belongs to, or create one for an inbound call."""
+    """Find the callback row this live call belongs to, or create one for an inbound call.
+
+    A callback is found by the provider's call id or, should the live call carry a different id
+    than the dial request returned, by the number among callbacks placed in the last minutes.
+    """
     if not (settings.phone_hash_secret and settings.phone_enc_key):
         raise RuntimeError("PHONE_HASH_SECRET or PHONE_ENC_KEY is empty")
     now = utcnow()
+    number = normalize_indian_mobile(caller)
+    # A call with no number at all gets a hash of its own, so pressing 9 affects only that call.
+    who = number or caller or f"unknown:{provider_call_id or uuid.uuid4()}"
+    h = phone_hash(who, settings.phone_hash_secret)
     with store.connect(settings.database_url) as conn:
+        row, matched_by = None, None
         if provider_call_id:
             row = conn.execute(
                 "SELECT id FROM call WHERE provider_call_id = %s ORDER BY callback_at DESC LIMIT 1",
                 (provider_call_id,),
             ).fetchone()
-            if row:
-                call_id = str(row["id"])
-                store.update_call(conn, call_id, answered_at=now, status="in_call")
-                store.add_event(conn, call_id, "answered")
-                return call_id
-        number = normalize_indian_mobile(caller)
-        h = phone_hash(number or (caller or "unknown"), settings.phone_hash_secret)
+            matched_by = "call_id"
+        if row is None and number:
+            row = conn.execute(
+                "SELECT id FROM call WHERE phone_hash = %s AND status = 'dialing' "
+                "AND callback_at > %s ORDER BY callback_at DESC LIMIT 1",
+                (h, now - timedelta(minutes=CALLBACK_MATCH_MINUTES)),
+            ).fetchone()
+            matched_by = "number"
+        if row:
+            call_id = str(row["id"])
+            store.update_call(conn, call_id, answered_at=now, status="in_call")
+            store.add_event(conn, call_id, "answered", {"matched_by": matched_by})
+            log.info("call %s: our callback was answered (matched by %s)", call_id[:8], matched_by)
+            return call_id
         row = conn.execute(
             "INSERT INTO call (phone_hash, phone_enc, provider_call_id, answered_at, status) "
             "VALUES (%s, %s, %s, %s, 'in_call') RETURNING id",
@@ -111,20 +132,8 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
     elif e.kind == "human_flag":
         store.update_call(conn, call_id, human_flag=True)
     elif e.kind == "story_recorded":
-        d = e.data
-        conn.execute(
-            "INSERT INTO story (call_id, recording_url, transcript, top1, top2, stt_ms, search_ms) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (
-                call_id,
-                d["path"],
-                d.get("transcript"),
-                d.get("top1"),
-                d.get("top2"),
-                d.get("stt_ms"),
-                d.get("search_ms"),
-            ),
-        )
+        fields = {k: e.data.get(k) for k in store.STORY_FIELDS}
+        store.save_story(conn, call_id, e.data["path"], **fields)
     elif e.kind == "readback":
         conn.execute(
             "UPDATE story SET confirmed = %s WHERE call_id = %s",
@@ -133,13 +142,36 @@ def _apply(conn, settings: Settings, r, call: dict, e: Effect) -> None:
     elif e.kind == "callback_tomorrow":
         _callback_tomorrow(conn, settings, r, call)
     elif e.kind == "delete_and_block":
+        h = call["phone_hash"]
         conn.execute(
             "INSERT INTO blocked_number (phone_hash, reason) VALUES (%s, 'caller_request') "
             "ON CONFLICT (phone_hash) DO NOTHING",
-            (call["phone_hash"],),
+            (h,),
         )
-        conn.execute("DELETE FROM call WHERE phone_hash = %s", (call["phone_hash"],))
-        log.info("caller asked for deletion; data removed and number blocked")
+        found = conn.execute("SELECT id FROM call WHERE phone_hash = %s", (h,)).fetchall()
+        ids = [str(row["id"]) for row in found]
+        conn.execute("DELETE FROM call WHERE phone_hash = %s", (h,))
+        removed = _delete_recordings(settings.recordings_dir, ids)
+        if r is not None and ids:
+            r.delete(*(story_job.result_key(i) for i in ids))
+        log.info(
+            "caller asked for deletion; %d call(s) and %d recording(s) removed, number blocked",
+            len(ids),
+            removed,
+        )
+
+
+def _delete_recordings(folder: str, call_ids: list[str]) -> int:
+    """Remove the story recordings of these calls (saved as <call id>-<time>.wav)."""
+    removed = 0
+    for call_id in call_ids:
+        for path in Path(folder).glob(f"{call_id}-*.wav"):
+            try:
+                path.unlink(missing_ok=True)
+                removed += 1
+            except OSError as exc:
+                log.warning("could not delete a recording: %s", type(exc).__name__)
+    return removed
 
 
 def _callback_tomorrow(conn, settings: Settings, r, call: dict) -> None:

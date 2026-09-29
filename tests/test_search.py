@@ -41,6 +41,7 @@ CASES = [
     ("मैं दुकान पर काउंटर संभालता हूं", "5223"),
     ("ट्रैक्टर और पंप की मोटर ठीक करता हूं", "7233"),
     ("main silai ka kaam karti hoon", "7531"),
+    ("main naai hoon, baal kaatta hoon", "5141"),
     ("मैं कपड़े सीती हूं घर पर", "7531"),
 ]
 
@@ -52,7 +53,14 @@ def test_finds_the_occupation(index, text, code):
 
 
 @pytest.mark.parametrize(
-    "text", ["मैं कुछ नहीं करता, घर पर रहता हूं", "आज मौसम बहुत अच्छा है", "मैं काम करता हूं", ""]
+    "text",
+    [
+        "मैं कुछ नहीं करता, घर पर रहता हूं",
+        "आज मौसम बहुत अच्छा है",
+        "मैं काम करता हूं",
+        "मैंने नई नौकरी शुरू की है",  # नई (new) is romanised "nai", like नाई (barber)
+        "",
+    ],
 )
 def test_no_occupation_stays_below_threshold(index, text):
     top = index.search(text)

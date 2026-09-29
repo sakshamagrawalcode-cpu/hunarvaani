@@ -5,6 +5,9 @@ import json
 import logging
 import time
 
+import psycopg
+
+from core import store
 from core.config import Settings
 from core.dialogue.prompts import fill
 
@@ -32,6 +35,30 @@ def publish(r, call_id: str, result: dict) -> None:
 def wait_result(r, call_id: str, timeout: float) -> dict | None:
     item = r.blpop(result_key(call_id), timeout=max(timeout, 0.1))
     return json.loads(item[1]) if item else None
+
+
+def story_fields(result: dict) -> dict:
+    """The parts of a worker result that are kept in the story table."""
+    scores = result.get("scores") or []
+    return {
+        "transcript": result.get("transcript"),
+        "top1": scores[0]["code"] if scores else None,
+        "top2": scores[1]["code"] if len(scores) > 1 else None,
+        "stt_ms": result.get("stt_ms"),
+        "search_ms": result.get("search_ms"),
+    }
+
+
+def save(conn, job: dict, result: dict) -> bool:
+    """Keep the worker's transcript even if the call stopped waiting for it.
+
+    Returns False when the call no longer exists (the caller pressed 9), so nothing is kept.
+    """
+    try:
+        store.save_story(conn, job["call_id"], job["path"], **story_fields(result))
+    except psycopg.errors.ForeignKeyViolation:
+        return False
+    return True
 
 
 def process(job: dict, settings: Settings, index, encode, stt, render) -> dict:

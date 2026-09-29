@@ -385,15 +385,10 @@ class ExotelSession:
                 result = {}
                 if path and not hung_up:
                     result = await self._understand(call_id, path, engine.language) or {}
-                scores = result.get("scores") or []
                 details = {
-                    "transcript": result.get("transcript"),
-                    "top1": scores[0]["code"] if scores else None,
-                    "top2": scores[1]["code"] if len(scores) > 1 else None,
-                    "stt_ms": result.get("stt_ms"),
-                    "search_ms": result.get("search_ms"),
+                    **story_job.story_fields(result),
                     "wait_ms": result.get("wait_ms"),
-                    "scores": scores,
+                    "scores": result.get("scores") or [],
                     "error": result.get("error"),
                 }
                 action, effects = engine.on_recording(
