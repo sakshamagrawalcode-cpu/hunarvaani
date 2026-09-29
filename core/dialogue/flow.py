@@ -267,6 +267,8 @@ class Interview:
         if state == "summary":
             self.state = "ended"
             return Hangup(prefix + ("P15",))
+        if state == "q_age":  # why we ask about the caller, said once before the first question
+            prefix = prefix + ("P28",)
         return self._action(prefix)
 
     def _action(self, prefix: tuple[str, ...] = ()) -> Action:

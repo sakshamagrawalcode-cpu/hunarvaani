@@ -29,7 +29,7 @@ pytestmark = pytest.mark.skipif(not (DB and RD), reason="TEST_DATABASE_URL/TEST_
 TOKEN = "ws-secret-token"
 CALLER = "919876543210"
 # age 26-35, woman, 10th pass, up to 10 km, no physical difficulty, wants a job
-PROFILE = (("P25", "3"), ("P26", "1"), ("P09", "4"), ("P10", "2"), ("P27", "1"), ("P11", "1"))
+PROFILE = (("P28+P25", "3"), ("P26", "1"), ("P09", "4"), ("P10", "2"), ("P27", "1"), ("P11", "1"))
 
 
 @pytest.fixture(scope="module")
@@ -238,7 +238,7 @@ def test_timeouts_repeat_then_skip(client, settings):
         for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "1"), ("P07", "1"), ("P08", "1")):
             p.hear(prompt)
             p.press(key)
-        for prompt, key in (("P25", "3"), ("P26", "1")):
+        for prompt, key in (("P28+P25", "3"), ("P26", "1")):
             p.hear(prompt)
             p.press(key)
         p.hear("P09")

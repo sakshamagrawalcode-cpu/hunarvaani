@@ -8,7 +8,7 @@ from core.tts import MAX_CHARS
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
 
-IDS = [f"P{i:02d}" for i in range(1, 28)]
+IDS = [f"P{i:02d}" for i in range(1, 29)]
 
 
 @pytest.mark.parametrize("language", ["hi-IN", "en-IN", "mr-IN"])
@@ -38,7 +38,7 @@ def test_options_always_name_their_key():
 
 def test_prerendered_ids_exclude_dynamic():
     ids = prerendered_ids("hi-IN")
-    assert len(ids) == 24 and not set(ids) & DYNAMIC
+    assert len(ids) == 25 and not set(ids) & DYNAMIC
 
 
 def test_fill_dynamic_prompts():

@@ -106,7 +106,7 @@ def test_wrong_key_counts_like_a_timeout():
 def test_age_gender_and_physical_questions_come_around_education():
     iv = Interview()
     action, _ = run(iv, ["1", "1", "1", "1", "1"])
-    assert action.prompts == ("P25",) and action.valid == "123456" + "90"
+    assert action.prompts == ("P28", "P25") and action.valid == "123456" + "90"
     action, _ = iv.on_key("6")
     assert action.prompts == ("P26",) and action.valid == "1234" + "90"
     action, _ = iv.on_key("4")
