@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 
 import type { CallDetail as Detail, Story } from "../api";
 import { audioUrl, useApi } from "../api";
-import { LANGUAGE, STATUS, describeEvent, occupationName, seconds, value, when } from "../labels";
+import { CONSENT, LANGUAGE, STATUS, describeEvent, occupationName, seconds, value, when } from "../labels";
 import { Badge, Card, Empty, Field, Loading, statusTone } from "../ui";
 
 function confirmedText(s: Story): string {
@@ -108,8 +108,8 @@ export default function CallDetail() {
             {data.consents.length ? (
               <ul className="space-y-2 text-sm">
                 {data.consents.map((c) => (
-                  <li key={c.kind} className="flex justify-between">
-                    <span className="capitalize">{c.kind}</span>
+                  <li key={c.kind} className="flex justify-between gap-3">
+                    <span>{CONSENT[c.kind] ?? c.kind}</span>
                     <Badge tone={c.granted ? "green" : "gray"}>{c.granted ? "yes" : "no"}</Badge>
                   </li>
                 ))}

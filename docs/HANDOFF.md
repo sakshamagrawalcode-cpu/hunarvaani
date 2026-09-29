@@ -1,7 +1,7 @@
 # HunarVaani: project handoff (status, plan, how it works)
 
-Last updated: 29 Sep 2026, after A3b (one "why" before the personal questions) and the
-frontend / backend / database folder layout.
+Last updated: 29 Sep 2026, after the consent review (P06–P08) and the frontend / backend /
+database layout. A short start file for a new chat is `CLAUDE.md` in the repo root.
 Read this first if you are a new teammate or a new Claude chat picking up the work.
 - The SIH problem statement and what we cover of it: `docs/PROBLEM_STATEMENT.md`.
 - **The plan, in order, with a timeline: section 6.** Tick items there as they are finished.
@@ -121,7 +121,7 @@ flowchart TD
     P02 -- "silence" --> END0([hang up, no data])
     P05 --> P03["P03 बात करने का समय है? (~4 min) 1 हाँ / 2 बाद में"]
     P03 -- 2 --> P04["P04 कल फिर कॉल करेंगे"] --> CB([callback queued for tomorrow])
-    P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: anonymised research"]
+    P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: use without name/number to train our AI"]
     P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
     P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P11["P11 job / own work / unsure"]
     P11 -- "recording = yes" --> P12["P12 अपने शब्दों में काम बताइए<br/>(stops on silence, # or 60 s)"]
@@ -214,7 +214,8 @@ The console shows both tries.
 | A4 | **59 occupations** (was 16) incl. traditional crafts and rural work, words in 3 languages | `710657e` |
 | A5 | **Team console** (React): overview, calls, call detail with recording + timeline, people, occupations | `44dd869` |
 | A3b | "Why we ask" said **once** (P28) before the personal questions; the questions are short again | `bd15a36` |
-| Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | see git log |
+| Layout | Code split into `frontend/`, `backend/`, `database/` (+ `scripts/`, `audio/`, `infra/`, `docs/`), a README in each | `4517c32` |
+| Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
 - Real Exotel calls: prompts play, keys work, story recorded, read-back and summary heard.
@@ -301,6 +302,19 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
 | Wrong token → refused | ✅ Exotel secret URL token; Plivo signatures |
 | `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
+
+### Review of what the call asks (29 Sep)
+- **Questions are enough, not too many** (about 3–4 minutes): language, OK to talk, 3 consents,
+  age, gender, education, travel, physical difficulty, job or own work, the work story. Still
+  missing for good recommendations: **where the caller lives** (A7) and, from the problem
+  statement, **family occupation and what they want to learn** (B1). No caste, no Aadhaar.
+- **All 3 consents stay**: each purpose needs its own permission under India's data protection
+  law (DPDP Act 2023), and each is short. Recording (P06) is needed for the spoken story; saying
+  no still gets the keypad interview. Sharing (P07) is needed before a centre or bank may contact
+  them. Training our AI (P08) is optional and does not change the help they get.
+- "Why we ask" is said once (P28) before the personal questions; the questions are short.
+- To check on real calls: that the Marathi and English sound natural (native speaker), and that
+  the whole call stays under ~4 minutes.
 
 ### Open decisions and loose ends
 - **Demo state for the sample data (A7/A8)**: Maharashtra (fits Marathi) + 2–3 Hindi-belt districts

@@ -20,17 +20,19 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P04": "कोई बात नहीं। हम आपको कल फिर कॉल करेंगे। धन्यवाद।",
         "P05": "हिंदी के लिए 1 दबाइए।",
         "P06": (
-            "आपको सही ट्रेनिंग और काम बताने के लिए, हम आपकी उम्र, पढ़ाई, काम और आने-जाने के "
-            "बारे में कुछ आसान सवाल पूछेंगे। यह कॉल रिकॉर्ड होगी। आप कभी भी 9 दबाकर अपनी सारी "
-            "जानकारी मिटा सकते हैं। अगर आप सहमत हैं, तो 1 दबाइए। नहीं, तो 2 दबाइए।"
+            "आपकी बात ठीक से समझने के लिए यह कॉल रिकॉर्ड होगी। आप कभी भी 9 दबाकर अपनी सारी "
+            "जानकारी मिटा सकते हैं। रिकॉर्डिंग के लिए हाँ, तो 1 दबाइए। नहीं, तो 2 दबाइए। "
+            "नहीं कहने पर भी आप बटन दबाकर जवाब दे सकते हैं।"
         ),
         "P07": (
-            "क्या हम आपकी जानकारी, सिर्फ़ आपकी मदद के लिए, ट्रेनिंग सेंटर या बैंक को दे सकते हैं? "
-            "हाँ, तो 1 दबाइए। नहीं, तो 2 दबाइए।"
+            "क्या हम आपकी जानकारी ट्रेनिंग सेंटर या बैंक को दे सकते हैं, ताकि वे आपसे "
+            "संपर्क करके आपकी मदद कर सकें? हाँ, तो 1 दबाइए। नहीं, तो 2 दबाइए।"
         ),
         "P08": (
-            "क्या आपकी बातचीत, आपका नाम हटाकर, इस सेवा को बेहतर बनाने में इस्तेमाल की जा सकती है? "
-            "हाँ, तो 1 दबाइए। नहीं, तो 2 दबाइए।"
+            "एक आख़िरी अनुमति। क्या हम आपकी बातचीत, आपका नाम और नंबर हटाकर, अपने कंप्यूटर "
+            "सिस्टम, यानी एआई को, सिखाने के लिए इस्तेमाल कर सकते हैं? इससे यह सिस्टम लोगों "
+            "की बात बेहतर समझेगा और सबको बेहतर सलाह देगा। आपके जवाब से आपको मिलने वाली मदद "
+            "पर कोई असर नहीं पड़ेगा। हाँ, तो 1 दबाइए। नहीं, तो 2 दबाइए।"
         ),
         "P09": (
             "आपने कहाँ तक पढ़ाई की है? स्कूल नहीं गए, तो 1 दबाइए। पाँचवीं तक, 2। आठवीं तक, "
@@ -108,18 +110,20 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P04": "No problem. We will call you again tomorrow. Thank you.",
         "P05": "For English, press 2.",
         "P06": (
-            "To suggest the right training and work for you, we will ask a few simple questions "
-            "about your age, education, work, and how far you can travel. This call will be "
-            "recorded. You can press 9 at any time to delete all your information. If you agree, "
-            "press 1. If not, press 2."
+            "To understand you properly, this call will be recorded. You can press 9 at any"
+            " time to delete all your information. If you agree to the recording, press 1. "
+            "If not, press 2. Even if you say no, you can still answer by pressing buttons."
         ),
         "P07": (
-            "May we share your information with a training centre or a bank, only to help you? "
-            "If yes, press 1. If not, press 2."
+            "May we share your information with a training centre or a bank, so that they "
+            "can contact you and help you? If yes, press 1. If not, press 2."
         ),
         "P08": (
-            "May we use your conversation, with your name removed, to improve this service? "
-            "If yes, press 1. If not, press 2."
+            "One last permission. May we use your conversation, without your name and "
+            "number, to train our computer system, the AI that understands callers and "
+            "recommends training? This helps it understand people better and give everyone "
+            "better advice. Your answer does not change the help you get. If yes, press 1. "
+            "If not, press 2."
         ),
         "P09": (
             "How far have you studied? If you did not go to school, press 1. Up to fifth "
@@ -205,18 +209,20 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P04": "काही हरकत नाही. आम्ही तुम्हाला उद्या पुन्हा कॉल करू. धन्यवाद.",
         "P05": "मराठीसाठी 3 दाबा.",
         "P06": (
-            "तुमच्यासाठी योग्य प्रशिक्षण आणि काम सुचवण्यासाठी, आम्ही तुमचं वय, शिक्षण, काम आणि "
-            "तुम्ही किती लांब जाऊ शकता याबद्दल काही सोपे प्रश्न विचारू. हा कॉल रेकॉर्ड होईल. "
-            "कधीही 9 दाबून तुम्ही तुमची सगळी माहिती पुसू शकता. तुम्ही सहमत असाल, तर 1 दाबा. "
-            "नसाल, तर 2 दाबा."
+            "तुमचं बोलणं नीट समजण्यासाठी हा कॉल रेकॉर्ड होईल. कधीही 9 दाबून तुम्ही तुमची "
+            "सगळी माहिती पुसू शकता. रेकॉर्डिंगसाठी हो असल्यास 1 दाबा. नाही असल्यास 2 दाबा. "
+            "नाही म्हटलं तरी तुम्ही बटण दाबून उत्तरं देऊ शकता."
         ),
         "P07": (
-            "फक्त तुमच्या मदतीसाठी, आम्ही तुमची माहिती प्रशिक्षण केंद्र किंवा बँकेला देऊ शकतो का? "
-            "हो असल्यास 1 दाबा. नाही असल्यास 2 दाबा."
+            "तुमची माहिती प्रशिक्षण केंद्र किंवा बँकेला देऊ का, म्हणजे ते तुमच्याशी संपर्क "
+            "करून तुमची मदत करू शकतील? हो असल्यास 1 दाबा. नाही असल्यास 2 दाबा."
         ),
         "P08": (
-            "तुमचं नाव काढून, तुमचं बोलणं ही सेवा सुधारण्यासाठी वापरू शकतो का? "
-            "हो असल्यास 1 दाबा. नाही असल्यास 2 दाबा."
+            "शेवटची एक परवानगी. तुमचं नाव आणि नंबर काढून, तुमचं बोलणं आमच्या कॉम्प्युटर "
+            "सिस्टमला, म्हणजे एआयला, शिकवण्यासाठी वापरू का? यामुळे ही सिस्टम लोकांचं बोलणं "
+            "जास्त चांगलं समजेल आणि सगळ्यांना जास्त चांगला सल्ला देईल. तुमच्या उत्तरामुळे "
+            "तुम्हाला मिळणाऱ्या मदतीवर काही परिणाम होणार नाही. हो असल्यास 1 दाबा. नाही "
+            "असल्यास 2 दाबा."
         ),
         "P09": (
             "तुमचं शिक्षण किती झालं आहे? शाळेत गेला नसाल, तर 1 दाबा. पाचवीपर्यंत, 2. "

@@ -58,6 +58,12 @@ export const VALUE: Record<string, string> = {
   skipped: "Skipped",
 };
 
+export const CONSENT: Record<string, string> = {
+  recording: "Record the call",
+  share: "Share with a training centre or bank",
+  research: "Use (without name and number) to train our AI and recommendation models",
+};
+
 export const STATUS: Record<string, string> = {
   completed: "Completed",
   in_call: "In call now",
@@ -114,7 +120,7 @@ export function describeEvent(e: CallEvent, name: (code: string) => string = (c)
     case "language":
       return `Chose language: ${LANGUAGE[String(p.code)] ?? p.code}`;
     case "consent":
-      return `Consent for ${p.kind}: ${p.granted ? "yes" : "no"}`;
+      return `${CONSENT[String(p.kind)] ?? p.kind}: ${p.granted ? "yes" : "no"}`;
     case "answer":
       return p.step === "occupation" || p.step === "trades"
         ? `${step}: ${name(String(p.value ?? ""))}`
