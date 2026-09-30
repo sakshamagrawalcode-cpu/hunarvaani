@@ -54,6 +54,9 @@ class Settings:
     record_no_speech_seconds: float = 12.0
     # a key this soon after the previous answer is a repeated press, not the next answer
     min_answer_seconds: float = 0.6
+    # read the answers back so the caller can change one; reference number + documents at the end
+    review_answers: bool = True
+    closing_details: bool = True
 
 
 def load_settings() -> Settings:
@@ -91,4 +94,6 @@ def load_settings() -> Settings:
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
         record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
         min_answer_seconds=float(_str("MIN_ANSWER_SECONDS", "0.6")),
+        review_answers=_str("REVIEW_ANSWERS", "true").lower() in ("1", "true", "yes"),
+        closing_details=_str("CLOSING_DETAILS", "true").lower() in ("1", "true", "yes"),
     )

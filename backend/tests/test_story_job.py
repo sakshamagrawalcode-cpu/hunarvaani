@@ -49,8 +49,8 @@ def test_confident_story_says_what_we_heard_and_reads_back():
     assert "आपने बताया: मैं सिलाई का काम करती हूं।" in rendered
     n = len(out["candidates"])
     assert any(
-        r.startswith("हमारी समझ से, आपका काम इनमें से एक है। दर्ज़ी के लिए 1 दबाइए।")
-        and r.endswith(f"अगर इनमें से कोई नहीं, तो {n + 1} दबाइए।")
+        r.startswith("हमारी समझ से आपका काम इनमें से एक है। दर्ज़ी के लिए 1 दबाइए।")
+        and r.endswith(f"कोई नहीं, तो {n + 1} दबाइए।")
         for r in rendered
     )
     assert "error" not in out and out["stt_ms"] >= 0 and out["tts_ms"] >= 0
@@ -153,9 +153,9 @@ def test_up_to_three_occupations_are_offered_with_the_next_key_for_none():
     three = readback_text("en-IN", ["tailor", "weaver", "embroiderer"])
     assert three == (
         "We think your work is one of these. For tailor, press 1. For weaver, press 2. "
-        "For embroiderer, press 3. If it is none of these, press 4."
+        "For embroiderer, press 3. If none, press 4."
     )
-    assert readback_text("hi-IN", ["दर्ज़ी"]).endswith("अगर इनमें से कोई नहीं, तो 2 दबाइए।")
+    assert readback_text("hi-IN", ["दर्ज़ी"]).endswith("कोई नहीं, तो 2 दबाइए।")
 
 
 def test_best_matches_keeps_each_occupations_best_score():

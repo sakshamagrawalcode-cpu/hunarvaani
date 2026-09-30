@@ -11,6 +11,7 @@ function searchText(c: CallRow): string {
     when(c.when),
     c.number,
     c.short,
+    c.ref,
     STATUS[c.status ?? ""] ?? c.status,
     LANGUAGE[c.language ?? ""],
     ...Object.values(c.answers).map((v) => value(v)),
@@ -46,7 +47,7 @@ export default function Calls() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search number, occupation, words…"
+            placeholder="Search reference no., number, occupation…"
             className="w-64 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
           />
           <DistrictFilter rows={data} value={district} onChange={setDistrict} />

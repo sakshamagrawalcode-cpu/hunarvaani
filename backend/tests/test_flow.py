@@ -399,3 +399,76 @@ def test_nine_still_deletes_at_the_options():
     iv, _, _ = at_options()
     action, effects = iv.on_key("9")
     assert action == Hangup(("P18",)) and kinds(effects) == ["delete_and_block"]
+
+
+def at_review():
+    iv = Interview(review=True, closing=True)
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "P", "2"])
+    assert iv.state == "review"
+    return iv
+
+
+def test_the_caller_hears_every_saved_answer_and_can_go_on():
+    iv = at_review()
+    action = iv._action()
+    assert action.prompts == (
+        "P35",
+        "V_q_age_26_35",
+        "V_q_gender_female",
+        "V_q_education_10th",
+        "V_q_travel_10km",
+        "V_q_physical_none",
+        "V_pin",
+        "D4",
+        "D1",
+        "D1",
+        "D0",
+        "D0",
+        "D1",
+        "V_q_lean_own_work",
+        "P36",
+    )
+    assert action.valid == "12" + "90"
+    action, effects = iv.on_key("1")
+    assert isinstance(action, Record) and effects == [Effect("review", {"ok": True})]
+
+
+def test_the_caller_can_change_one_answer_and_hears_the_review_again():
+    iv = at_review()
+    action, _ = iv.on_key("2")
+    assert action.prompts == ("P37",) and action.valid == "1234567" + "90"
+    action, effects = iv.on_key("3")  # education
+    assert action.prompts == ("P09",) and effects[0].data == {"change": "q_education"}
+    action, effects = iv.on_key("7")  # graduate
+    assert effects[0].data["value"] == "graduate" and iv.education == "graduate"
+    assert iv.state == "review" and "V_q_education_graduate" in action.prompts
+    iv.on_key("2")
+    action, _ = iv.on_key("1")  # age: no "why we ask" this time
+    assert action.prompts == ("P25",)
+    iv.on_key("6")
+    iv.on_key("2")
+    action, _ = iv.on_key("6")  # the PIN code
+    assert action.prompts == ("P31",)
+    action, _ = iv.on_digits("*")
+    assert iv.state == "review" and "V_pin_none" in action.prompts and "V_pin" not in action.prompts
+    iv.on_key("1")
+    assert iv.state == "story"
+
+
+def test_the_call_ends_with_the_reference_number_and_the_documents():
+    iv = at_review()
+    iv.on_key("1")
+    iv.on_recording(None, 0)
+    iv.on_recording(None, 0)
+    iv.on_recording(None, 0)  # no speech three times: the trade list
+    action, _ = iv.on_key("2")
+    assert action == Offer()
+    action, _ = iv.on_options(["U7531"], ["DYN:x"], [{"rank": 1}])
+    action, _ = iv.on_key("1")
+    assert action == Hangup(("P33", "REF", "P39"))
+    iv = at_review()
+    iv.on_key("1")
+    for _ in range(3):
+        iv.on_recording(None, 0)
+    iv.on_key("2")
+    assert iv.on_options([], [], [])[0] == Hangup(("P15", "REF", "P39"))

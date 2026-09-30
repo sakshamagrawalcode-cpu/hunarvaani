@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, Response
 
 from core import geo, prompt_check, sample_data, store
 from core.config import Settings
+from core.interview_store import reference_number
 from core.phone import decrypt, last4
 from core.timeutil import IST, utcnow
 
@@ -146,6 +147,7 @@ def _row(
     return {
         "id": str(c["id"]),
         "short": str(c["id"])[:8],
+        "ref": reference_number(str(c["id"])),
         "when": _iso(_when(c)),
         "number": _number(settings, c["phone_enc"]),
         "status": c["status"],

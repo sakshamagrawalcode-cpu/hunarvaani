@@ -65,6 +65,11 @@ def begin_call(settings: Settings, provider_call_id: str | None, caller: str | N
         return call_id
 
 
+def reference_number(call_id: str) -> str:
+    """The 6-digit number said at the end of the call; the console finds the call by it."""
+    return str(100000 + int(str(call_id).replace("-", ""), 16) % 900000)
+
+
 def log_event(settings: Settings, call_id: str, kind: str, payload: dict) -> None:
     with store.connect(settings.database_url) as conn:
         if store.get_call(conn, call_id):

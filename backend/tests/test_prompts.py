@@ -8,7 +8,7 @@ from core.tts import MAX_CHARS
 DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
 
-IDS = [f"P{i:02d}" for i in range(1, 35)]
+IDS = [f"P{i:02d}" for i in range(1, 41)]
 
 
 @pytest.mark.parametrize("language", ["hi-IN", "en-IN", "mr-IN"])
@@ -38,14 +38,49 @@ def test_options_always_name_their_key():
 
 def test_prerendered_ids_exclude_dynamic():
     ids = prerendered_ids("hi-IN")
-    assert len(ids) == 30 and not set(ids) & DYNAMIC
+    assert len(ids) == 36 and not set(ids) & DYNAMIC
 
 
 def test_fill_dynamic_prompts():
     p13 = fill("hi-IN", "P13", options="सिलाई के लिए 1 दबाइए।", none_key="2")
     assert "सिलाई" in p13 and "{" not in p13
     p15 = fill("hi-IN", "P15", education="दसवीं", occupation="दर्ज़ी")
-    assert "दसवीं" in p15 and "ओटीपी" in p15
+    assert "दसवीं" in p15 and "दर्ज़ी" in p15
+
+
+def test_the_safety_line_is_in_every_goodbye():
+    """Every way a finished call ends says HunarVaani never asks for money or an OTP."""
+    for language, words in (("hi-IN", "ओटीपी"), ("en-IN", "OTP"), ("mr-IN", "ओटीपी")):
+        assert words in PROMPTS[language]["P39"]
+
+
+def test_every_saved_answer_and_digit_has_a_review_piece_in_every_language():
+    from core.dialogue.flow import AGE, EDUCATION, GENDER, LEAN, PHYSICAL, REVIEWED, TRAVEL
+    from core.dialogue.prompts import FRAGMENTS
+
+    values = {
+        "q_age": AGE,
+        "q_gender": GENDER,
+        "q_education": EDUCATION,
+        "q_travel": TRAVEL,
+        "q_physical": PHYSICAL,
+        "q_lean": LEAN,
+    }
+    needed = {f"V_{step}_{v}" for step, opts in values.items() for v in opts.values()}
+    needed |= {f"D{d}" for d in range(10)} | {"V_pin", "V_pin_none"}
+    assert set(REVIEWED) <= set(values)
+    for language in PROMPTS:
+        assert set(FRAGMENTS[language]) == needed, language
+        for pid, text in FRAGMENTS[language].items():
+            assert text and bool(DEVANAGARI.search(text)) == (language != "en-IN"), pid
+
+
+def test_questions_are_short():
+    """Every question a caller hears is at most about 12 seconds long."""
+    for language in PROMPTS:
+        for pid, text in PROMPTS[language].items():
+            limit = 330 if pid in ("P39",) else 200
+            assert len(text) <= limit, (language, pid, len(text))
 
 
 def test_fill_rejects_missing_values():

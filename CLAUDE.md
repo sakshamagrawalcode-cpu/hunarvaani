@@ -36,7 +36,9 @@ options from a sample dataset and say them on the call.**
   **A10 options said on the call** (P34 with 3 options → key → P33 goodbye; saved in table
   `recommendation`, schema 08 → `init_db.py`; new prompt P33 → `render_prompts.py`) · call page
   shows the options with reasons and skill gap · **A11 console v2** (Sample data page, CSV
-  export, district filter, chosen option in the lists).
+  export, district filter, chosen option in the lists) · **script v2**: short prompts, pace 0.9,
+  answer review with change menu, reference number + documents at the end (every prompt
+  changed → `render_prompts.py` re-renders all ~240 files once; needs Sarvam credits).
 - **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then **A13 deploy to an India VM** (the real fix for delay and dropped calls). Demo region used:
   Maharashtra + the Hindi-belt cities of the PIN table.

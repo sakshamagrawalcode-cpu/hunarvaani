@@ -40,7 +40,7 @@ def run(*args):
 def test_renders_only_missing_or_changed_prompts(fake, monkeypatch):
     run()
     first = len(fake.calls)
-    assert first == len(render.prerendered_ids("hi-IN"))
+    assert first == len(render.prerendered_texts("hi-IN"))
     run()
     assert len(fake.calls) == first  # nothing changed, no credits used
     monkeypatch.setitem(render.PROMPTS["hi-IN"], "P04", "नया वाक्य।")
@@ -65,4 +65,4 @@ def test_stops_at_the_first_no_credits_answer(fake):
     assert len(fake.calls) == 3  # two rendered, the third said no credits, then it stopped
     fake.fail = 0
     run()  # after adding credits: only what is missing
-    assert len(fake.calls) == 3 + len(render.prerendered_ids("hi-IN")) - 2
+    assert len(fake.calls) == 3 + len(render.prerendered_texts("hi-IN")) - 2

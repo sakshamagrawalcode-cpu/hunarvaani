@@ -25,8 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
-from core.dialogue.prompts import PROMPTS, audio_dir_name, prerendered_ids  # noqa: E402
-from core.tts import TtsError, synthesize, to_8k_mono  # noqa: E402
+from core.dialogue.prompts import PROMPTS, audio_dir_name, prerendered_texts  # noqa: E402
+from core.tts import PACE, TtsError, synthesize, to_8k_mono  # noqa: E402
 
 
 def load_env() -> None:
@@ -54,8 +54,9 @@ def main() -> None:
     languages = list(PROMPTS) if args.lang == "all" else [args.lang]
     jobs = []
     for lang in languages:
-        ids = args.only or prerendered_ids(lang)
-        unknown = [i for i in ids if i not in PROMPTS[lang]]
+        texts = prerendered_texts(lang)
+        ids = args.only or list(texts)
+        unknown = [i for i in ids if i not in texts]
         if unknown:
             sys.exit(f"unknown prompt id(s): {', '.join(unknown)}")
         out_dir = ROOT / "audio" / audio_dir_name(lang)
@@ -64,7 +65,7 @@ def main() -> None:
 
     if args.dry_run:
         for lang, pid, dst in jobs:
-            text = PROMPTS[lang][pid]
+            text = prerendered_texts(lang)[pid]
             state = "exists" if dst.exists() else "missing"
             print(f"{lang} {pid} [{state}] {len(text)} chars: {text}")
         return
@@ -82,14 +83,15 @@ def main() -> None:
         if record_file not in records:
             records[record_file] = _load(record_file)
         record = records[record_file]
-        mark = fingerprint(PROMPTS[lang][pid], speaker)
+        text = prerendered_texts(lang)[pid]
+        mark = fingerprint(text, speaker)
         if dst.exists() and not args.force:
             if record.get(pid) in (mark, None):
                 record[pid] = mark
                 print(f"{lang} {pid}: up to date")
                 continue
         try:
-            wav = _synthesize(PROMPTS[lang][pid], lang, key, speaker)
+            wav = _synthesize(text, lang, key, speaker)
         except TtsError as exc:
             failed += 1
             print(f"{lang} {pid}: FAILED - {exc}")
@@ -111,7 +113,7 @@ def main() -> None:
 
 
 def fingerprint(text: str, speaker: str) -> str:
-    return hashlib.sha256(f"{speaker}|{text}".encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{speaker}|{PACE}|{text}".encode()).hexdigest()[:16]
 
 
 def _synthesize(text: str, lang: str, key: str, speaker: str) -> bytes:

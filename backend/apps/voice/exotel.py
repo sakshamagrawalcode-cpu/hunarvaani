@@ -33,7 +33,7 @@ from core import dynprompt, geo, interview_store, recommend, story_job
 from core.config import Settings
 from core.dialogue.flow import Ask, Effect, Hangup, Interview, Offer
 from core.dialogue.options import options_text
-from core.dialogue.prompts import PROMPTS, audio_dir_name, split_language
+from core.dialogue.prompts import audio_dir_name, split_language, text_of
 from core.dialogue.summary import summary_text
 from core.phone import last4
 
@@ -457,6 +457,22 @@ class ExotelSession:
         pcm, self.recording = bytes(self.recording), None
         return pcm, hung_up, why
 
+    async def _goodbye(
+        self, call_id: str, engine: Interview, prompts: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        """Fill in the last sentences: the summary (P15) and the reference number (REF), which
+        is said twice, digit by digit, so the caller can write it down."""
+        out: list[str] = []
+        for pid in prompts:
+            if pid == "P15":
+                out += await self._summary(call_id, engine)
+            elif pid == "REF":
+                digits = tuple(f"D{d}" for d in interview_store.reference_number(call_id))
+                out += ["P38", *digits, "P40", *digits]
+            else:
+                out.append(pid)
+        return tuple(out)
+
     async def _summary(self, call_id: str, engine: Interview) -> tuple[str, ...]:
         """Render P15 with what we wrote down; fall back to the fixed P20 if that fails."""
         try:
@@ -621,8 +637,8 @@ class ExotelSession:
                 known = self.texts.get(pid) or {}
                 text, text_en = known.get("text"), known.get("text_en")
             else:
-                text = PROMPTS.get(language, PROMPTS["hi-IN"]).get(pid)
-                text_en = PROMPTS["en-IN"].get(pid)
+                text = text_of(language, pid)
+                text_en = text_of("en-IN", pid)
             out.append(
                 {
                     "id": full,
@@ -666,6 +682,8 @@ class ExotelSession:
             engine = Interview(
                 languages=list(self.settings.languages),
                 timeout=self.settings.ivr_timeout_seconds,
+                review=self.settings.review_answers,
+                closing=self.settings.closing_details,
             )
             action = engine.start()
             if engine.state != "language":  # one language only: no menu, save it anyway
@@ -677,9 +695,7 @@ class ExotelSession:
                     await self._apply(call_id, effects)
                     continue
                 if isinstance(action, Hangup):
-                    prompts = action.prompts
-                    if "P15" in prompts:
-                        prompts = await self._summary(call_id, engine)
+                    prompts = await self._goodbye(call_id, engine, action.prompts)
                     log.info("call %s: goodbye %s", short, "+".join(prompts) or "(silent)")
                     if prompts:
                         await self._say(call_id, "goodbye", prompts)

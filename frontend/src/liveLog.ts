@@ -314,6 +314,14 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
       case "callback_tomorrow":
         s.processing.push({ ...base, icon: "📅", title: "Callback queued for tomorrow" });
         break;
+      case "review":
+        s.processing.push({
+          ...base,
+          icon: p.ok ? "✅" : "✏️",
+          title: p.ok ? "Caller confirmed the saved answers" : `Caller changes “${stepName(p.change)}”`,
+          tone: p.ok ? "ok" : undefined,
+        });
+        break;
       case "recommendations": {
         const options = (Array.isArray(p.options) ? p.options : []) as P[];
         s.processing.push({
