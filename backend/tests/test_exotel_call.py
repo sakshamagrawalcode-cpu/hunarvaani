@@ -82,6 +82,7 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         ivr_timeout_seconds=0.3,
         record_silence_seconds=0.6,
         record_no_speech_seconds=0.6,
+        min_answer_seconds=0,  # the test phone answers within milliseconds
         story_wait_seconds=0.5,
         recordings_dir=str(tmp_path / "recordings"),
     )
@@ -401,6 +402,61 @@ def test_bad_token_is_refused(client, settings):
     assert rows("SELECT count(*) FROM call") == [(0,)]
 
 
+def test_a_second_press_of_the_same_answer_is_not_taken_for_the_next_question(
+    client, settings, monkeypatch
+):
+    import dataclasses
+
+    gap = 1.0
+    monkeypatch.setattr(main, "settings", dataclasses.replace(settings, min_answer_seconds=gap))
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        p.hear("P01")
+        p.press("1")
+        p.hear("P03")
+        p.press("2")  # at once: a repeated press, ignored ("2" here would mean "call later")
+        heard = p.hear("P16+P03")  # so P03 times out and is asked again
+        assert "P04" not in heard
+        time.sleep(gap)  # a real answer comes later
+        p.press("1")
+        p.hear("P06")
+        ws.close()
+    keys = rows("SELECT payload->>'step', payload->>'digit' FROM event WHERE kind = 'key'")
+    assert keys == [("opening", "1"), ("safe_to_talk", "1")]
+
+
+def test_a_caller_hanging_up_is_logged_as_such_not_as_a_problem(client, settings, caplog):
+    with caplog.at_level("INFO", logger="exotel"):
+        with dial(client) as ws:
+            p = Phone(ws)
+            p.start()
+            p.hear("P01")
+            ws.send_json({"event": "stop", "stop": {"reason": "callended"}})
+    assert "exotel sent stop, reason: callended" in caplog.text
+    assert "ended early: the caller hung up" in caplog.text
+    assert rows("SELECT count(*) FROM event WHERE kind = 'problem'") == [(0,)]
+
+
+def test_a_dropped_connection_is_named_on_the_console(client, settings, caplog):
+    """No stop message first: the tunnel, the internet or a keepalive closed the socket. The
+    log and the console's Errors panel say so, so a call cut in half can be explained."""
+    with caplog.at_level("INFO", logger="exotel"):
+        with dial(client) as ws:
+            p = Phone(ws)
+            p.start()
+            p.hear("P01")
+            ws.send_json({"event": "mark", "mark": {"name": "P01"}})  # as Exotel echoes it
+            ws.send_bytes(b"not part of the protocol")  # ignored, the call goes on
+            p.press("1")
+            p.hear("P03")
+            ws.close(code=1011)
+    [(what,)] = rows("SELECT payload->>'what' FROM event WHERE kind = 'problem'")
+    assert "closed without a stop message (code 1011)" in what
+    assert "ended early: the connection to Exotel closed without a stop message" in caplog.text
+    assert "exotel played P01" in caplog.text  # our mark came back: the playback delay is logged
+
+
 def test_the_sih_bridge_address_is_refused_with_a_hint(client, settings, caplog):
     """Both projects share one Exotel flow: an old .../exotel URL is refused and the log says
     how to fix it, without a call row."""
@@ -689,7 +745,36 @@ def _seed_titles():
         )
 
 
-def test_call_ends_with_the_spoken_summary(client, settings, fake_tts):
+def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, fake_tts):
+    """Mobile repairer, 10th pass, woman 26-35, up to 10 km, Pune (PIN 411001), wants a job."""
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P22+P14")  # no speech twice
+        p.press("5")  # mobile phone repair
+        heard = p.hear("DYN:aaaabbbbccccdddd11112222")
+        assert "P17" in heard  # "one moment" while the options sentence is made
+        p.press("1")
+        p.hear("P33")
+        p.until_hangup()
+    [text] = fake_tts
+    assert "दसवीं पास" in text and "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
+    options = rows(
+        "SELECT rank, course_id, spoken, chosen, details->>'sample' FROM recommendation "
+        "ORDER BY rank"
+    )
+    assert [o[0] for o in options] == list(range(1, len(options) + 1)) and options
+    assert all(o[2] and o[4] == "true" for o in options)
+    assert [o[3] for o in options] == [True] + [False] * (len(options) - 1)
+    answers = dict(rows("SELECT step, value FROM answer"))
+    assert answers["interest"] == options[0][1]
+
+
+def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypatch):
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel.recommend, "recommend", lambda profile: [])  # nothing fits
     _seed_titles()
     with dial(client) as ws:
         p = Phone(ws)

@@ -47,6 +47,9 @@ function meaning(events: CallEvent[], i: number, name: (c: string) => string): s
     const e = events[j];
     const p = (e.payload ?? {}) as P;
     if (e.kind === "key" || e.kind === "say") return null;
+    if (e.kind === "interest" && step === "options") {
+      return p.rank ? `option ${p.rank}` : "none of these";
+    }
     if (e.kind === "answer" && p.step === step) {
       return p.step === "occupation" || p.step === "trades"
         ? name(String(p.value))
@@ -310,6 +313,27 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
         break;
       case "callback_tomorrow":
         s.processing.push({ ...base, icon: "📅", title: "Callback queued for tomorrow" });
+        break;
+      case "recommendations": {
+        const options = (Array.isArray(p.options) ? p.options : []) as P[];
+        s.processing.push({
+          ...base,
+          icon: "🎯",
+          title: `${options.length} training option${options.length === 1 ? "" : "s"} found (sample data)`,
+          text:
+            options.map((o) => `${o.rank}. ${o.title}`).join(" · ") +
+            (p.spoken ? "" : " (not said: no voice)"),
+          tone: options.length ? "ok" : undefined,
+        });
+        break;
+      }
+      case "interest":
+        s.processing.push({
+          ...base,
+          icon: p.rank ? "👍" : "✋",
+          title: p.rank ? `Caller chose option ${p.rank}` : "Caller chose none of the options",
+          tone: p.rank ? "ok" : undefined,
+        });
         break;
       case "provider_status":
         s.processing.push({ ...base, icon: "📡", title: "Exotel status", text: String(p.status) });

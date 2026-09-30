@@ -34,12 +34,34 @@ export type Story = {
 
 export type CallEvent = { id: number; kind: string; payload: Record<string, unknown> | null; at: string };
 
+export type Recommendation = {
+  rank: number;
+  course_id: string;
+  kind: string;
+  title: string;
+  nsqf_level: number;
+  hours: number;
+  fee_inr: number;
+  placement: boolean;
+  scheme: string;
+  loan: string | null;
+  centre: string | null;
+  distance_km: number | null;
+  farther: boolean;
+  score: number;
+  reasons: string[];
+  skill_gap: string[];
+  spoken: boolean;
+  chosen: boolean;
+};
+
 export type CallDetail = CallRow & {
   answer_log: { step: string; key: string | null; value: string | null; at: string }[];
   consents: { kind: string; granted: boolean; at: string }[];
   stories: Story[];
   events: CallEvent[];
   summary_text: string | null;
+  recommendations: Recommendation[];
   missed_at: string | null;
   callback_at: string | null;
   answered_at: string | null;

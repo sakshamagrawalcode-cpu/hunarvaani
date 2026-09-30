@@ -52,6 +52,8 @@ class Settings:
     calls_page_password: str = ""
     record_silence_seconds: float = 2.5
     record_no_speech_seconds: float = 12.0
+    # a key this soon after the previous answer is a repeated press, not the next answer
+    min_answer_seconds: float = 0.6
 
 
 def load_settings() -> Settings:
@@ -88,4 +90,5 @@ def load_settings() -> Settings:
         calls_page_password=_str("CALLS_PAGE_PASSWORD"),
         record_silence_seconds=float(_str("RECORD_SILENCE_SECONDS", "2.5")),
         record_no_speech_seconds=float(_str("RECORD_NO_SPEECH_SECONDS", "12")),
+        min_answer_seconds=float(_str("MIN_ANSWER_SECONDS", "0.6")),
     )

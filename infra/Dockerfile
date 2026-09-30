@@ -43,7 +43,10 @@ COPY audio ./audio
 COPY database ./database
 COPY scripts ./scripts
 
-CMD ["uvicorn", "apps.voice.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Exotel keeps the call's websocket open for minutes: a slow keepalive reply ("pong") must not
+# close it, so uvicorn waits 60 s for one instead of 20 s
+CMD ["uvicorn", "apps.voice.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--ws-ping-interval", "20", "--ws-ping-timeout", "60"]
 
 
 FROM nlp-deps AS worker

@@ -29,9 +29,10 @@ import redis
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 
-from core import dynprompt, interview_store, story_job
+from core import dynprompt, geo, interview_store, recommend, story_job
 from core.config import Settings
-from core.dialogue.flow import Ask, Hangup, Interview
+from core.dialogue.flow import Ask, Hangup, Interview, Offer
+from core.dialogue.options import options_text
 from core.dialogue.prompts import PROMPTS, audio_dir_name, split_language
 from core.dialogue.summary import summary_text
 from core.phone import last4
@@ -45,6 +46,9 @@ _DYN_NAME = re.compile(r"^[0-9a-f]{8,64}$")
 CHUNK_MS = 200
 LEAD_SECONDS = 1.0  # as in the SIH bridge; enough to cover a slow moment on the tunnel
 START_TIMEOUT = 15
+QUIET_WARNING_SECONDS = 15  # Exotel sends caller audio about every 100 ms; this long without
+# any message means the connection is stuck (logged, so a dropped call can be explained)
+PLAYBACK_LAG_WARNING = 2.5  # seconds between our last audio and Exotel's "played" mark
 STILL_WORKING_EVERY = 8  # seconds between "please stay on the line" (P30) while we wait
 # every prompt is brought to the same loudness, so no sentence is much quieter or louder
 TARGET_RMS = 3000  # about -21 dBFS for speech
@@ -165,6 +169,11 @@ class ExotelSession:
         # words (and English) of generated prompts, for the team console's live log
         self.texts: dict[str, dict] = {}
         self._db = ThreadPoolExecutor(max_workers=1, thread_name_prefix="call-db")
+        # why the call ended, in words, for the log and the console
+        self.end_reason: str | None = None
+        self.last_heard: float | None = None
+        self.marks_sent: dict[str, float] = {}
+        self.last_key_at: float | None = None
 
     async def send(self, obj: dict) -> None:
         if self.ended.is_set():
@@ -172,21 +181,46 @@ class ExotelSession:
         async with self._send_lock:
             try:
                 await self.ws.send_text(json.dumps(obj))
-            except Exception:
-                self._mark_ended()
+            except Exception as exc:
+                self._mark_ended(
+                    f"sending to Exotel failed ({type(exc).__name__}): connection lost"
+                )
 
-    def _mark_ended(self) -> None:
+    def _mark_ended(self, reason: str = "") -> None:
+        if reason and self.end_reason is None:
+            self.end_reason = reason
         if not self.ended.is_set():
             self.ended.set()
             self.keys.put_nowait(None)
             self.started.set()
 
+    async def _receive(self) -> dict | None:
+        """The next JSON message from Exotel; None for anything that is not JSON text."""
+        loop = asyncio.get_running_loop()
+        while True:
+            try:
+                message = await asyncio.wait_for(self.ws.receive(), QUIET_WARNING_SECONDS)
+                break
+            except asyncio.TimeoutError:
+                quiet = loop.time() - (self.last_heard or loop.time())
+                log.warning("exotel: nothing received for %.0f s (connection stuck?)", quiet)
+        self.last_heard = loop.time()
+        if message["type"] == "websocket.disconnect":
+            raise WebSocketDisconnect(message.get("code") or 1000, message.get("reason"))
+        text = message.get("text")
+        if text is None:  # a binary frame: not part of Exotel's protocol
+            return None
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+
     async def reader(self) -> None:
         try:
             while True:
-                try:
-                    data = json.loads(await self.ws.receive_text())
-                except (json.JSONDecodeError, TypeError):
+                data = await self._receive()
+                if data is None:
                     continue
                 event = data.get("event")
                 if event == "connected":
@@ -221,17 +255,41 @@ class ExotelSession:
                     if digit:
                         self.keys.put_nowait(digit)
                 elif event == "stop":
-                    log.info("exotel sent stop (call ended by Exotel or the caller)")
+                    why = (data.get("stop") or {}).get("reason") or "no reason given"
+                    log.info("exotel sent stop, reason: %s", why)
+                    self._mark_ended(
+                        "the caller hung up"
+                        if why == "callended"
+                        else f"Exotel ended the stream (reason: {why})"
+                    )
                     break
-                elif event not in ("media", "mark", "connected", "start"):
+                elif event == "mark":
+                    self._played((data.get("mark") or {}).get("name") or "")
+                elif event not in ("media", "connected", "start"):
                     # anything unexpected is logged, so a missing key press can be traced
                     log.info("exotel sent an unknown message: %s", str(data)[:300])
-        except WebSocketDisconnect:
-            pass
-        except Exception:
+        except WebSocketDisconnect as exc:
+            # no "stop" first: the connection itself was closed (tunnel, internet, keepalive)
+            self._mark_ended(
+                f"the connection to Exotel closed without a stop message (code {exc.code})"
+            )
+        except Exception as exc:
             log.exception("websocket read error")
+            self._mark_ended(f"reading from Exotel failed ({type(exc).__name__})")
         finally:
-            self._mark_ended()
+            self._mark_ended("the connection to Exotel closed")
+
+    def _played(self, name: str) -> None:
+        """Exotel echoes a mark when the phone has played everything before it: the time from
+        our last audio chunk to the echo is the delay the caller hears (network + Exotel)."""
+        sent = self.marks_sent.pop(name, None)
+        if sent is None:
+            return
+        lag = asyncio.get_running_loop().time() - sent
+        if lag >= PLAYBACK_LAG_WARNING:
+            log.warning("exotel played %s %.1f s after our last audio (slow network?)", name, lag)
+        else:
+            log.info("exotel played %s (+%.1f s)", name, lag)
 
     async def play(self, prompt_ids: tuple[str, ...], extra: bytes = b"") -> float:
         await self.stop_playback()
@@ -258,6 +316,7 @@ class ExotelSession:
             ahead = started + (i + 1) * CHUNK_MS / 1000 - loop.time()
             if ahead > LEAD_SECONDS:
                 await asyncio.sleep(ahead - LEAD_SECONDS)
+        self.marks_sent[name] = loop.time()
         await self.send({"event": "mark", "stream_sid": self.stream_sid, "mark": {"name": name}})
 
     async def stop_playback(self) -> None:
@@ -299,12 +358,28 @@ class ExotelSession:
             return
         raise CallEnded
 
+    async def _first_key(self, deadline: float) -> str | None:
+        """The first key for a new question. A key that comes within `min_answer_seconds` of
+        the previous answer is a second press of that answer (callers press again when the
+        line is slow), not an answer to this question: it is ignored."""
+        loop = asyncio.get_running_loop()
+        while True:
+            key = await self._wait_key(deadline - loop.time())
+            gap = loop.time() - (self.last_key_at or -1e9)
+            if key is None or gap >= self.settings.min_answer_seconds:
+                return key
+            log.info("ignored key %s: %.1f s after the last answer (a repeated press)", key, gap)
+
+    def _answered(self) -> None:
+        self.last_key_at = asyncio.get_running_loop().time()
+
     async def ask(self, action: Ask) -> str | None:
         self._drain_keys()
         loop = asyncio.get_running_loop()
         deadline = loop.time() + await self.play(action.prompts) + action.timeout
-        key = await self._wait_key(deadline - loop.time())
+        key = await self._first_key(deadline)
         if key is not None:
+            self._answered()
             await self.stop_playback()
         return key
 
@@ -319,9 +394,13 @@ class ExotelSession:
         deadline = loop.time() + await self.play(action.prompts) + action.timeout
         entry = ""
         while True:
-            key = await self._wait_key(deadline - loop.time())
+            if entry:
+                key = await self._wait_key(deadline - loop.time())
+            else:
+                key = await self._first_key(deadline)
             if key is None:
                 return entry or None
+            self._answered()
             if not entry:
                 await self.stop_playback()
             if key == "#" or (key == "*" and not entry):
@@ -395,6 +474,49 @@ class ExotelSession:
             log.warning("call %s: summary not rendered (%s); using P20", call_id[:8], exc)
             await self._problem(call_id, f"Summary voice could not be made ({exc}); played P20")
             return ("P20",)
+
+    @staticmethod
+    def _options_for(engine: Interview) -> list:
+        answers = dict(engine.answers)
+        row = geo.district_for_pin(answers.get("q_pin") or "")
+        answers["q_district"] = row["district_code"] if row else None
+        return recommend.recommend(recommend.Profile.from_answers(answers))
+
+    async def _offer(self, call_id: str, engine: Interview):
+        """Find the caller's options (sample dataset) and make the sentence that says them
+        (P34). If either fails, the engine ends the call with the summary instead."""
+        try:
+            options = await run_in_threadpool(self._options_for, engine)
+        except Exception as exc:
+            log.exception("call %s: recommendations failed", call_id[:8])
+            await self._problem(call_id, f"Recommendations failed ({exc})")
+            options = []
+        details = [recommend.as_dict(o) for o in options]
+        courses, prompts = [], []
+        if options:
+            await self.play(("P17",))  # "one moment" while the sentence is made
+            text = options_text(engine.language, engine.education, engine.occupation, options)
+            try:
+                pid = await run_in_threadpool(
+                    dynprompt.ensure,
+                    text,
+                    engine.language,
+                    self.settings.sarvam_api_key,
+                    self.settings.sarvam_speaker,
+                    self.audio.dir,
+                )
+                english = options_text("en-IN", engine.education, engine.occupation, options)
+                self.texts[pid] = {"text": text, "text_en": english}
+                courses, prompts = [o.course.course_id for o in options], [pid]
+                log.info("call %s: offering %s", call_id[:8], ", ".join(courses))
+            except Exception as exc:
+                log.warning("call %s: options voice not made (%s)", call_id[:8], exc)
+                await self._problem(
+                    call_id, f"Options voice could not be made ({exc}); ended with the summary"
+                )
+        else:
+            log.info("call %s: no options fit this caller", call_id[:8])
+        return engine.on_options(courses, prompts, details)
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
         """Hand the story to the worker and wait for its answer (speech-to-text, English,
@@ -512,6 +634,14 @@ class ExotelSession:
         if effects:
             self._later(interview_store.apply_effects, self.settings, self.r, call_id, effects)
 
+    async def _ended_early(self, call_id: str) -> None:
+        """Say in the log (and on the console, unless the caller hung up) why the call ended
+        before the interview did."""
+        why = self.end_reason or "the connection to Exotel closed"
+        log.info("call %s: ended early: %s", call_id[:8], why)
+        if why != "the caller hung up":
+            await self._problem(call_id, f"Call ended early: {why}")
+
     async def run(self) -> None:
         reader = asyncio.create_task(self.reader())
         call_id = None
@@ -531,6 +661,10 @@ class ExotelSession:
             action = engine.start()
             while True:
                 self.language = engine.language
+                if isinstance(action, Offer):
+                    action, effects = await self._offer(call_id, engine)
+                    await self._apply(call_id, effects)
+                    continue
                 if isinstance(action, Hangup):
                     prompts = action.prompts
                     if "P15" in prompts:
@@ -594,12 +728,13 @@ class ExotelSession:
                 )
                 await self._apply(call_id, effects)
                 if hung_up:
+                    await self._ended_early(call_id)
                     break
         except asyncio.TimeoutError:
             log.warning("exotel connected but sent no 'start' within %d s; closing", START_TIMEOUT)
         except CallEnded:
             if call_id:
-                log.info("call %s: caller hung up", call_id[:8])
+                await self._ended_early(call_id)
         except Exception:
             log.exception("call failed")
         finally:

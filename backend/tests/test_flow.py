@@ -1,4 +1,4 @@
-from core.dialogue.flow import MAX_STORY_ATTEMPTS, Ask, Effect, Hangup, Interview, Record
+from core.dialogue.flow import MAX_STORY_ATTEMPTS, Ask, Effect, Hangup, Interview, Offer, Record
 
 
 def kinds(effects):
@@ -47,7 +47,7 @@ def test_happy_path_with_recording():
     assert action.prompts == ("P14",)
     action, effects = iv.on_key("2")
     assert effects[0].data == {"step": "trades", "key": "2", "value": "7531"}
-    assert action == Hangup(("P15",)) and iv.state == "ended"
+    assert action == Offer() and iv.state == "offer"
     assert (iv.education, iv.occupation) == ("10th", "7531")
 
 
@@ -264,7 +264,7 @@ def test_confident_story_says_what_we_heard_and_reads_back_two_occupations():
     assert action.step == "readback" and action.prompts == ("DYN:aa", "DYN:bb")
     assert effects[0].data["top1"] == "7531"
     action, effects = iv.on_key("2")
-    assert action == Hangup(("P15",)) and iv.occupation == "7411"
+    assert action == Offer() and iv.occupation == "7411"
     assert effects[0].data == {"key": "2", "confirmed": "7411", "candidates": ["7531", "7411"]}
     assert effects[1].data == {"step": "occupation", "key": "2", "value": "7411"}
 
@@ -277,7 +277,7 @@ def test_three_occupations_are_offered_and_4_means_none():
     )
     assert action.valid == "1234" + "90"
     action, _ = iv.on_key("3")
-    assert action == Hangup(("P15",)) and iv.occupation == "7231"
+    assert action == Offer() and iv.occupation == "7231"
 
 
 def test_none_of_these_lets_the_caller_tell_it_again():
@@ -303,7 +303,7 @@ def test_read_back_timeouts_keep_repeating_the_read_back():
         action, effects = iv.on_timeout()
         assert action.prompts == ("P16", "DYN:aa", "DYN:bb") and effects == []
     action, _ = iv.on_key("1")
-    assert action == Hangup(("P15",)) and iv.occupation == "7531"
+    assert action == Offer() and iv.occupation == "7531"
 
 
 def test_unclear_story_says_what_we_heard_and_asks_for_more_detail():
@@ -325,7 +325,7 @@ def test_second_story_can_be_confirmed():
     action, _ = iv.on_recording("/r2.wav", 5, ["7231", "7233"], readback=["DYN:dd"])
     assert action.step == "readback"
     action, _ = iv.on_key("1")
-    assert action == Hangup(("P15",)) and iv.occupation == "7231"
+    assert action == Offer() and iv.occupation == "7231"
 
 
 def test_slow_or_failed_processing_goes_straight_to_the_trade_list():
@@ -342,4 +342,60 @@ def test_trade_list_is_repeated_until_the_caller_picks_one():
         action, _ = iv.on_timeout()
         assert action.prompts == ("P16", "P14")
     action, _ = iv.on_key("5")
-    assert action == Hangup(("P15",)) and iv.occupation == "7422"
+    assert action == Offer() and iv.occupation == "7422"
+
+
+def at_options(courses=("U7531", "R7531", "V0001")):
+    iv = Interview()
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2"])
+    action, _ = iv.on_key("2")  # tailor from the trade list
+    assert action == Offer() and iv.state == "offer"
+    assert iv.answers["trades"] == "7531" and iv.answers["q_pin"] == "411001"
+    details = [{"rank": i, "course_id": c} for i, c in enumerate(courses, 1)]
+    action, effects = iv.on_options(list(courses), ["DYN:abc"], details)
+    return iv, action, effects
+
+
+def test_options_are_offered_after_the_occupation_and_the_choice_is_saved():
+    iv, action, effects = at_options()
+    assert effects == [
+        Effect(
+            "recommendations",
+            {
+                "options": [{"rank": i, "course_id": c} for i, c in enumerate(iv.options, 1)],
+                "spoken": True,
+            },
+        )
+    ]
+    assert action == Ask("options", ("DYN:abc",), "1234" + "90", 8)
+    assert iv.on_key("7")[0].prompts == ("P29", "DYN:abc")  # not an option: asked again
+    assert iv.on_timeout()[0].prompts == ("P16", "DYN:abc")  # silence: asked again
+    action, effects = iv.on_key("2")
+    assert action == Hangup(("P33",)) and iv.state == "ended"
+    assert effects[0] == Effect("interest", {"rank": 2, "course_id": "R7531"})
+    assert effects[1].data == {"step": "interest", "key": "2", "value": "R7531"}
+
+
+def test_none_of_the_options_is_saved_too():
+    iv, _, _ = at_options(("U7531", "R7531"))
+    assert iv._action().valid == "123" + "90"
+    action, effects = iv.on_key("3")
+    assert action == Hangup(("P33",))
+    assert effects[0].data == {"rank": None, "course_id": None}
+    assert iv.answers["interest"] == "none"
+
+
+def test_no_options_or_no_voice_ends_with_the_summary():
+    iv = Interview()
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2", "2"])
+    assert iv.on_options([], [], []) == (Hangup(("P15",)), [])
+    iv = Interview()
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2", "2"])
+    action, effects = iv.on_options(["U7531"], [], [{"rank": 1}])  # voice failed
+    assert action == Hangup(("P15",)) and effects[0].data["spoken"] is False
+
+
+def test_nine_still_deletes_at_the_options():
+    iv, _, _ = at_options()
+    action, effects = iv.on_key("9")
+    assert action == Hangup(("P18",)) and kinds(effects) == ["delete_and_block"]
