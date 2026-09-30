@@ -112,30 +112,29 @@ prompts played about 1.1 s after sending (1.0 s of that is our own send-ahead).
 We have **no word error rate**: that needs each call's words typed out by hand and compared.
 Write "measurement plan" for it; do not estimate it.
 
-## 7. Six slides: what changes from the PPT plan
+## 7. Six slides (pitch name: **HunarMarg**)
 
-Keep the PPT plan's layout and sources [S1]–[S13]. Change only these:
+Rules: light, not crowded, no paragraphs. One emoji or icon per box, one idea per box, at most
+about 40 words of body text per slide. Numbers are big; the source is a small grey tag under
+each one. Green dot = in the prototype, grey dot = planned.
 
-- **Slide 2, "How it works"** (5 icons): "Call from any phone" · "Your language: voice or keys" ·
-  "Tell your work in your words" · "Top 3 options, hear details" · "Reference number + documents".
-  Footer: "One call → the right skill → a checked livelihood."
-- **Slide 3, architecture:** "Keypad phone → Exotel (Indian number) → our voice server (FastAPI
-  websocket) → Sarvam speech-to-text + translation (India) → Understand: word search (BM25 + e5)
-  + Sarvam LLM, codes only → Decide: rules-based recommender on the dataset → Speak: Sarvam Bulbul,
-  facts from the dataset only". Under it: "Data: NCO-2015 (59 occupations), sample courses and
-  centres (31 districts), 9 real schemes" and "Team console". Tech: Python · FastAPI · Exotel ·
-  Sarvam (Saaras, Bulbul, LLM) · PostgreSQL + pgvector · Redis · React · Docker · Azure Central
-  India. Box 2 becomes "Checks (design): number provenance, random-time follow-ups, memory
-  question, random-digit liveness, employer Udyam/GST". Box 3 = section 6.
-- **Slide 4, "Real in the prototype":** use the first column of section 4 (not the PPT plan's
-  list: it has missed call, SMS, skill check and liveness, which are not built). Cost: keep
-  ₹116–134 per person, but the carrier assumption was Plivo; replace [S11] with Exotel's
-  per-minute rate once checked. The range holds only if that rate is within ₹0.38–1.20/min.
-  Timeline: "30 Sep: working prototype → next 8 weeks: callback, follow-ups, real district data →
-  finale".
-- **Slide 5:** keep the GIA matrix, but label Plan Drafter, employer index and verified
-  placements as "planned". Keep "109 min saved" and "₹44,136" only with "[our estimate]".
-- **Slide 6:** section 4 of this file is the honesty table. Credit line as in the PPT plan.
+**Theme (all slides):** off-white background; navy headings; **saffron/orange** for key numbers;
+teal for tech; green = built, grey = planned. Headings in Poppins, body text in Inter. A thin
+dotted "path" line (Marg = path) runs along the bottom of slides 2–6, with a dot for each slide.
+
+| Slide | What it holds | Look |
+|---|---|---|
+| 1 Title | Official template only: PS ID SIH26097, title as on the portal, theme, Software, Team ID, Team Name | Unchanged; no design |
+| 2 Idea | Problem in 1–2 lines · the idea as 4 points with emojis · 3 boxes: ⭐ what makes us different, 🧩 features, ✅ already working | Problem strip on top, 4 idea points, 3 equal boxes |
+| 3 Tech | Flow chart in 4 coloured zones (Listen → Understand → Decide → Speak and follow up), plus a row of logos for every technology the final system uses (green/grey dots) | Flow chart fills 70% of the slide; logos underneath |
+| 4 Proof and feasibility | 2×2 grid: 🌐 proven online · 🧪 our prototype · 💰 cost and scale · ⚠️ risks → fixes | 3 items per box at most; one small bar picture (₹69,200 vs ₹134) |
+| 5 Impact | 4 big numbers · "who benefits" cards (caller, women, officers, centres, banks, ministry) · social / economic / environment line | Numbers on top, cards in the middle |
+| 6 Sources | Sources grouped with icons (govt data, studies, tech, our own work) · a small honesty strip · QR codes for GitHub and the video | Two columns, QR codes at the bottom |
+
+New online sources added to the v4 list: 22 crore feature-phone users (Business Standard,
+Apr 2026) · Kilkari, MoHFW's voice-call programme: over 3 crore women reached, answer rate 50%
+at the first try and 76% by the third (BMJ Global Health) · Sarvam Saaras v3, the model we use:
+19.3% word error rate on IndicVoices across 10 languages (Sarvam's own benchmark).
 
 ## 8. Final build plan to propose
 
