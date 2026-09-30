@@ -39,6 +39,14 @@ Docker volume, so later runs are fast. The api service needs a restart only for 
 python scripts\recommend.py --occupation 7531 --age 26_35 --gender female --education upto_8th --travel 10km --lean own_work --pin 411001
 ```
 
+## Numbers for the slides (from saved calls)
+
+```powershell
+docker compose -f infra/docker-compose.yml exec api python scripts/measure.py
+```
+
+`docs/SUBMISSION.md`: the final idea, the honesty table, the video script and the build plan.
+
 ## Server in India
 
 `docs/DEPLOY.md`: which account to make, the VM, the domain, and the commands.
