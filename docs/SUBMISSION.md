@@ -131,6 +131,25 @@ dotted "path" line (Marg = path) runs along the bottom of slides 2–6, with a d
 | 5 Impact | 4 big numbers · "who benefits" cards (caller, women, officers, centres, banks, ministry) · social / economic / environment line | Numbers on top, cards in the middle |
 | 6 Sources | Sources grouped with icons (govt data, studies, tech, our own work) · a small honesty strip · QR codes for GitHub and the video | Two columns, QR codes at the bottom |
 
+**Slide 3, our own models** (from the v4 idea file, section 6; 🟢 = in the prototype,
+⚪ = planned). The headline is "18 models and tools: 6 used as they are, 3 fine-tuned, 3 trained,
+2 statistical, 4 rule-based. The LLM never decides."
+
+| Card | Job | Method | Pass mark | Now |
+|---|---|---|---|---|
+| 🔍 Occupation Matcher | work story → NCO → NSQF course | BM25 + multilingual-e5 hybrid, reranker, fine-tuned on caller phrases | right job in top 5 ≥ 90% | 🟢 hybrid + LLM check; ⚪ fine-tune |
+| ⚖️ HunarMarg Ranker | picks the top 3 | Phase 1: 25A+20S+20D+15X+10C+10U, weights set with officers (AHP); Phase 2: LightGBM LambdaRank on verified outcomes only | beats Phase 1 on NDCG@3; gender gap ≤ 5 pts | 🟢 rule score (fit, demand, reach, wish, step); ⚪ learned |
+| 🏷️ Skill Tagger | finds education, skills, travel in the caller's words | MuRIL / IndicBERT v2 token classifier, fine-tuned | span F1 ≥ 0.85 | ⚪ (Sarvam LLM does it now 🟢) |
+| ❓ Smart Skill Check | asks only the questions that change the answer | expected information gain over the course's NOS criteria | 1–2 fewer questions | ⚪ |
+| 📉 Dropout Alert | flags who may leave training | logistic regression | catches ≥ 70% | ⚪ |
+| 🛡️ Satyavaani | is it a live person on a follow-up call? | team's own model: 4 random digits + fake-voice score, no voiceprint | 4.6% EER on 6 speakers; retrain before pilot | ⚪ |
+
+Also on the slide, one line each: 🧭 lean model (points + softmax → logistic regression; 🟢 keypad
+question now), 📈 local market score (demand, crowding, wage; 🟢 sample demand), ✔️ fact checker
+(🟢 only dataset facts spoken; ⚪ audio read-back check), 👥 "people like you" (cohort ≥ 30, never
+gender; ⚪). Used as they are: Silero VAD, Sarvam Saaras v3, Sarvam LLM (codes only), Bulbul v3,
+Sarvam Translate / IndicTrans2, Bhashini.
+
 New online sources added to the v4 list: 22 crore feature-phone users (Business Standard,
 Apr 2026) · Kilkari, MoHFW's voice-call programme: over 3 crore women reached, answer rate 50%
 at the first try and 76% by the third (BMJ Global Health) · Sarvam Saaras v3, the model we use:
