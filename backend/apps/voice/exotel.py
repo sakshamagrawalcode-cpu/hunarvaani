@@ -31,7 +31,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from core import dynprompt, geo, interview_store, recommend, story_job
 from core.config import Settings
-from core.dialogue.flow import Ask, Hangup, Interview, Offer
+from core.dialogue.flow import Ask, Effect, Hangup, Interview, Offer
 from core.dialogue.options import options_text
 from core.dialogue.prompts import PROMPTS, audio_dir_name, split_language
 from core.dialogue.summary import summary_text
@@ -659,6 +659,8 @@ class ExotelSession:
                 timeout=self.settings.ivr_timeout_seconds,
             )
             action = engine.start()
+            if engine.state != "language":  # one language only: no menu, save it anyway
+                await self._apply(call_id, [Effect("language", {"code": engine.language})])
             while True:
                 self.language = engine.language
                 if isinstance(action, Offer):

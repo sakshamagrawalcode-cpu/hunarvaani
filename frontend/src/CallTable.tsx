@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 
 import type { CallRow } from "./api";
-import { LANGUAGE, STATUS, occupationName, seconds, value, when } from "./labels";
+import { LANGUAGE, STATUS, occupationName, optionText, seconds, value, when } from "./labels";
 import { Badge, Empty, LiveBadge, statusTone, td, th } from "./ui";
 
 export default function CallTable({ calls }: { calls: CallRow[] }) {
@@ -54,6 +54,7 @@ export default function CallTable({ calls }: { calls: CallRow[] }) {
               <th className={th}>Gender</th>
               <th className={th}>Education</th>
               <th className={th}>Occupation</th>
+              <th className={th}>Option</th>
               <th className={th}>Flags</th>
             </tr>
           </thead>
@@ -88,6 +89,7 @@ export default function CallTable({ calls }: { calls: CallRow[] }) {
                     "—"
                   )}
                 </td>
+                <td className={`${td} max-w-[14rem]`}>{optionText(c.option)}</td>
                 <td className={`${td} space-x-1`}>
                   {c.human_flag && <Badge tone="red">wants a human</Badge>}
                   {c.keypad_only && <Badge tone="amber">keypad only</Badge>}

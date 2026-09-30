@@ -6,11 +6,12 @@ the team password. Docker builds it for you; no Node needed on the laptop.
 | Folder / file | What |
 |---|---|
 | `src/pages/Overview.tsx` | counts, languages, call status, most common occupations, latest calls |
-| `src/pages/Calls.tsx` | every call, searchable, refreshes every 5 s |
+| `src/pages/Calls.tsx` | every call, searchable, district filter, option chosen, "Download CSV", refreshes every 5 s |
 | `src/pages/CallDetail.tsx` | one call: profile strip, the three live panels, the training options (reasons, skill gap, chosen), recordings, consents |
 | `src/CallPanels.tsx`, `src/liveLog.ts` | events → three streams: Conversation (system said / caller said or pressed), Processing (background steps, timings, scores), Errors & warnings; tabs on small screens, follow-live |
 | `src/App.tsx` | sidebar layout, page titles, live-call indicator |
-| `src/pages/People.tsx` | one row per caller with their latest answers |
+| `src/pages/People.tsx` | one row per caller with their latest answers, district filter, chosen option |
+| `src/pages/SampleData.tsx` | the sample courses, centres and schemes the options come from (search, district filter) |
 | `src/pages/Occupations.tsx` | the 59 occupations and the words callers use |
 | `src/pages/Prompts.tsx` | Voice prompts: every rendered file per language with a player, length, loudness, problems, "play all" |
 | `src/api.ts` | calls the backend's `/console/api/*` (types + auto-refresh hook) |

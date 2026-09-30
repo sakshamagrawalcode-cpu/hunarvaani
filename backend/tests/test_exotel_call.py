@@ -184,6 +184,7 @@ def test_full_interview_with_story(client, settings):
         "SELECT status, duration_seconds, answered_at IS NOT NULL, ended_at IS NOT NULL FROM call"
     )
     assert (status, answered, ended) == ("completed", True, True) and dur >= 0
+    assert rows("SELECT language FROM call") == [("hi-IN",)]  # saved though no menu was played
     answers = dict(rows("SELECT step, value FROM answer"))
     assert answers == {
         "q_age": "26_35",
@@ -769,6 +770,44 @@ def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, 
     assert [o[3] for o in options] == [True] + [False] * (len(options) - 1)
     answers = dict(rows("SELECT step, value FROM answer"))
     assert answers["interest"] == options[0][1]
+
+
+def test_console_lists_csv_and_sample_data_show_the_chosen_option(
+    client, settings, fake_tts, monkeypatch
+):
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P22+P14")
+        p.press("5")
+        p.hear("DYN:aaaabbbbccccdddd11112222")
+        p.press("4")  # none of the three options
+        p.until_hangup()
+    get = _console(client, settings, monkeypatch)
+    [row] = get("/calls").json()
+    assert row["district_code"] == "MH-PUN"
+    assert row["option"] == {"offered": 3, "spoken": True, "chosen": None, "declined": True}
+    [person] = get("/people").json()
+    assert person["district_code"] == "MH-PUN" and person["option"]["declined"] is True
+
+    sheet = get("/calls.csv")
+    assert sheet.headers["content-type"].startswith("text/csv")
+    assert "attachment" in sheet.headers["content-disposition"]
+    text = sheet.content.decode("utf-8-sig")
+    header, line = text.splitlines()[:2]
+    assert "option_chosen" in header and "Pune, Maharashtra" in line and ",none," in line
+    assert CALLER not in text  # only the last four digits
+
+    data = get("/dataset").json()
+    assert len(data["courses"]) == 115 and len(data["centres"]) == 124
+    assert (
+        len(data["schemes"]) == 9
+        and {"code": "MH-PUN", "name": "Pune, Maharashtra"} in data["districts"]
+    )
+    assert (
+        get("/dataset").status_code == 200 and client.get("/console/api/dataset").status_code == 401
+    )
 
 
 def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypatch):
