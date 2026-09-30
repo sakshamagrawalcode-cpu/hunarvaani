@@ -771,6 +771,10 @@ def test_story_saves_merge_in_either_order_and_skip_deleted_calls(settings):
         assert story_job.save(conn, gone, {"transcript": "x"}) is False
     assert rows("SELECT transcript, top1 FROM story") == [("खेती करता हूं", "9211")]
 
+    with store.connect(DB) as conn:  # the LLM's reading is kept as JSON
+        store.save_story(conn, str(cid), "/r/a.wav", llm={"occupations": ["9211"], "years": 4})
+    assert rows("SELECT top1, llm->>'years' FROM story") == [("9211", "4")]
+
 
 def test_logs_hide_the_exotel_token():
     import logging

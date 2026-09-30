@@ -171,6 +171,14 @@ export default function CallDetail() {
                         <span className="text-slate-500">no words recognised</span>
                       )}
                     </p>
+                    {s.llm && (
+                      <p className="rounded-md bg-violet-50 px-2 py-1 text-xs text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+                        <span className="font-medium">AI understood (Sarvam):</span> {s.llm.said || "—"}
+                        {s.llm.years ? ` · ${s.llm.years} years` : ""}
+                        {s.llm.skills.length ? ` · can: ${s.llm.skills.join(", ")}` : ""}
+                        {s.llm.wants ? ` · wants ${s.llm.wants === "job" ? "a job" : "own work"}` : ""}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-500">
                       Understood: {occupationName(s.top1)}
                       {s.top2 && ` · or ${occupationName(s.top2)}`}

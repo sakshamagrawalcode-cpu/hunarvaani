@@ -39,6 +39,10 @@ Docker volume, so later runs are fast. The api service needs a restart only for 
 python scripts\recommend.py --occupation 7531 --age 26_35 --gender female --education upto_8th --travel 10km --lean own_work --pin 411001
 ```
 
+## Server in India
+
+`docs/DEPLOY.md`: which account to make, the VM, the domain, and the commands.
+
 ## Tests
 
 ```powershell

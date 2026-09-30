@@ -68,6 +68,7 @@ STORY_FIELDS = (
     "top3",
     "stt_ms",
     "search_ms",
+    "llm",
 )
 
 
@@ -77,7 +78,7 @@ def save_story(conn, call_id: str, recording_url: str, **fields: Any) -> None:
     The api and the worker both save it, in either order; a value one side already stored is
     kept when the other side has none (e.g. the api stopped waiting before the transcript came).
     """
-    values = [fields.get(k) for k in STORY_FIELDS]
+    values = [Jsonb(v) if isinstance(v, dict) else v for v in (fields.get(k) for k in STORY_FIELDS)]
     updates = ", ".join(f"{k} = COALESCE(EXCLUDED.{k}, story.{k})" for k in STORY_FIELDS)
     conn.execute(
         f"INSERT INTO story (call_id, recording_url, {', '.join(STORY_FIELDS)}) "
