@@ -826,11 +826,21 @@ def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, 
         p.press("5")  # mobile phone repair
         heard = p.hear("DYN:aaaabbbbccccdddd11112222")
         assert "P17" in heard  # "one moment" while the options sentence is made
-        p.press("1")
+        p.press("2")  # hear option 2 in detail
+        p.hear("DYN:aaaabbbbccccdddd11112222+P41")
+        p.press("2")  # back to all the options
+        p.hear("DYN:aaaabbbbccccdddd11112222")
+        p.press("1")  # option 1 in detail
+        p.hear("DYN:aaaabbbbccccdddd11112222+P41")
+        p.press("1")  # choose it
         p.hear("P33")
         p.until_hangup()
-    [text] = fake_tts
-    assert "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
+    text = next(t for t in fake_tts if "रास्ता 1:" in t)
+    assert "मोबाइल मिस्त्री" in text
+    assert len(fake_tts) == 1 + 3  # the options and each option's details (short version:
+    # translation needs Sarvam, which the tests do not reach)
+    heard = rows("SELECT payload->>'rank' FROM event WHERE kind = 'option_heard' ORDER BY id")
+    assert heard == [("2",), ("1",)]
     options = rows(
         "SELECT rank, course_id, spoken, chosen, details->>'sample' FROM recommendation "
         "ORDER BY rank"

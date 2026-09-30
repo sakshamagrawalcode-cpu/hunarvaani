@@ -37,3 +37,28 @@ def to_english(text: str, language: str, api_key: str, timeout: int = 15) -> str
     if resp.status_code != 200:
         raise TranslateError(f"Sarvam translate HTTP {resp.status_code}: {resp.text[:200]}")
     return (resp.json().get("translated_text") or "").strip()
+
+
+def from_english(text: str, language: str, api_key: str, timeout: int = 15) -> str:
+    """`text` (English) in `language` (e.g. hi-IN), for sentences made from the dataset."""
+    if not text or language == "en-IN":
+        return text
+    if not api_key:
+        raise TranslateError("SARVAM_API_KEY is empty")
+    try:
+        resp = requests.post(
+            TRANSLATE_URL,
+            headers={"api-subscription-key": api_key, "content-type": "application/json"},
+            json={
+                "input": text[:1000],
+                "source_language_code": "en-IN",
+                "target_language_code": language,
+                "model": "sarvam-translate:v1",
+            },
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        raise TranslateError(f"could not reach Sarvam: {type(exc).__name__}") from None
+    if resp.status_code != 200:
+        raise TranslateError(f"Sarvam translate HTTP {resp.status_code}: {resp.text[:200]}")
+    return (resp.json().get("translated_text") or "").strip()

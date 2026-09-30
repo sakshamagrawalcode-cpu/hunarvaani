@@ -128,3 +128,53 @@ def options_text(language: str, education: str, occupation: str, options: list[O
         options=lines,
         none_key=str(len(options) + 1),
     )
+
+
+KIND_EN = {
+    "upskill": "a training course",
+    "certificate": "a government certificate for the skills you already have",
+    "startup": "help to start your own work",
+}
+
+
+def detail_text_en(option: Option, occupation: str) -> str:
+    """Everything about one option, in plain English, only from the dataset. It is translated
+    into the caller's language before it is spoken."""
+    data = sample_data.load()
+    c = option.course
+    parts = [f"{c.title_en}. This is {KIND_EN.get(c.kind, 'a course')}."]
+    if c.skills:
+        parts.append(f"You will learn: {', '.join(c.skills)}.")
+    if c.kind == "certificate":
+        parts.append(
+            "There is a short test of what you already know, and then you get the "
+            "certificate. It helps you get better work and pay."
+        )
+    parts.append(
+        f"It takes about {duration(c.hours, 'en-IN')}, and it is "
+        f"{'free' if c.fee_inr == 0 else f'{c.fee_inr} rupees'}."
+    )
+    if option.centre is not None:
+        where = (
+            f"It is at the {option.centre.name_en}, about {option.centre.distance_km} "
+            "kilometres away."
+        )
+        if option.centre.hostel:
+            where += " There is a hostel."
+        parts.append(where)
+    if c.placement:
+        parts.append("After the course, the centre helps you find a job.")
+    scheme = data.schemes.get(c.scheme)
+    if scheme:
+        parts.append(f"It is under {scheme.name_en}: {scheme.benefit_en}.")
+    loan = data.schemes.get(option.loan_scheme or "")
+    if loan and loan.scheme != c.scheme and c.kind == "startup":
+        parts.append(f"For a loan, {loan.name_en} can help: {loan.benefit_en}.")
+    return " ".join(parts)
+
+
+def detail_fallback(option: Option, occupation: str, language: str) -> str:
+    """A short local-language version (no translation needed) for when Sarvam cannot translate:
+    the same words as the option in P34, without its number."""
+    line = option_line(1, option, occupation, language)
+    return line.split(":", 1)[1].strip() if ":" in line else line

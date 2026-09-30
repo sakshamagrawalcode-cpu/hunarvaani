@@ -472,3 +472,40 @@ def test_the_call_ends_with_the_reference_number_and_the_documents():
         iv.on_recording(None, 0)
     iv.on_key("2")
     assert iv.on_options([], [], [])[0] == Hangup(("P15", "REF", "P39"))
+
+
+def test_an_options_number_plays_its_details_then_choose_or_go_back():
+    iv = Interview(closing=True)
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2", "2"])
+    details = [{"rank": i} for i in (1, 2, 3)]
+    action, _ = iv.on_options(
+        ["U1", "R1", "V1"], ["DYN:all"], details, [["DYN:d1"], [], ["DYN:d3"]]
+    )
+    action, effects = iv.on_key("3")
+    assert action.prompts == ("DYN:d3", "P41") and action.valid == "12" + "90"
+    assert effects == [Effect("option_heard", {"rank": 3})]
+    action, _ = iv.on_key("2")  # back to the options
+    assert action.prompts == ("DYN:all",) and iv.state == "options"
+    action, effects = iv.on_key("2")  # no details for option 2: chosen at once
+    assert action == Hangup(("P33", "REF", "P39"))
+    assert effects[0].data == {"rank": 2, "course_id": "R1"}
+
+
+def test_choosing_after_the_details_saves_that_option():
+    iv = Interview()
+    run(iv, ["1", "1", "2", "1", "1", "3", "1", "3", "3", "1", "P", "2", "2"])
+    iv.on_options(["U1", "R1"], ["DYN:all"], [{}, {}], [["DYN:d1"], ["DYN:d2"]])
+    iv.on_key("1")
+    assert iv.on_timeout()[0].prompts == ("P16", "DYN:d1", "P41")
+    action, effects = iv.on_key("1")
+    assert action == Hangup(("P33",)) and effects[0].data == {"rank": 1, "course_id": "U1"}
+    assert iv.answers["interest"] == "U1"
+
+
+def test_the_story_words_are_kept_for_the_recommender():
+    iv = Interview()
+    run(iv, ["1", "1", "1", "1", "1", "3", "1", "4", "2", "1", "P", "1"])
+    iv.on_recording(
+        "/r.wav", 5, details={"transcript": "दस साल से", "transcript_en": "for ten years"}
+    )
+    assert iv.answers["story"] == "दस साल से" and iv.answers["story_en"] == "for ten years"

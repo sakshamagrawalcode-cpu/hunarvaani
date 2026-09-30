@@ -22,7 +22,7 @@ with warnings.catch_warnings():
 # the order a caller meets them, then the ones that play only sometimes
 CALL_ORDER = (
     "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P31 P32 P11 P12 P17 P30 P21 P13 P24 "
-    "P35 P36 P37 P22 P23 P14 P34 P33 P15 P38 P40 P39 P16 P29 P19 P18 P04 P20"
+    "P35 P36 P37 P22 P23 P14 P34 P41 P33 P15 P38 P40 P39 P16 P29 P19 P18 P04 P20"
 ).split()
 
 USED_FOR = {
@@ -66,6 +66,7 @@ USED_FOR = {
     "P38": "your reference number is",
     "P39": "write it down, where to go, documents to take, never pay; goodbye",
     "P40": "once more (the number again)",
+    "P41": "after an option's details: choose it 1, hear the options again 2",
 }
 
 FRAME_MS = 20

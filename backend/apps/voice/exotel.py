@@ -29,10 +29,10 @@ import redis
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 
-from core import dynprompt, geo, interview_store, recommend, story_job
+from core import dynprompt, geo, interview_store, recommend, story_job, translate
 from core.config import Settings
 from core.dialogue.flow import Ask, Effect, Hangup, Interview, Offer
-from core.dialogue.options import options_text
+from core.dialogue.options import detail_fallback, detail_text_en, options_text
 from core.dialogue.prompts import audio_dir_name, split_language, text_of
 from core.dialogue.summary import summary_text
 from core.phone import last4
@@ -517,31 +517,67 @@ class ExotelSession:
             await self._problem(call_id, f"Recommendations failed ({exc})")
             options = []
         details = [recommend.as_dict(o) for o in options]
-        courses, prompts = [], []
+        courses, prompts, detail_prompts = [], [], []
         if options:
-            await self.play(("P17",))  # "one moment" while the sentence is made
+            await self.play(("P17",))  # "one moment" while the sentences are made
             text = options_text(engine.language, engine.education, engine.occupation, options)
             try:
-                pid = await run_in_threadpool(
-                    dynprompt.ensure,
-                    text,
-                    engine.language,
-                    self.settings.sarvam_api_key,
-                    self.settings.sarvam_speaker,
-                    self.audio.dir,
-                )
-                english = options_text("en-IN", engine.education, engine.occupation, options)
-                self.texts[pid] = {"text": text, "text_en": english}
-                courses, prompts = [o.course.course_id for o in options], [pid]
-                log.info("call %s: offering %s", call_id[:8], ", ".join(courses))
+                made = await run_in_threadpool(self._make_option_voices, engine, text, options)
             except Exception as exc:
                 log.warning("call %s: options voice not made (%s)", call_id[:8], exc)
                 await self._problem(
                     call_id, f"Options voice could not be made ({exc}); ended with the summary"
                 )
+            else:
+                pid, detail_prompts, problems = made
+                english = options_text("en-IN", engine.education, engine.occupation, options)
+                self.texts[pid] = {"text": text, "text_en": english}
+                courses, prompts = [o.course.course_id for o in options], [pid]
+                log.info("call %s: offering %s", call_id[:8], ", ".join(courses))
+                for what in problems:
+                    await self._problem(call_id, what)
         else:
             log.info("call %s: no options fit this caller", call_id[:8])
-        return engine.on_options(courses, prompts, details)
+        return engine.on_options(courses, prompts, details, detail_prompts)
+
+    def _make_option_voices(self, engine: Interview, text: str, options: list):
+        """P34 and each option's details (translated from the dataset's English), made at
+        the same time. P34 must work; a detail that fails is left out (its number then just
+        chooses the option)."""
+        s, lang, occupation = self.settings, engine.language, engine.occupation
+
+        def voice(words: str) -> str:
+            return dynprompt.ensure(words, lang, s.sarvam_api_key, s.sarvam_speaker, self.audio.dir)
+
+        def detail(option):
+            english = detail_text_en(option, occupation)
+            try:
+                words = translate.from_english(english, lang, s.sarvam_api_key)
+            except translate.TranslateError as exc:
+                words = detail_fallback(option, occupation, lang)
+                note = f"Option details not translated ({exc}); said the short version"
+            else:
+                note = None
+            pid = voice(words)
+            self.texts[pid] = {"text": words, "text_en": english}
+            return pid, note
+
+        problems: list[str] = []
+        with ThreadPoolExecutor(1 + len(options)) as pool:
+            main = pool.submit(voice, text)
+            parts = [pool.submit(detail, o) for o in options]
+            detail_prompts = []
+            for n, part in enumerate(parts, 1):
+                try:
+                    pid, note = part.result()
+                except Exception as exc:
+                    detail_prompts.append([])
+                    problems.append(f"Details of option {n} could not be made ({exc})")
+                else:
+                    detail_prompts.append([pid])
+                    if note:
+                        problems.append(note)
+            return main.result(), detail_prompts, problems
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
         """Hand the story to the worker and wait for its answer (speech-to-text, English,

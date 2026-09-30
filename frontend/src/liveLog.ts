@@ -335,6 +335,9 @@ export function buildStreams(events: CallEvent[], name: (code: string) => string
         });
         break;
       }
+      case "option_heard":
+        s.processing.push({ ...base, icon: "👂", title: `Caller listened to option ${p.rank} in detail` });
+        break;
       case "interest":
         s.processing.push({
           ...base,

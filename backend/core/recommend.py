@@ -13,7 +13,12 @@ Rules first, weights in one place, no model: every option can be explained line 
    wish (job -> placement-linked, own work -> business), NSQF step-up; women-only batches add a
    little for women. Ties: free first, then shorter.
 4. Skill gap = what the course teaches minus what people in their occupation usually know.
-5. When fewer than TOP_N options are within reach, the nearest farther ones fill in, marked
+5. Variety: an option of a kind already picked (e.g. a second upskilling course) counts
+   DIVERSITY_PENALTY less, so the caller hears different paths when good ones exist.
+6. Experience from the story ("दस साल से", "for 5 years"): under 2 years there is no
+   certificate for prior learning (RPL needs experience); 2+ years makes the certificate a
+   stronger step, 3+ years helps business training for people who want their own work.
+7. When fewer than TOP_N options are within reach, the nearest farther ones fill in, marked
    `farther` so nobody is told something is close when it is not.
 
 Adapted from the team's SkillCall engine (github.com/sakshamagrawalcode-cpu/SIH,
@@ -21,6 +26,7 @@ backend/app/engine.py): course types, business support only for own work, and on
 in the dataset are ever spoken.
 """
 
+import re
 from dataclasses import dataclass, field, replace
 
 from core import sample_data
@@ -32,6 +38,8 @@ TOP_N = 3
 DEFAULT_TRAVEL_KM = 30  # when the travel answer is missing
 DEMAND_SCORE = {"high": 1.0, "medium": 0.6, "low": 0.3}
 UNKNOWN = {"", "skipped", "unknown", "not_said", "none_of_these"}
+DIVERSITY_PENALTY = 0.05
+RPL_MIN_YEARS = 2
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,7 @@ class Profile:
     physical: str | None = None
     lean: str | None = None  # job | own_work | unsure
     district: str | None = None  # district code from the PIN code
+    years: int | None = None  # years in this work, from the story
 
     @classmethod
     def from_answers(cls, answers: dict) -> "Profile":
@@ -62,6 +71,7 @@ class Profile:
             physical=get("q_physical"),
             lean=get("q_lean"),
             district=get("q_district"),
+            years=_years(answers),
         )
 
 
@@ -99,9 +109,21 @@ def recommend(profile: Profile, data: Dataset | None = None, top_n: int = TOP_N)
             far.append(_option(course, fit, farther[0], profile, data, farther=True))
         elif profile.district is None:  # no PIN code: the course without a centre yet
             near.append(_option(course, fit, None, profile, data))
-    ranked = sorted(near, key=_sort_key)[:top_n]
-    ranked += sorted(far, key=_sort_key)[: top_n - len(ranked)]
+    ranked = _varied(sorted(near, key=_sort_key), top_n)
+    ranked += _varied(sorted(far, key=_sort_key), top_n - len(ranked))
     return [replace(o, rank=i) for i, o in enumerate(ranked, 1)]
+
+
+def _varied(options: list[Option], n: int) -> list[Option]:
+    """Pick `n` in order of score, each kind picked before costing DIVERSITY_PENALTY."""
+    picked: list[Option] = []
+    left = list(options)
+    while left and len(picked) < n:
+        kinds = [o.course.kind for o in picked]
+        best = max(left, key=lambda o: o.score - DIVERSITY_PENALTY * kinds.count(o.course.kind))
+        picked.append(best)
+        left.remove(best)
+    return picked
 
 
 def _sort_key(o: Option):
@@ -134,6 +156,8 @@ def _eligible(course: Course, p: Profile) -> bool:
     ) < EDUCATION_ORDER.index(course.min_education):
         return False
     if p.physical == "some" and course.heavy_work:
+        return False
+    if course.kind == "certificate" and p.years is not None and p.years < RPL_MIN_YEARS:
         return False
     return not (p.lean == "job" and course.kind == "startup")
 
@@ -181,10 +205,11 @@ def _option(
         "fit": {"same_trade": 1.0, "any_trade": 0.7, "near_trade": 0.6}[fit],
         "demand": DEMAND_SCORE[level],
         "reach": _reach(centre, p, farther),
-        "wish": _wish(course, p.lean),
-        "step": {"upskill": 1.0 if fit == "same_trade" else 0.8, "certificate": 0.6}.get(
-            course.kind, 0.5
-        ),
+        "wish": _wish(course, p.lean, p.years),
+        "step": {
+            "upskill": 1.0 if fit == "same_trade" else 0.8,
+            "certificate": 0.8 if (p.years or 0) >= RPL_MIN_YEARS else 0.6,
+        }.get(course.kind, 0.5),
     }
     score = sum(WEIGHTS[k] * v for k, v in parts.items())
     women = p.gender == "female" and centre is not None and centre.women_batches
@@ -194,6 +219,8 @@ def _option(
     reasons: list[tuple[str, dict]] = []
     if fit == "same_trade":
         reasons.append(("same_trade", {}))
+    if p.years and course.kind in ("certificate", "startup") and fit != "near_trade":
+        reasons.append(("experience", {"years": p.years}))
     elif fit == "near_trade":
         near = next(c for c in occupation.near if c in course.nco_codes)
         reasons.append(("near_trade", {"occupation": data.occupations[near].title_en}))
@@ -252,7 +279,7 @@ def _reach(centre: Centre | None, p: Profile, farther: bool) -> float:
     return 1.0 - 0.5 * min(1.0, centre.distance_km / _limit(p))
 
 
-def _wish(course: Course, lean: str | None) -> float:
+def _wish(course: Course, lean: str | None, years: int | None = None) -> float:
     if lean == "job":
         if course.kind == "certificate":
             return 0.7
@@ -263,12 +290,15 @@ def _wish(course: Course, lean: str | None) -> float:
         if course.kind == "certificate":
             return 0.7
         return 0.4 if course.placement else 0.8
+    if course.kind == "startup" and (years or 0) >= 3:  # unsure, but long in the trade
+        return 0.75
     return 0.6
 
 
 REASON_EN = {
     "same_trade": "Same trade as your work",
     "near_trade": "A near trade: {occupation}",
+    "experience": "{years} years of experience in this work (from the story)",
     "certificate": "Government certificate for the skills you already have",
     "own_work": "Helps you start your own work; loan help: {loan}",
     "placement": "Placement support after the course",
@@ -317,3 +347,74 @@ def as_dict(option: Option, data: Dataset | None = None) -> dict:
         "skill_gap": list(option.gap),
         "sample": True,
     }
+
+
+# Number words a caller may use for years, in the story or its English translation
+NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "fifteen": 15,
+    "twenty": 20,
+    "twenty-five": 25,
+    "thirty": 30,
+    "एक": 1,
+    "दो": 2,
+    "तीन": 3,
+    "चार": 4,
+    "पाँच": 5,
+    "पांच": 5,
+    "छह": 6,
+    "छः": 6,
+    "सात": 7,
+    "आठ": 8,
+    "नौ": 9,
+    "दस": 10,
+    "ग्यारह": 11,
+    "बारह": 12,
+    "पंद्रह": 15,
+    "बीस": 20,
+    "पच्चीस": 25,
+    "तीस": 30,
+    "दोन": 2,
+    "पाच": 5,
+    "सहा": 6,
+    "नऊ": 9,
+    "दहा": 10,
+    "अकरा": 11,
+    "बारा": 12,
+    "पंधरा": 15,
+    "वीस": 20,
+    "पंचवीस": 25,
+}
+_YEARS = re.compile(
+    r"(\d{1,2}|[a-z-]+|[\u0900-\u097f]+)\s*(?:साल|सालों|वर्ष|वर्षे|वर्षां|years?|yrs?)",
+    re.IGNORECASE,
+)
+
+
+def experience_years(*texts: str | None) -> int | None:
+    """Years of work mentioned in the story ("दस साल से", "for 5 years"), or None."""
+    for text in texts:
+        for word in _YEARS.findall(text or ""):
+            word = word.lower()
+            years = int(word) if word.isdigit() else NUMBER_WORDS.get(word)
+            if years is not None and 0 < years <= 60:
+                return years
+    return None
+
+
+def _years(answers: dict) -> int | None:
+    given = answers.get("years")
+    if isinstance(given, int) or (isinstance(given, str) and given.isdigit()):
+        return int(given)
+    return experience_years(answers.get("story_en"), answers.get("story"))

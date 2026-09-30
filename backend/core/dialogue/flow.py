@@ -29,6 +29,8 @@ Rules from the build spec:
 - with `review`, after the keypad questions the caller hears what we saved (P35, one piece per
   answer, P36): 1 = all correct, 2 = change something (P37 names each answer with its key),
   then that one question is asked again and the review repeats;
+- pressing an option's number plays its details (what they learn, how long, where, what the
+  scheme gives) when the adapter made them, then P41: 1 = choose it, 2 = hear the options again;
 - with `closing`, the call ends with the reference number said twice ("REF", filled in by the
   adapter), where to go and the documents to take (P39).
 """
@@ -144,6 +146,8 @@ class Interview:
     answers: dict = field(default_factory=dict)  # step -> value, for the recommender
     options: list[str] = field(default_factory=list)  # course ids said on the call
     options_prompts: list[str] = field(default_factory=list)
+    detail_prompts: list[list[str]] = field(default_factory=list)  # per option, may be empty
+    detail_rank: int = 0  # the option whose details are being heard
     review: bool = False  # read the answers back and let the caller change one
     closing: bool = False  # reference number + where to go + documents at the end
     changing: bool = False  # answering a question again from the review
@@ -198,6 +202,13 @@ class Interview:
         if self.state == "options":
             return self._choose(digit)
 
+        if self.state == "option_detail":
+            if digit == "1":
+                return self._chosen(self.detail_rank, str(self.detail_rank))
+            if digit == "2":
+                return self._goto("options"), []
+            return self._invalid(wrong_key=True)
+
         if self.state == "review":
             if digit == "1":
                 return self._after_profile(), [Effect("review", {"ok": True})]
@@ -246,7 +257,11 @@ class Interview:
         return self._after_question("q_pin"), [effect]
 
     def on_options(
-        self, courses: list[str], prompts: list[str] | tuple[str, ...], details: list[dict]
+        self,
+        courses: list[str],
+        prompts: list[str] | tuple[str, ...],
+        details: list[dict],
+        detail_prompts: list[list[str]] | None = None,
     ) -> tuple[Action, list[Effect]]:
         """After `Offer`: the recommended course ids (best first), the prompts that say them,
         and their details for the database. No courses or no prompts: end with the summary."""
@@ -258,16 +273,23 @@ class Interview:
             self.state = "ended"
             return Hangup(("P15", *self._closing())), effects if details else []
         self.options, self.options_prompts = list(courses)[:3], list(prompts)
+        self.detail_prompts = [list(d) for d in (detail_prompts or [])][: len(self.options)]
         return self._goto("options"), effects
 
     def _choose(self, digit: str) -> tuple[Action, list[Effect]]:
         none_key = str(len(self.options) + 1)
         if digit == none_key:
-            rank, course = None, None
-        elif digit.isdigit() and 1 <= int(digit) <= len(self.options):
-            rank, course = int(digit), self.options[int(digit) - 1]
-        else:
+            return self._chosen(None, digit)
+        if not (digit.isdigit() and 1 <= int(digit) <= len(self.options)):
             return self._invalid(wrong_key=True)
+        rank = int(digit)
+        if rank <= len(self.detail_prompts) and self.detail_prompts[rank - 1]:
+            self.detail_rank = rank
+            return self._goto("option_detail"), [Effect("option_heard", {"rank": rank})]
+        return self._chosen(rank, digit)
+
+    def _chosen(self, rank: int | None, digit: str) -> tuple[Action, list[Effect]]:
+        course = self.options[rank - 1] if rank else None
         self.answers["interest"] = course or "none"
         self.state = "ended"
         return Hangup(("P33", *self._closing())), [
@@ -304,6 +326,9 @@ class Interview:
         if not path:
             return self._goto(again, ("P22",)), [Effect("story_empty")]
         data = {"path": path, "seconds": round(seconds, 1), **(details or {})}
+        for key, answer in (("transcript", "story"), ("transcript_en", "story_en")):
+            if data.get(key):
+                self.answers[answer] = data[key]
         effects = [Effect("story_recorded", data)]
         if candidates and readback:
             self.candidates = list(candidates)[:3]
@@ -426,6 +451,9 @@ class Interview:
         if s == "options":
             valid = "123"[: len(self.options)] + str(len(self.options) + 1)
             return Ask(s, prefix + tuple(self.options_prompts), valid + GLOBAL_KEYS, self.timeout)
+        if s == "option_detail":
+            prompts = prefix + tuple(self.detail_prompts[self.detail_rank - 1]) + ("P41",)
+            return Ask(s, prompts, "12" + GLOBAL_KEYS, self.timeout)
         if s == "readback":
             valid = "123"[: len(self.candidates)] + self._none_key()
             prompts = prefix + tuple(self.readback_prompts)
