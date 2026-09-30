@@ -44,7 +44,9 @@ options from a sample dataset and say them on the call.**
   India-hosted) reads the story: occupations, years, skills, clean "you said" sentence (schema 09
   → `init_db.py`) · **A13 deploy kit** ready (`docs/DEPLOY.md`, Azure for Students) · **A14 script**
   `scripts/measure.py` (slide numbers counted only from saved calls; no WER) · **A15 text**
-  `docs/SUBMISSION.md` (final idea, what changed since v4, honesty table, video script, plan).
+  `docs/SUBMISSION.md` (final idea, what changed since v4, honesty table, video script, plan) ·
+  pitch name **HunarMarg**; final design = own fine-tuned open models (`docs/MODELS.md`,
+  costs from `scripts/cost_model.py`).
 - **Next:** A6 = the user tests on real calls, then runs `measure.py` and records the video
   (`docs/SUBMISSION.md` sections 5, 6, 9); A6 details: (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then **A13 deploy to an India VM** with `docs/DEPLOY.md` (the user makes an

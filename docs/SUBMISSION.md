@@ -114,6 +114,9 @@ Write "measurement plan" for it; do not estimate it.
 
 ## 7. Six slides (pitch name: **HunarMarg**)
 
+Final design runs our own fine-tuned open models: see `docs/MODELS.md` (models, how they
+work, training, cost) and `scripts/cost_model.py` (every cost input with its source).
+
 Rules: light, not crowded, no paragraphs. One emoji or icon per box, one idea per box, at most
 about 40 words of body text per slide. Numbers are big; the source is a small grey tag under
 each one. Green dot = in the prototype, grey dot = planned.
