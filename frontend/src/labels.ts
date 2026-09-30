@@ -29,6 +29,8 @@ export const STEP: Record<string, string> = {
   trades: "Trade list",
   occupation: "Occupation",
   options: "Training options",
+  review: "Answer review",
+  change: "What to change",
   interest: "Chosen option",
 };
 

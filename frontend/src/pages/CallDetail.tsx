@@ -114,6 +114,9 @@ export default function CallDetail() {
             ← Calls
           </Link>
           <h1 className="text-lg font-semibold">Call {data.short}</h1>
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-sm dark:bg-slate-800" title="reference number said to the caller">
+            Ref {data.ref}
+          </span>
           {data.live ? (
             <LiveBadge />
           ) : (

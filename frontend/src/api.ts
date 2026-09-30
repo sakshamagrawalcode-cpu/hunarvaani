@@ -5,6 +5,7 @@ export type Occupation = { code: string; title_en: string; title_hi: string; tit
 export type CallRow = {
   id: string;
   short: string;
+  ref: string;
   when: string | null;
   number: string | null;
   status: string | null;

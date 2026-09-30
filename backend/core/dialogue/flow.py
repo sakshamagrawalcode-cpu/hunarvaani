@@ -25,7 +25,12 @@ Rules from the build spec:
 - once the occupation is known the interview asks for the training / livelihood options
   (`Offer`): the adapter runs the recommender and calls `on_options`. With options, P34 says
   what we noted and the options (keys 1-3, the next key = none of these), then P33 says goodbye;
-  with none (or if their voice cannot be made), the call ends with the summary (P15).
+  with none (or if their voice cannot be made), the call ends with the summary (P15);
+- with `review`, after the keypad questions the caller hears what we saved (P35, one piece per
+  answer, P36): 1 = all correct, 2 = change something (P37 names each answer with its key),
+  then that one question is asked again and the review repeats;
+- with `closing`, the call ends with the reference number said twice ("REF", filled in by the
+  adapter), where to go and the documents to take (P39).
 """
 
 from dataclasses import asdict, dataclass, field, fields
@@ -102,6 +107,19 @@ QUESTIONS = {
     "q_lean": ("P11", LEAN, None),
     "trades": ("P14", TRADES, "summary"),
 }
+# key in the change menu (P37) -> the question asked again
+CHANGE = {
+    "1": "q_age",
+    "2": "q_gender",
+    "3": "q_education",
+    "4": "q_travel",
+    "5": "q_physical",
+    "6": "q_pin",
+    "7": "q_lean",
+}
+REVIEWED = ("q_age", "q_gender", "q_education", "q_travel", "q_physical")
+CLOSING = ("REF", "P39")  # REF: "your reference number is ... once more ..." (see the adapter)
+
 CONSENTS = {
     "consent_recording": ("P06", "recording", "consent_share"),
     "consent_share": ("P07", "share", "consent_research"),
@@ -126,6 +144,9 @@ class Interview:
     answers: dict = field(default_factory=dict)  # step -> value, for the recommender
     options: list[str] = field(default_factory=list)  # course ids said on the call
     options_prompts: list[str] = field(default_factory=list)
+    review: bool = False  # read the answers back and let the caller change one
+    closing: bool = False  # reference number + where to go + documents at the end
+    changing: bool = False  # answering a question again from the review
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -177,6 +198,19 @@ class Interview:
         if self.state == "options":
             return self._choose(digit)
 
+        if self.state == "review":
+            if digit == "1":
+                return self._after_profile(), [Effect("review", {"ok": True})]
+            if digit == "2":
+                return self._goto("change"), []
+            return self._invalid(wrong_key=True)
+
+        if self.state == "change":
+            if digit not in CHANGE:
+                return self._invalid(wrong_key=True)
+            self.changing = True
+            return self._goto(CHANGE[digit]), [Effect("review", {"change": CHANGE[digit]})]
+
         if self.state in CONSENTS:
             if digit not in "12":
                 return self._invalid(wrong_key=True)
@@ -202,6 +236,7 @@ class Interview:
         if self.state != "q_pin":
             return self._action(), []
         if entry == "*":
+            self.answers["q_pin"] = "skipped"
             return self._after_question("q_pin"), [Effect("skipped", {"step": "q_pin"})]
         if not valid_pin(entry):
             self.attempts += 1
@@ -221,7 +256,7 @@ class Interview:
         effects = [Effect("recommendations", {"options": details, "spoken": spoken})]
         if not spoken:
             self.state = "ended"
-            return Hangup(("P15",)), effects if details else []
+            return Hangup(("P15", *self._closing())), effects if details else []
         self.options, self.options_prompts = list(courses)[:3], list(prompts)
         return self._goto("options"), effects
 
@@ -235,7 +270,7 @@ class Interview:
             return self._invalid(wrong_key=True)
         self.answers["interest"] = course or "none"
         self.state = "ended"
-        return Hangup(("P33",)), [
+        return Hangup(("P33", *self._closing())), [
             Effect("interest", {"rank": rank, "course_id": course}),
             Effect("answer", {"step": "interest", "key": digit, "value": course or "none"}),
         ]
@@ -315,9 +350,31 @@ class Interview:
             effects.append(Effect("keypad_only"))
         return self._goto(nxt), effects
 
+    def _closing(self) -> tuple[str, ...]:
+        return CLOSING if self.closing else ()
+
+    def _after_profile(self) -> Action:
+        """After the keypad questions (and their review): the spoken story or the trade list."""
+        return self._goto("trades" if self.keypad_only else "story")
+
+    def review_pieces(self) -> tuple[str, ...]:
+        """One short prerendered piece per saved answer, in the order they were asked."""
+        pieces = [f"V_{step}_{self.answers[step]}" for step in REVIEWED if step in self.answers]
+        pin = self.answers.get("q_pin", "")
+        if valid_pin(pin):
+            pieces += ["V_pin", *(f"D{d}" for d in pin)]
+        else:
+            pieces.append("V_pin_none")
+        if "q_lean" in self.answers:
+            pieces.append(f"V_q_lean_{self.answers['q_lean']}")
+        return tuple(pieces)
+
     def _after_question(self, step: str) -> Action:
+        if self.changing:  # answered again from the review: back to the review
+            self.changing = False
+            return self._goto("review")
         if step == "q_lean":
-            return self._goto("trades" if self.keypad_only else "story")
+            return self._goto("review") if self.review else self._after_profile()
         if step == "q_pin":
             return self._goto("q_lean")
         return self._goto(QUESTIONS[step][2])
@@ -333,7 +390,7 @@ class Interview:
         if state == "summary":  # the occupation is known: look for options first
             self.state = "offer"
             return Offer()
-        if state == "q_age":  # why we ask about the caller, said once before the first question
+        if state == "q_age" and not self.changing:  # why we ask, said once before the first
             prefix = prefix + ("P28",)
         return self._action(prefix)
 
@@ -359,6 +416,11 @@ class Interview:
             return Ask(s, prefix + (prompt,), "".join(options) + GLOBAL_KEYS, self.timeout)
         if s == "story":
             return Record(s, prefix + ("P12" if self.story_attempts == 0 else "P23",))
+        if s == "review":
+            prompts = prefix + ("P35", *self.review_pieces(), "P36")
+            return Ask(s, prompts, "12" + GLOBAL_KEYS, self.timeout)
+        if s == "change":
+            return Ask(s, prefix + ("P37",), "".join(CHANGE) + GLOBAL_KEYS, self.timeout)
         if s == "offer":
             return Offer()
         if s == "options":

@@ -4,13 +4,13 @@ import hashlib
 import os
 from pathlib import Path
 
-from core.tts import synthesize, to_8k_mono
+from core.tts import PACE, synthesize, to_8k_mono
 
 PREFIX = "DYN:"
 
 
 def prompt_id(text: str, language: str, speaker: str) -> str:
-    digest = hashlib.sha256(f"{language}|{speaker}|{text}".encode()).hexdigest()[:24]
+    digest = hashlib.sha256(f"{language}|{speaker}|{PACE}|{text}".encode()).hexdigest()[:24]
     return PREFIX + digest
 
 

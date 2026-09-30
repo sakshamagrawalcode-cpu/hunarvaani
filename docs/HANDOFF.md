@@ -104,7 +104,7 @@ has its own README.
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 329 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 336 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -127,8 +127,10 @@ flowchart TD
     P03 -- 1 --> P06["P06 consent: recording (says what for)"] --> P07["P07 consent: share with centre/bank"] --> P08["P08 consent: use without name/number to train our AI"]
     P08 --> P28["P28 why we ask (once): age, education, travel → right training, work, schemes; some schemes only for women"] --> P25["P25 age band 1–6"] --> P26["P26 gender 1–4"]
     P26 --> P09["P09 education 1–7"] --> P10["P10 travel 1–5"] --> P27["P27 physical difficulty 1/2"] --> P31["P31 PIN code: 6 digits (# to end, * to skip)"] --> P11["P11 job / own work / unsure"]
-    P11 -- "recording = yes" --> P12["P12 अपने शब्दों में काम बताइए<br/>(stops on silence, # or 60 s)"]
-    P11 -- "recording = no" --> P14
+    P11 --> REV["P35 आपने बताया: उम्र…, पढ़ाई…, पिन कोड 4 1 1 0 0 1…<br/>P36 सब सही 1 / कुछ बदलना 2"]
+    REV -- 2 --> CH["P37 क्या बदलना है? उम्र 1 … नौकरी या अपना काम 7"] -- "that question again" --> REV
+    REV -- "1, recording = yes" --> P12["P12 अपने काम के बारे में बताइए<br/>(stops on silence, # or 60 s)"]
+    REV -- "1, recording = no" --> P14
     P12 --> P17["P17 धन्यवाद, एक पल रुकिए…<br/>worker: Sarvam STT → English → search → TTS<br/>every 8 s: P30 कृपया लाइन पर बने रहिए (up to 90 s)"]
     P17 -- "understood" --> P13["P21 आपने बताया: (caller's words) +<br/>P13 आपका काम इनमें से एक है: X के लिए 1, Y के लिए 2, Z के लिए 3; कोई नहीं = 4"]
     P17 -- "unclear / too short" --> RETRY["P21 आपने बताया: … + P24 समझ नहीं पाए<br/>(no speech: P22 आवाज़ साफ़ नहीं)"]
@@ -140,9 +142,9 @@ flowchart TD
     P13 -- "none (3rd try)" --> P14
     P14 --> REC["recommender (sample data): top 3 options<br/>P17 एक पल रुकिए while P34 is made"]
     REC -- "options + voice ok" --> P34["P34 हमने लिख ली है: education, काम…<br/>रास्ता 1: … 2: … 3: … पसंद का नंबर दबाइए; कोई नहीं = 4"]
-    P34 -- "1–3 or none" --> P33["P33 धन्यवाद, पसंद लिख ली… कभी पैसे या ओटीपी नहीं माँगता"] --> END([hang up])
-    REC -- "no option / no voice" --> P15["P15 summary: हमने लिख ली है: education, और काम: occupation…<br/>…कभी पैसे या ओटीपी नहीं माँगता (P20 if TTS fails)"]
-    P15 --> END
+    P34 -- "1–3 or none" --> P33["P33 धन्यवाद, आपकी पसंद सेव हो गई"] --> CLOSE["P38 रेफ़रेंस नंबर 4 8 2 1 5 7, P40 फिर से …<br/>P39 सेंटर / सीएससी पर बताइए; आधार, पासबुक, सर्टिफ़िकेट, फ़ोटो; कभी पैसे या ओटीपी नहीं"] --> END([hang up])
+    REC -- "no option / no voice" --> P15["P15 summary: हमने लिख लिया है: education, और काम: occupation (P20 if TTS fails)"]
+    P15 --> CLOSE
 ```
 
 **PIN code (P31):** the caller types the 6 digits (they end by themselves; `#` ends early). Too short or wrong → P32 and the question again, as for every question; only `*` (said in P31) skips it. The first 3 digits give the district from `database/sample/pin_districts.csv` (approximate sample table); saved as answers `q_pin` and `q_district`. While typing the PIN, 9 and 0 are ordinary digits (they do not delete or flag).
@@ -241,6 +243,7 @@ The console shows both tries.
 | A11 | **Console v2 done**: **Sample data** page (courses / centres / schemes, search, district filter, "sample" banner); **Download CSV** of all calls (answers, district, occupation, options offered, option chosen; last 4 digits only; opens in Excel with Hindi/Marathi); **district filter** on Calls and People; **Option / Chosen option** column on Calls and People | see git log |
 | Fix | One-language setup: the call's language was never saved (no menu → no "language" answer); now saved at the start | see git log |
 | Real call ✅ | **First full real call** (30 Sep, 230 s): language → consents → questions → PIN → spoken story (6.5 s) → read-back confirmed motor vehicle mechanic → 3 options said → option 2 chosen → goodbye. Exotel played every prompt ~1.1 s after our last audio (1.0 s is our own send-ahead, so the network adds only ~0.1–0.3 s). Fix from it: the `#` callers press after a full PIN (as P31 tells them) reached P11 as a wrong key; now ignored for 4 s after a PIN | see git log |
+| Script v2 | **All prompts rewritten short and clear** (Hindi ~27% fewer characters with 6 new prompts; every question states its keys at once) in 3 languages; voice **pace 0.9** (a little slower); **answer review** after the keypad questions: P35 + one prerendered piece per saved answer (age, gender, education, travel, difficulty, PIN digit by digit, job/own work) + P36 "all correct 1 / change 2" → P37 change menu (1–7) → that question again → review again; **closing**: reference number (6 digits from the call id, said twice, digit by digit), where to go (training centre / CSC), documents to take (Aadhaar, bank passbook, education certificate, 2 photos; caste or income certificate if they have one), never pay; console shows "Ref 482157" and finds calls by it. 39 fragments per language (`FRAGMENTS`), rendered by `render_prompts.py`. Settings `REVIEW_ANSWERS`, `CLOSING_DETAILS` (default on) | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -249,7 +252,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 329 automated tests pass (1 skipped where ffmpeg is missing).
+- 336 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 

@@ -12,7 +12,8 @@ import warnings
 import wave
 from pathlib import Path
 
-from core.dialogue.prompts import DYNAMIC, PROMPTS, audio_dir_name
+from core.dialogue.prompts import DYNAMIC, FRAGMENTS, PROMPTS, audio_dir_name
+from core.tts import PACE
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -21,7 +22,7 @@ with warnings.catch_warnings():
 # the order a caller meets them, then the ones that play only sometimes
 CALL_ORDER = (
     "P05 P01 P02 P03 P06 P07 P08 P28 P25 P26 P09 P10 P27 P31 P32 P11 P12 P17 P30 P21 P13 P24 "
-    "P22 P23 P14 P34 P33 P15 P16 P29 P19 P18 P04 P20"
+    "P35 P36 P37 P22 P23 P14 P34 P33 P15 P38 P40 P39 P16 P29 P19 P18 P04 P20"
 ).split()
 
 USED_FOR = {
@@ -58,7 +59,13 @@ USED_FOR = {
     "P31": "PIN code: 6 digits, # to end, * to skip",
     "P32": "PIN code not right: press the six digits again",
     "P33": "goodbye after the caller picks an option",
-    "P34": "what we noted + the training options: press 1-3 (made during the call)",
+    "P34": "the training options: press 1-3 (made during the call)",
+    "P35": "answer review: you told us ...",
+    "P36": "answer review: all correct 1, change 2",
+    "P37": "which answer to change: 1-7",
+    "P38": "your reference number is",
+    "P39": "write it down, where to go, documents to take, never pay; goodbye",
+    "P40": "once more (the number again)",
 }
 
 FRAME_MS = 20
@@ -67,7 +74,7 @@ SILENT_RMS = 300  # below this a 20 ms frame counts as silence
 
 def fingerprint(text: str, speaker: str) -> str:
     """Same as scripts/render_prompts.py, to spot text changed after rendering."""
-    return hashlib.sha256(f"{speaker}|{text}".encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{speaker}|{PACE}|{text}".encode()).hexdigest()[:16]
 
 
 def _db(value: float) -> float | None:
@@ -114,6 +121,7 @@ def measure(path: Path) -> dict:
 def check_all(audio_dir: Path, languages: tuple[str, ...], speaker: str = "") -> dict:
     ids = [p for p in CALL_ORDER if p in PROMPTS["hi-IN"]]
     ids += [p for p in PROMPTS["hi-IN"] if p not in ids]
+    ids += list(FRAGMENTS["hi-IN"])
     records = {}
     for lang in languages:
         try:
@@ -125,7 +133,7 @@ def check_all(audio_dir: Path, languages: tuple[str, ...], speaker: str = "") ->
     for pid in ids:
         per_lang = {}
         for lang in languages:
-            text = PROMPTS.get(lang, {}).get(pid)
+            text = PROMPTS.get(lang, {}).get(pid) or FRAGMENTS.get(lang, {}).get(pid)
             item: dict = {"text": text}
             if pid in DYNAMIC or text is None:
                 per_lang[lang] = item
@@ -147,7 +155,7 @@ def check_all(audio_dir: Path, languages: tuple[str, ...], speaker: str = "") ->
         prompts.append(
             {
                 "id": pid,
-                "used_for": USED_FOR.get(pid, ""),
+                "used_for": USED_FOR.get(pid, "piece of the answer review or of a number"),
                 "dynamic": pid in DYNAMIC,
                 "languages": per_lang,
             }

@@ -23,7 +23,7 @@ import uuid
 import websockets
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
-from core.dialogue.prompts import LANGUAGE_KEYS, PROMPTS, split_language  # noqa: E402
+from core.dialogue.prompts import LANGUAGE_KEYS, split_language, text_of  # noqa: E402
 
 RATE = 8000
 
@@ -94,7 +94,7 @@ async def main() -> None:
                 continue
             for full in name.split("+"):
                 pid, pinned = split_language(full)
-                text = PROMPTS[pinned or language].get(pid, "(generated during the call)")
+                text = text_of(pinned or language, pid) or "(made during the call)"
                 print(f"  {full}: {text}")
             if name == "P17":  # "one moment" while the worker listens; not a question
                 continue

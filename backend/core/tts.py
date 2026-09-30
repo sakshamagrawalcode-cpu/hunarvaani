@@ -14,6 +14,8 @@ from pathlib import Path
 
 TTS_URL = "https://api.sarvam.ai/text-to-speech"
 MAX_CHARS = 2500
+# a little slower than normal (1.0), so callers on a basic phone understand every word
+PACE = 0.9
 
 
 class TtsError(RuntimeError):
@@ -43,6 +45,7 @@ def synthesize(
         "target_language_code": language_code,
         "model": "bulbul:v3",
         "speech_sample_rate": 8000,
+        "pace": PACE,
     }
     if speaker:
         payload["speaker"] = speaker

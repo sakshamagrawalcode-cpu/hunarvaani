@@ -83,6 +83,8 @@ def settings(schema, audio_dir, tmp_path, monkeypatch):
         record_silence_seconds=0.6,
         record_no_speech_seconds=0.6,
         min_answer_seconds=0,  # the test phone answers within milliseconds
+        review_answers=False,  # the review and the closing have tests of their own
+        closing_details=False,
         story_wait_seconds=0.5,
         recordings_dir=str(tmp_path / "recordings"),
     )
@@ -323,6 +325,51 @@ def test_the_hash_after_a_full_pin_code_is_not_a_wrong_key_at_the_next_question(
     assert "P29+P11" not in heard  # no "wrong key" apology for the #
     keys = rows("SELECT payload->>'step', payload->>'digit' FROM event WHERE kind = 'key'")
     assert ("q_lean", "#") not in keys and ("q_lean", "3") in keys
+
+
+def test_review_change_and_the_closing_with_the_reference_number(client, settings, monkeypatch):
+    import dataclasses
+    import re
+
+    from core.interview_store import reference_number
+
+    full = dataclasses.replace(settings, review_answers=True, closing_details=True)
+    monkeypatch.setattr(main, "settings", full)
+    review = (
+        "P35+V_q_age_26_35+V_q_gender_female+V_q_education_{edu}+V_q_travel_10km"
+        "+V_q_physical_none+V_pin+D4+D1+D1+D0+D0+D1+V_q_lean_job+P36"
+    )
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "2"), ("P07", "2"), ("P08", "2")):
+            p.hear(prompt)
+            p.press(key)
+        for prompt, key in PROFILE:
+            p.hear(prompt)
+            p.press(key)
+        p.hear(review.format(edu="10th"))
+        p.press("2")  # change something
+        p.hear("P37")
+        p.press("3")  # education
+        p.hear("P09")
+        p.press("7")  # graduate
+        p.hear(review.format(edu="graduate"))
+        p.press("1")  # all correct
+        p.hear("P14")
+        p.press("2")
+        goodbye = ""
+        while not goodbye.startswith("P20+P38"):
+            msg = ws.receive_json()
+            if msg["event"] == "mark":
+                goodbye = msg["mark"]["name"]
+        p.until_hangup()
+    [(call_id,)] = rows("SELECT id FROM call")
+    ref = "+".join(f"D{d}" for d in reference_number(str(call_id)))
+    assert goodbye == f"P20+P38+{ref}+P40+{ref}+P39"
+    assert re.fullmatch(r"[1-9]\d{5}", reference_number(str(call_id)))
+    answers = rows("SELECT step, value FROM answer WHERE step = 'q_education' ORDER BY created_at")
+    assert [v for _, v in answers] == ["10th", "graduate"]  # both kept; the latest counts
 
 
 def test_zero_flags_human_and_no_to_recording_skips_story(client, settings):
@@ -783,7 +830,7 @@ def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, 
         p.hear("P33")
         p.until_hangup()
     [text] = fake_tts
-    assert "दसवीं पास" in text and "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
+    assert "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
     options = rows(
         "SELECT rank, course_id, spoken, chosen, details->>'sample' FROM recommendation "
         "ORDER BY rank"
@@ -847,7 +894,7 @@ def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypat
         p.hear("DYN:aaaabbbbccccdddd11112222")
         p.until_hangup()
     [text] = fake_tts
-    assert "दसवीं पास, और काम: मोबाइल मिस्त्री" in text and "ओटीपी" in text
+    assert "दसवीं पास, और काम: मोबाइल मिस्त्री" in text
     [(payload,)] = rows("SELECT payload FROM event WHERE kind = 'summary'")
     assert payload["text"] == text
 
@@ -1123,7 +1170,9 @@ def test_console_lists_every_voice_prompt(client, settings, monkeypatch):
     out = get("/prompts").json()
     assert out["languages"] == ["hi-IN"]
     ids = [p["id"] for p in out["prompts"]]
-    assert sorted(ids) == sorted(PROMPTS["hi-IN"])
+    from core.dialogue.prompts import FRAGMENTS
+
+    assert sorted(ids) == sorted([*PROMPTS["hi-IN"], *FRAGMENTS["hi-IN"]])
     p01 = next(p for p in out["prompts"] if p["id"] == "P01")["languages"]["hi-IN"]
     assert p01["audio"] == "/audio/hi/P01.wav" and p01["seconds"] == 0.05
     assert client.get("/console/api/prompts").status_code == 401
