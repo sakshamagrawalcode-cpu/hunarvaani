@@ -890,6 +890,40 @@ def test_console_lists_csv_and_sample_data_show_the_chosen_option(
     )
 
 
+def test_slow_option_voices_say_stay_on_the_line_and_a_429_is_retried(
+    client, settings, audio_dir, monkeypatch
+):
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel, "STILL_WORKING_EVERY", 0.3)
+    calls = {"n": 0}
+
+    def ensure(text, language, api_key, speaker, folder):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("Sarvam returned HTTP 429: too many requests")
+        time.sleep(0.8)  # slower than STILL_WORKING_EVERY
+        (folder / "dyn").mkdir(exist_ok=True)
+        with wave.open(str(folder / "dyn" / "aaaabbbbccccdddd11112222.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(8000)
+            w.writeframes(b"\x00\x00" * 400)
+        return "DYN:aaaabbbbccccdddd11112222"
+
+    monkeypatch.setattr(exotel.dynprompt, "ensure", ensure)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P22+P14")
+        p.press("5")
+        heard = p.hear("DYN:aaaabbbbccccdddd11112222")
+        ws.close()
+    assert "P30" in heard  # the caller was told to stay on the line, not left in silence
+    assert rows("SELECT count(*) FROM recommendation WHERE spoken") != [(0,)]
+
+
 def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypatch):
     from apps.voice import exotel
 

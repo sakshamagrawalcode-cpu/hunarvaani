@@ -19,6 +19,7 @@ import logging
 import math
 import re
 import struct
+import time
 import warnings
 import wave
 from concurrent.futures import ThreadPoolExecutor
@@ -522,7 +523,11 @@ class ExotelSession:
             await self.play(("P17",))  # "one moment" while the sentences are made
             text = options_text(engine.language, engine.education, engine.occupation, options)
             try:
-                made = await run_in_threadpool(self._make_option_voices, engine, text, options)
+                made = await self._while_waiting(
+                    call_id, run_in_threadpool(self._make_option_voices, engine, text, options)
+                )
+            except CallEnded:
+                raise
             except Exception as exc:
                 log.warning("call %s: options voice not made (%s)", call_id[:8], exc)
                 await self._problem(
@@ -547,7 +552,17 @@ class ExotelSession:
         s, lang, occupation = self.settings, engine.language, engine.occupation
 
         def voice(words: str) -> str:
-            return dynprompt.ensure(words, lang, s.sarvam_api_key, s.sarvam_speaker, self.audio.dir)
+            try:
+                return dynprompt.ensure(
+                    words, lang, s.sarvam_api_key, s.sarvam_speaker, self.audio.dir
+                )
+            except Exception as exc:
+                if "HTTP 429" not in str(exc):  # only "too many at once" is worth a retry
+                    raise
+                time.sleep(1.5)
+                return dynprompt.ensure(
+                    words, lang, s.sarvam_api_key, s.sarvam_speaker, self.audio.dir
+                )
 
         def detail(option):
             english = detail_text_en(option, occupation)
@@ -578,6 +593,23 @@ class ExotelSession:
                     if note:
                         problems.append(note)
             return main.result(), detail_prompts, problems
+
+    async def _while_waiting(self, call_id: str, work):
+        """Await `work`; if it takes long, say "please stay on the line" (P30) every
+        STILL_WORKING_EVERY seconds, so the caller never sits in silence and hangs up."""
+        task = asyncio.ensure_future(work)
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=STILL_WORKING_EVERY)
+                if done:
+                    return task.result()
+                if self.ended.is_set():
+                    raise CallEnded
+                await self._say(call_id, "offer", ("P30",))
+                await self.play(("P30",))
+        finally:
+            if not task.done():
+                task.cancel()
 
     async def _understand(self, call_id: str, path: str, language: str) -> dict | None:
         """Hand the story to the worker and wait for its answer (speech-to-text, English,
