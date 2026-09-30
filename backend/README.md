@@ -7,6 +7,7 @@
 | `core/dialogue/` | the interview as a pure state machine (`flow.py`), all prompts in 3 languages (`prompts.py`), the closing summary, the options sentence said on the call (`options.py`) |
 | `core/search/` | occupation search: words callers use + BM25 + multilingual meaning match |
 | `core/geo.py` | PIN code -> district (first 3 digits, from `database/sample/pin_districts.csv`) |
+| `core/llm.py` | Sarvam LLM (India-hosted) reads the work story alongside the word search |
 | `core/sample_data.py`, `core/recommend.py` | the sample dataset and the recommender: top 3 training / livelihood options with reasons and skill gap |
 | `core/` (other files) | database writes, Sarvam speech-to-text / text-to-speech, callbacks, dialers, phone privacy (hash + encryption), settings |
 | `tests/` | unit and integration tests (`pytest` from the repo root) |

@@ -31,6 +31,7 @@ export type Story = {
   top1: Occupation | null;
   top2: Occupation | null;
   top3: Occupation | null;
+  llm: { occupations: string[]; years: number | null; skills: string[]; wants: string | null; said: string } | null;
   confirmed: string | null;
   stt_ms: number | null;
   search_ms: number | null;

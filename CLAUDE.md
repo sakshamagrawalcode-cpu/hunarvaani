@@ -40,9 +40,12 @@ options from a sample dataset and say them on the call.**
   answer review with change menu, reference number + documents at the end (every prompt
   changed → `render_prompts.py` re-renders all ~240 files once; needs Sarvam credits) ·
   **options v2**: press an option's number to hear it in detail (P41 choose / back); recommender
-  uses years of experience from the story and varies the kinds of options.
+  uses years of experience from the story and varies the kinds of options · **LLM** (Sarvam,
+  India-hosted) reads the story: occupations, years, skills, clean "you said" sentence (schema 09
+  → `init_db.py`) · **A13 deploy kit** ready (`docs/DEPLOY.md`, Azure for Students).
 - **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
-  check `/console/`). Then **A13 deploy to an India VM** (the real fix for delay and dropped calls). Demo region used:
+  check `/console/`). Then **A13 deploy to an India VM** with `docs/DEPLOY.md` (the user makes an
+  Azure for Students account first). Demo region used:
   Maharashtra + the Hindi-belt cities of the PIN table.
 - Blocked: outbound calls / callbacks (Exotel needs business KYC; the team has none).
 

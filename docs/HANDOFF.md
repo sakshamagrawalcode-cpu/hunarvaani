@@ -101,10 +101,11 @@ has its own README.
 | `backend/core/prompt_check.py` | Checks every rendered prompt file (length, loudness, silence, text changed) for the console's Voice prompts page |
 | `backend/core/search/*` | Occupation search: aliases + BM25 + multilingual-e5 meaning match |
 | `backend/core/geo.py` | PIN code → district (first 3 digits, sample table) |
+| `backend/core/llm.py` | Sarvam LLM reads the work story (occupations, years, skills, clean sentence) |
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 342 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 349 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -245,6 +246,8 @@ The console shows both tries.
 | Real call ✅ | **First full real call** (30 Sep, 230 s): language → consents → questions → PIN → spoken story (6.5 s) → read-back confirmed motor vehicle mechanic → 3 options said → option 2 chosen → goodbye. Exotel played every prompt ~1.1 s after our last audio (1.0 s is our own send-ahead, so the network adds only ~0.1–0.3 s). Fix from it: the `#` callers press after a full PIN (as P31 tells them) reached P11 as a wrong key; now ignored for 4 s after a PIN | see git log |
 | Script v2 | **All prompts rewritten short and clear** (Hindi ~27% fewer characters with 6 new prompts; every question states its keys at once) in 3 languages; voice **pace 0.9** (a little slower); **answer review** after the keypad questions: P35 + one prerendered piece per saved answer (age, gender, education, travel, difficulty, PIN digit by digit, job/own work) + P36 "all correct 1 / change 2" → P37 change menu (1–7) → that question again → review again; **closing**: reference number (6 digits from the call id, said twice, digit by digit), where to go (training centre / CSC), documents to take (Aadhaar, bank passbook, education certificate, 2 photos; caste or income certificate if they have one), never pay; console shows "Ref 482157" and finds calls by it. 39 fragments per language (`FRAGMENTS`), rendered by `render_prompts.py`. Settings `REVIEW_ANSWERS`, `CLOSING_DETAILS` (default on) | see git log |
 | Options v2 | **Hear an option in detail**: P34 now says "press its number for all about it"; the number plays that option's details (what they learn, how long, free or fee, which centre and how far, hostel, job help after, what the scheme gives, loan help for own work), built in English only from the dataset, translated by Sarvam into the caller's language (short local fallback if translation fails), then P41 "choose 1 / hear the options again 2". All option sentences are made at the same time. **Recommender**: years of experience from the story (Hindi, Marathi, English number words; English translation first): under 2 years no RPL certificate, 2+ years the certificate ranks higher, 3+ years helps business training for "not sure" callers; **variety**: a second option of the same kind counts 0.05 less; new reason "N years of experience"; while the option sentences are made the caller hears P30 "stay on the line" every 8 s (never silence), and a Sarvam HTTP 429 is retried once | see git log |
+| LLM | **Sarvam LLM reads the work story** (India-hosted, `sarvam-105b-conversations`; never a foreign model): gets the transcript + English + our 59 occupations and returns occupations (codes from our list only), years, skills, job/own work and one clean first-person sentence in the caller's language; its occupations lead the read-back (and rescue stories the word search was unsure about), its sentence replaces the raw transcript in "आपने बताया: …", its years go to the recommender; every field is checked; any failure (slow, no credits, bad JSON) changes nothing; saved in `story.llm` (schema 09) and shown on the call page ("AI understood"); `LLM_ENABLED`, `SARVAM_LLM_MODEL`, `LLM_TIMEOUT_SECONDS` | see git log |
+| A13 kit | **Deploy kit**: `infra/docker-compose.prod.yml` (restart policies + Caddy HTTPS on `DOMAIN`), `infra/Caddyfile`, **`docs/DEPLOY.md`** step by step (Azure for Students recommended: USD 100, no card, Central India; Oracle Always Free as the free backup; DigitalOcean student credit ended 1 Aug 2026), DNS on Cloudflare, Exotel URL that never changes | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -253,7 +256,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 342 automated tests pass (1 skipped where ffmpeg is missing).
+- 349 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -287,7 +290,7 @@ hours, the rest is testing on real calls.
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ✅ see §5 |
 | A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ✅ see §5 (English translation in brackets left out: the console shows no translation, by decision) |
 | A12 | Step 11 checklist on real calls | every row of the checklist below, fix what breaks | You + Claude | 0.5 day | ☐ |
-| A13 | Deploy to India (Step 12) | 4 vCPU / 8 GB VM in Mumbai/Hyderabad, Docker Compose, Caddy HTTPS, `api.hunarvaani.co.in`; ends the changing tunnel URL | You + Claude | 0.5–1 day | ☐ |
+| A13 | Deploy to India (Step 12) — kit ready: `docs/DEPLOY.md` | 4 vCPU / 8 GB VM in Mumbai/Hyderabad, Docker Compose, Caddy HTTPS, `api.hunarvaani.co.in`; ends the changing tunnel URL | You + Claude | 0.5–1 day | ☐ |
 | A14 | Measure 30 calls (Step 13) | 10 Hindi + 10 Marathi + 10 English with consenting people; `scripts/measure.py`: word error rate, wait time p50/p90, completion rate, correct occupation rate → `docs/measurements.md` | You + Claude | 1 day | ☐ |
 | A15 | Video, README, slides (Step 14) | 2-minute recording of a call beside the console; honesty table (real vs sample data); slides | You + Claude | 1 day | ☐ |
 
@@ -364,8 +367,8 @@ words themselves (only the timing).
   Twilio `<Gather>`), and only a web request goes to the app. We need a live audio stream only for
   the spoken work story, but we stream the whole call.
 - **Biggest fix: A13, run the server on a VM in India** (Mumbai / Hyderabad / Bangalore): no
-  laptop, no Wi-Fi, no quick tunnel, a fixed URL. Student options: GitHub Student Pack (DigitalOcean
-  credit, Bangalore region), Azure for Students, Google Cloud credit (Mumbai).
+  laptop, no Wi-Fi, no quick tunnel, a fixed URL. Steps and the account to make: `docs/DEPLOY.md`
+  (Azure for Students, Central India; the DigitalOcean student credit ended on 1 Aug 2026).
 - **Other providers** all need KYC for Indian numbers (DoT rules): Plivo (business email), Twilio
   (business documents for Indian numbers), Ozonetel / Knowlarity / MyOperator (business KYC).
   Exotel's trial is the only no-KYC path we have, so we keep it.

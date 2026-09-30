@@ -57,6 +57,10 @@ class Settings:
     # read the answers back so the caller can change one; reference number + documents at the end
     review_answers: bool = True
     closing_details: bool = True
+    # Sarvam's LLM also reads the work story (India-hosted; never a foreign model)
+    llm_enabled: bool = True
+    llm_model: str = "sarvam-105b-conversations"
+    llm_timeout_seconds: float = 12.0
 
 
 def load_settings() -> Settings:
@@ -96,4 +100,7 @@ def load_settings() -> Settings:
         min_answer_seconds=float(_str("MIN_ANSWER_SECONDS", "0.6")),
         review_answers=_str("REVIEW_ANSWERS", "true").lower() in ("1", "true", "yes"),
         closing_details=_str("CLOSING_DETAILS", "true").lower() in ("1", "true", "yes"),
+        llm_enabled=_str("LLM_ENABLED", "true").lower() in ("1", "true", "yes"),
+        llm_model=_str("SARVAM_LLM_MODEL", "sarvam-105b-conversations"),
+        llm_timeout_seconds=float(_str("LLM_TIMEOUT_SECONDS", "12")),
     )

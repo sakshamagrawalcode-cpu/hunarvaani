@@ -329,6 +329,8 @@ class Interview:
         for key, answer in (("transcript", "story"), ("transcript_en", "story_en")):
             if data.get(key):
                 self.answers[answer] = data[key]
+        if (data.get("llm") or {}).get("years"):  # the LLM read the years of experience
+            self.answers["years"] = data["llm"]["years"]
         effects = [Effect("story_recorded", data)]
         if candidates and readback:
             self.candidates = list(candidates)[:3]

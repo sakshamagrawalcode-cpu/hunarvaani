@@ -63,6 +63,7 @@ def story_fields(result: dict) -> dict:
         "top3": scores[2]["code"] if len(scores) > 2 else None,
         "stt_ms": result.get("stt_ms"),
         "search_ms": result.get("search_ms"),
+        "llm": result.get("llm"),
     }
 
 
@@ -87,7 +88,9 @@ def heard_text(transcript: str) -> str:
     return " ".join(words[:HEARD_MAX_WORDS]).rstrip(" ।.!?,")
 
 
-def process(job: dict, settings: Settings, index, encode, stt, render, translate=None) -> dict:
+def process(
+    job: dict, settings: Settings, index, encode, stt, render, translate=None, understand=None
+) -> dict:
     """Transcribe, translate, search and render what we heard (P21) and the read-back (P13).
 
     Never raises. The caller's words are put into English (`translate`, Sarvam) and the search
@@ -96,6 +99,11 @@ def process(job: dict, settings: Settings, index, encode, stt, render, translate
     the next key = none of these). Text-to-speech is the slowest step, so the two sentences
     are rendered at the same time. `texts` maps each rendered prompt id to its words and their
     English version.
+
+    `understand` (the LLM, optional) reads the story too: the occupations it names come first in
+    the read-back (it can also rescue a story the word search was unsure about), its clean
+    sentence is said back instead of the raw transcript, and its years of experience go to the
+    recommender. If it fails, nothing changes.
     """
     language = job.get("language") or "hi-IN"
     out: dict = {"candidates": [], "readback": [], "heard": [], "texts": {}}
@@ -125,8 +133,14 @@ def process(job: dict, settings: Settings, index, encode, stt, render, translate
         ]
         confident = bool(top) and top[0].score >= THRESHOLD
         shown = [c for c in top if c.score >= MIN_OPTION_SCORE] if confident else []
+        llm = _understood(understand, transcript, transcript_en, language, out)
+        if llm and llm["occupations"]:
+            titles = {o.code: o for o in index.occupations}
+            picked = [titles[c] for c in llm["occupations"] if c in titles]
+            shown = (picked + [c for c in shown if c.code not in llm["occupations"]])[:TOP_K]
+        said = llm["said"] if llm and llm["said"] else transcript
 
-        texts = [fill(language, "P21", heard=heard_text(transcript))]
+        texts = [fill(language, "P21", heard=heard_text(said))]
         english_texts = [
             fill("en-IN", "P21", heard=heard_text(transcript_en)) if transcript_en else None
         ]
@@ -150,6 +164,23 @@ def process(job: dict, settings: Settings, index, encode, stt, render, translate
         out["error"] = f"{type(exc).__name__}: {exc}"[:300]
         out["candidates"], out["readback"], out["heard"] = [], [], []
     return out
+
+
+def _understood(understand, transcript: str, transcript_en, language: str, out: dict):
+    """The LLM's reading of the story, or None (no LLM, or it failed: the call goes on)."""
+    if understand is None:
+        return None
+    t = time.monotonic()
+    try:
+        llm = understand(transcript, transcript_en, language)
+    except Exception as exc:
+        out["llm_error"] = f"{type(exc).__name__}: {exc}"[:200]
+        return None
+    finally:
+        out["llm_ms"] = int((time.monotonic() - t) * 1000)
+    out["llm"] = llm
+    out["years"] = llm.get("years")
+    return llm
 
 
 def best_matches(index, encode, queries: list[str], top_k: int = TOP_K) -> list:

@@ -1,0 +1,6 @@
+# HTTPS for the api, with a free certificate Caddy gets and renews by itself. Websockets (the
+# Exotel call) pass through as they are.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}

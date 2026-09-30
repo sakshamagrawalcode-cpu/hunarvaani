@@ -5,7 +5,7 @@ from pathlib import Path
 
 import redis
 
-from core import callbacks, dynprompt, store, story_job
+from core import callbacks, dynprompt, llm, store, story_job
 from core.config import Settings, load_settings
 from core.dialers import make_dialer, missing_config
 from core.phone import decrypt, last4
@@ -85,6 +85,26 @@ def load_encoder():
     return lambda text: model.encode("query: " + text, normalize_embeddings=True)
 
 
+def _understander(settings: Settings, index):
+    """The India-hosted LLM that reads the story alongside the word search (LLM_ENABLED)."""
+    if not (settings.llm_enabled and settings.sarvam_api_key and index is not None):
+        return None
+    catalogue = [(o.code, o.title_en) for o in index.occupations]
+
+    def understand(transcript: str, transcript_en: str | None, language: str) -> dict:
+        return llm.understand(
+            transcript,
+            transcript_en,
+            language,
+            catalogue,
+            settings.sarvam_api_key,
+            settings.llm_model,
+            timeout=settings.llm_timeout_seconds,
+        )
+
+    return understand
+
+
 def handle_story(raw, r, settings: Settings, encode) -> None:
     job = json.loads(raw)
     with store.connect(settings.database_url) as conn:
@@ -106,6 +126,7 @@ def handle_story(raw, r, settings: Settings, encode) -> None:
         # the caller's words in English: searched together with the original words and kept
         # (story.transcript_en) for models that work in English
         translate=to_english,
+        understand=_understander(settings, index),
     )
     try:
         with store.connect(settings.database_url) as conn:
