@@ -189,3 +189,40 @@ def test_options_as_json_are_labelled_sample_and_readable():
     assert reason_text("near_you", {"km": 8, "limit": 10}) == (
         "Centre about 8 km away (you can go up to 10 km)"
     )
+
+
+def test_years_of_experience_come_from_the_story_in_any_language():
+    from core.recommend import experience_years
+
+    assert experience_years("I have repaired bikes for ten years") == 10
+    assert experience_years("मैं दस साल से सिलाई करती हूं") == 10
+    assert experience_years("मी पाच वर्षांपासून काम करते") == 5
+    assert experience_years("12 साल") == 12
+    assert experience_years("I stitch blouses", None) is None
+    assert Profile.from_answers({"story_en": "for 3 years"}).years == 3
+    assert Profile.from_answers({"years": "7", "story_en": "for 3 years"}).years == 7
+
+
+def test_no_certificate_for_less_than_two_years_and_a_stronger_one_after():
+    base = dict(
+        occupation="7531",
+        age="26_35",
+        gender="female",
+        education="upto_8th",
+        travel="10km",
+        physical="none",
+        lean="job",
+        district="MH-PUN",
+    )
+    new = recommend(Profile(**base, years=1))
+    assert all(o.course.kind != "certificate" for o in new)
+    seasoned = recommend(Profile(**base, years=8))
+    [cert] = [o for o in seasoned if o.course.kind == "certificate"]
+    unknown = [o for o in recommend(Profile(**base)) if o.course.kind == "certificate"][0]
+    assert cert.score > unknown.score and ("experience", {"years": 8}) in cert.reasons
+
+
+def test_options_are_varied_when_good_ones_of_other_kinds_exist():
+    p = Profile("7411", "26_35", "male", "iti_or_diploma", "30km", "none", "unsure", "MH-NAG")
+    kinds = [o.course.kind for o in recommend(p)]
+    assert len(set(kinds)) >= 2

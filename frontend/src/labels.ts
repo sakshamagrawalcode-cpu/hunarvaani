@@ -30,6 +30,7 @@ export const STEP: Record<string, string> = {
   occupation: "Occupation",
   options: "Training options",
   review: "Answer review",
+  option_detail: "Option details",
   change: "What to change",
   interest: "Chosen option",
 };

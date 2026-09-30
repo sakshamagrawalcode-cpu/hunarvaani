@@ -104,7 +104,7 @@ has its own README.
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 336 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 342 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -244,6 +244,7 @@ The console shows both tries.
 | Fix | One-language setup: the call's language was never saved (no menu → no "language" answer); now saved at the start | see git log |
 | Real call ✅ | **First full real call** (30 Sep, 230 s): language → consents → questions → PIN → spoken story (6.5 s) → read-back confirmed motor vehicle mechanic → 3 options said → option 2 chosen → goodbye. Exotel played every prompt ~1.1 s after our last audio (1.0 s is our own send-ahead, so the network adds only ~0.1–0.3 s). Fix from it: the `#` callers press after a full PIN (as P31 tells them) reached P11 as a wrong key; now ignored for 4 s after a PIN | see git log |
 | Script v2 | **All prompts rewritten short and clear** (Hindi ~27% fewer characters with 6 new prompts; every question states its keys at once) in 3 languages; voice **pace 0.9** (a little slower); **answer review** after the keypad questions: P35 + one prerendered piece per saved answer (age, gender, education, travel, difficulty, PIN digit by digit, job/own work) + P36 "all correct 1 / change 2" → P37 change menu (1–7) → that question again → review again; **closing**: reference number (6 digits from the call id, said twice, digit by digit), where to go (training centre / CSC), documents to take (Aadhaar, bank passbook, education certificate, 2 photos; caste or income certificate if they have one), never pay; console shows "Ref 482157" and finds calls by it. 39 fragments per language (`FRAGMENTS`), rendered by `render_prompts.py`. Settings `REVIEW_ANSWERS`, `CLOSING_DETAILS` (default on) | see git log |
+| Options v2 | **Hear an option in detail**: P34 now says "press its number for all about it"; the number plays that option's details (what they learn, how long, free or fee, which centre and how far, hostel, job help after, what the scheme gives, loan help for own work), built in English only from the dataset, translated by Sarvam into the caller's language (short local fallback if translation fails), then P41 "choose 1 / hear the options again 2". All option sentences are made at the same time. **Recommender**: years of experience from the story (Hindi, Marathi, English number words; English translation first): under 2 years no RPL certificate, 2+ years the certificate ranks higher, 3+ years helps business training for "not sure" callers; **variety**: a second option of the same kind counts 0.05 less; new reason "N years of experience"; while the option sentences are made the caller hears P30 "stay on the line" every 8 s (never silence), and a Sarvam HTTP 429 is retried once | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -252,7 +253,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 336 automated tests pass (1 skipped where ffmpeg is missing).
+- 342 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 

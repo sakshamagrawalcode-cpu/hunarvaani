@@ -826,11 +826,21 @@ def test_the_call_offers_options_and_saves_the_callers_choice(client, settings, 
         p.press("5")  # mobile phone repair
         heard = p.hear("DYN:aaaabbbbccccdddd11112222")
         assert "P17" in heard  # "one moment" while the options sentence is made
-        p.press("1")
+        p.press("2")  # hear option 2 in detail
+        p.hear("DYN:aaaabbbbccccdddd11112222+P41")
+        p.press("2")  # back to all the options
+        p.hear("DYN:aaaabbbbccccdddd11112222")
+        p.press("1")  # option 1 in detail
+        p.hear("DYN:aaaabbbbccccdddd11112222+P41")
+        p.press("1")  # choose it
         p.hear("P33")
         p.until_hangup()
-    [text] = fake_tts
-    assert "रास्ता 1:" in text and "मोबाइल मिस्त्री" in text
+    text = next(t for t in fake_tts if "रास्ता 1:" in t)
+    assert "मोबाइल मिस्त्री" in text
+    assert len(fake_tts) == 1 + 3  # the options and each option's details (short version:
+    # translation needs Sarvam, which the tests do not reach)
+    heard = rows("SELECT payload->>'rank' FROM event WHERE kind = 'option_heard' ORDER BY id")
+    assert heard == [("2",), ("1",)]
     options = rows(
         "SELECT rank, course_id, spoken, chosen, details->>'sample' FROM recommendation "
         "ORDER BY rank"
@@ -878,6 +888,40 @@ def test_console_lists_csv_and_sample_data_show_the_chosen_option(
     assert (
         get("/dataset").status_code == 200 and client.get("/console/api/dataset").status_code == 401
     )
+
+
+def test_slow_option_voices_say_stay_on_the_line_and_a_429_is_retried(
+    client, settings, audio_dir, monkeypatch
+):
+    from apps.voice import exotel
+
+    monkeypatch.setattr(exotel, "STILL_WORKING_EVERY", 0.3)
+    calls = {"n": 0}
+
+    def ensure(text, language, api_key, speaker, folder):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("Sarvam returned HTTP 429: too many requests")
+        time.sleep(0.8)  # slower than STILL_WORKING_EVERY
+        (folder / "dyn").mkdir(exist_ok=True)
+        with wave.open(str(folder / "dyn" / "aaaabbbbccccdddd11112222.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(8000)
+            w.writeframes(b"\x00\x00" * 400)
+        return "DYN:aaaabbbbccccdddd11112222"
+
+    monkeypatch.setattr(exotel.dynprompt, "ensure", ensure)
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        _to_story(p)
+        p.hear("P22+P14")
+        p.press("5")
+        heard = p.hear("DYN:aaaabbbbccccdddd11112222")
+        ws.close()
+    assert "P30" in heard  # the caller was told to stay on the line, not left in silence
+    assert rows("SELECT count(*) FROM recommendation WHERE spoken") != [(0,)]
 
 
 def test_call_ends_with_the_spoken_summary(client, settings, fake_tts, monkeypatch):

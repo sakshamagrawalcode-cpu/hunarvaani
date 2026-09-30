@@ -67,7 +67,8 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P32": "माफ़ कीजिए, यह पिन कोड सही नहीं लगा। छह अंक फिर से दबाइए।",
         "P33": "धन्यवाद, आपकी पसंद सेव हो गई है।",
         "P34": (
-            "आपके लिए {count} रास्ते हैं। {options} जो पसंद हो, उसका नंबर दबाइए। कोई नहीं, तो {none_key}।"
+            "आपके लिए {count} रास्ते हैं। {options} किसी रास्ते की पूरी जानकारी के लिए उसका नंबर "
+            "दबाइए। कोई नहीं, तो {none_key}।"
         ),
         "P35": "आपने बताया:",
         "P36": "सब सही है, तो 1 दबाइए। कुछ बदलना है, तो 2।",
@@ -82,6 +83,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "तो वह भी। हुनरवाणी कभी पैसे या ओटीपी नहीं माँगता। धन्यवाद!"
         ),
         "P40": "फिर से:",
+        "P41": "यह रास्ता चुनना है, तो 1 दबाइए। बाकी रास्ते फिर से सुनने हैं, तो 2।",
     },
     "en-IN": {
         "P01": (
@@ -154,8 +156,8 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P32": "Sorry, that PIN code does not look right. Please press the six digits again.",
         "P33": "Thank you, your choice is saved.",
         "P34": (
-            "Here are {count} options for you. {options} Press the number of the one you like. "
-            "If none, press {none_key}."
+            "Here are {count} options for you. {options} To hear all about one, press its "
+            "number. If none, press {none_key}."
         ),
         "P35": "You told us:",
         "P36": "If all this is correct, press 1. To change something, press 2.",
@@ -171,6 +173,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "OTP. Thank you!"
         ),
         "P40": "Once more:",
+        "P41": "To choose this option, press 1. To hear the other options again, press 2.",
     },
     "mr-IN": {
         "P01": (
@@ -236,8 +239,8 @@ PROMPTS: dict[str, dict[str, str]] = {
         "P32": "माफ करा, हा पिन कोड बरोबर वाटत नाही. सहा अंक पुन्हा दाबा.",
         "P33": "धन्यवाद, तुमची निवड सेव्ह झाली आहे.",
         "P34": (
-            "तुमच्यासाठी {count} पर्याय आहेत. {options} जो आवडेल, त्याचा नंबर दाबा. "
-            "कोणताच नाही, तर {none_key}."
+            "तुमच्यासाठी {count} पर्याय आहेत. {options} एखाद्या पर्यायाची पूर्ण माहिती ऐकण्यासाठी "
+            "त्याचा नंबर दाबा. कोणताच नाही, तर {none_key}."
         ),
         "P35": "तुम्ही सांगितलं:",
         "P36": "सगळं बरोबर असेल, तर 1 दाबा. काही बदलायचं असेल, तर 2.",
@@ -252,6 +255,7 @@ PROMPTS: dict[str, dict[str, str]] = {
             "उत्पन्नाचा दाखला असेल, तर तोही. हुनरवाणी कधीही पैसे किंवा ओटीपी मागत नाही. धन्यवाद!"
         ),
         "P40": "पुन्हा एकदा:",
+        "P41": "हा पर्याय निवडायचा असेल, तर 1 दाबा. बाकीचे पर्याय पुन्हा ऐकायचे असतील, तर 2.",
     },
 }
 
