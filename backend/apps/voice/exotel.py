@@ -48,6 +48,9 @@ LEAD_SECONDS = 1.0  # as in the SIH bridge; enough to cover a slow moment on the
 START_TIMEOUT = 15
 QUIET_WARNING_SECONDS = 15  # Exotel sends caller audio about every 100 ms; this long without
 # any message means the connection is stuck (logged, so a dropped call can be explained)
+HASH_AFTER_PIN_SECONDS = (
+    4  # a # this soon after a full PIN belongs to the PIN, not the next question
+)
 PLAYBACK_LAG_WARNING = 2.5  # seconds between our last audio and Exotel's "played" mark
 STILL_WORKING_EVERY = 8  # seconds between "please stay on the line" (P30) while we wait
 # every prompt is brought to the same loudness, so no sentence is much quieter or louder
@@ -174,6 +177,7 @@ class ExotelSession:
         self.last_heard: float | None = None
         self.marks_sent: dict[str, float] = {}
         self.last_key_at: float | None = None
+        self.pin_done_at: float | None = None
 
     async def send(self, obj: dict) -> None:
         if self.ended.is_set():
@@ -366,6 +370,10 @@ class ExotelSession:
         while True:
             key = await self._wait_key(deadline - loop.time())
             gap = loop.time() - (self.last_key_at or -1e9)
+            if key == "#" and loop.time() - (self.pin_done_at or -1e9) < HASH_AFTER_PIN_SECONDS:
+                # the PIN question says "then press hash", but it ends by itself after 6 digits
+                log.info("ignored key #: the hash after a full PIN code")
+                continue
             if key is None or gap >= self.settings.min_answer_seconds:
                 return key
             log.info("ignored key %s: %.1f s after the last answer (a repeated press)", key, gap)
@@ -408,6 +416,7 @@ class ExotelSession:
             if key.isdigit():
                 entry += key
                 if len(entry) >= action.digits:
+                    self.pin_done_at = loop.time()
                     return entry
             deadline = loop.time() + action.timeout
 

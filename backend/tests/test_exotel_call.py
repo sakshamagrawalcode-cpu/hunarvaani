@@ -302,6 +302,29 @@ def test_pin_code_is_asked_again_then_gives_a_district(client, settings):
     assert rows("SELECT count(*) FROM call") == [(1,)]  # 9 did not delete the call
 
 
+def test_the_hash_after_a_full_pin_code_is_not_a_wrong_key_at_the_next_question(client, settings):
+    """P31 says "press the PIN code, then hash"; the PIN ends by itself after 6 digits, so the
+    caller's # must not reach P11 as a wrong key (seen on a real call)."""
+    with dial(client) as ws:
+        p = Phone(ws)
+        p.start()
+        for prompt, key in (("P01", "1"), ("P03", "1"), ("P06", "2"), ("P07", "2"), ("P08", "2")):
+            p.hear(prompt)
+            p.press(key)
+        for prompt, key in PROFILE[:5]:
+            p.hear(prompt)
+            p.press(key)
+        p.hear("P31")
+        p.press("411001#")
+        p.hear("P11")
+        p.press("3")
+        heard = p.hear("P14")
+        ws.close()
+    assert "P29+P11" not in heard  # no "wrong key" apology for the #
+    keys = rows("SELECT payload->>'step', payload->>'digit' FROM event WHERE kind = 'key'")
+    assert ("q_lean", "#") not in keys and ("q_lean", "3") in keys
+
+
 def test_zero_flags_human_and_no_to_recording_skips_story(client, settings):
     with dial(client) as ws:
         p = Phone(ws)

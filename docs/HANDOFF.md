@@ -104,7 +104,7 @@ has its own README.
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 328 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 329 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -240,6 +240,7 @@ The console shows both tries.
 | A11 (part) | Call page: **"Training and livelihood options"** card (what, NSQF level, hours, fee, placement, centre + km, farther badge, scheme, loan, reasons, skill gap, "caller chose"), labelled sample; live log shows "3 options found" and "caller chose option N" | see git log |
 | A11 | **Console v2 done**: **Sample data** page (courses / centres / schemes, search, district filter, "sample" banner); **Download CSV** of all calls (answers, district, occupation, options offered, option chosen; last 4 digits only; opens in Excel with Hindi/Marathi); **district filter** on Calls and People; **Option / Chosen option** column on Calls and People | see git log |
 | Fix | One-language setup: the call's language was never saved (no menu → no "language" answer); now saved at the start | see git log |
+| Real call ✅ | **First full real call** (30 Sep, 230 s): language → consents → questions → PIN → spoken story (6.5 s) → read-back confirmed motor vehicle mechanic → 3 options said → option 2 chosen → goodbye. Exotel played every prompt ~1.1 s after our last audio (1.0 s is our own send-ahead, so the network adds only ~0.1–0.3 s). Fix from it: the `#` callers press after a full PIN (as P31 tells them) reached P11 as a wrong key; now ignored for 4 s after a PIN | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -248,7 +249,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 328 automated tests pass (1 skipped where ffmpeg is missing).
+- 329 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
