@@ -17,7 +17,12 @@ export type CallRow = {
   human_flag: boolean;
   keypad_only: boolean;
   live: boolean;
+  district_code: string | null;
+  option: OptionOutcome | null;
 };
+
+// What happened with the training options on a call (null: none were found yet)
+export type OptionOutcome = { offered: number; spoken: boolean; chosen: string | null; declined: boolean };
 
 export type Story = {
   n: number;
@@ -94,6 +99,40 @@ export type Person = {
   answers: Record<string, string>;
   occupation: Occupation | null;
   human_flag: boolean;
+  district_code: string | null;
+  option: OptionOutcome | null;
+};
+
+export type Dataset = {
+  courses: {
+    id: string;
+    kind: string;
+    title: string;
+    for: string[];
+    sector: string;
+    nsqf_level: number;
+    hours: number;
+    min_education: string;
+    ages: string;
+    fee_inr: number;
+    placement: boolean;
+    heavy_work: boolean;
+    skills: string[];
+    scheme: string;
+  }[];
+  centres: {
+    id: string;
+    name: string;
+    type: string;
+    district_code: string;
+    district: string;
+    distance_km: number;
+    hostel: boolean;
+    women_batches: boolean;
+    sectors: string[];
+  }[];
+  schemes: { id: string; name: string; name_hi: string; kind: string; benefit: string; eligibility: string }[];
+  districts: { code: string; name: string }[];
 };
 
 export type OccupationRow = Occupation & { aliases: string[]; callers: number };

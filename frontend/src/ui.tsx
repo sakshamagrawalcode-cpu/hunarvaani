@@ -93,3 +93,39 @@ export function LiveBadge() {
     </span>
   );
 }
+
+// District filter built from the rows themselves ("" = all districts)
+export function DistrictFilter({
+  rows,
+  value,
+  onChange,
+}: {
+  rows: { district_code: string | null; answers: Record<string, string | null> }[];
+  value: string;
+  onChange: (code: string) => void;
+}) {
+  const names = new Map<string, string>();
+  for (const r of rows) if (r.district_code) names.set(r.district_code, r.answers.q_district ?? r.district_code);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950"
+    >
+      <option value="">All districts</option>
+      {[...names.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([code, name]) => (
+          <option key={code} value={code}>
+            {name}
+          </option>
+        ))}
+      <option value="none">No district</option>
+    </select>
+  );
+}
+
+export function byDistrict(code: string) {
+  return (r: { district_code: string | null }) =>
+    !code || (code === "none" ? !r.district_code : r.district_code === code);
+}

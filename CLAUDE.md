@@ -35,10 +35,10 @@ options from a sample dataset and say them on the call.**
   each prompt, repeated key presses ignored (rebuild: `up -d --build`, restart the tunnel) ·
   **A10 options said on the call** (P34 with 3 options → key → P33 goodbye; saved in table
   `recommendation`, schema 08 → `init_db.py`; new prompt P33 → `render_prompts.py`) · call page
-  shows the options with reasons and skill gap.
+  shows the options with reasons and skill gap · **A11 console v2** (Sample data page, CSV
+  export, district filter, chosen option in the lists).
 - **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
-  check `/console/`). Then the rest of **A11** (dataset pages, CSV export, district filter), then
-  **A13 deploy to an India VM** (the real fix for delay and dropped calls). Demo region used:
+  check `/console/`). Then **A13 deploy to an India VM** (the real fix for delay and dropped calls). Demo region used:
   Maharashtra + the Hindi-belt cities of the PIN table.
 - Blocked: outbound calls / callbacks (Exotel needs business KYC; the team has none).
 

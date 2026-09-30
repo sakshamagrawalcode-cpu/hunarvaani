@@ -4,15 +4,17 @@ Everything here is read-only and sits behind the same team password as /calls. P
 never leave the server whole: only the last four digits.
 """
 
+import csv
+import io
 from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
-from core import geo, prompt_check, store
+from core import geo, prompt_check, sample_data, store
 from core.config import Settings
 from core.phone import decrypt, last4
 from core.timeutil import IST, utcnow
@@ -87,6 +89,26 @@ class _Db:
             out.setdefault(str(a["call_id"]), []).append(a)
         return out
 
+    def chosen(self, call_ids: list) -> dict[str, dict]:
+        """The option each call's caller picked (or "none"), from the recommendation table."""
+        out: dict[str, dict] = {}
+        if not call_ids:
+            return out
+        for r in self.conn.execute(
+            "SELECT call_id, bool_or(spoken) AS spoken, "
+            "max(details->>'title') FILTER (WHERE chosen) AS title, "
+            "max(course_id) FILTER (WHERE chosen) AS course_id, count(*) AS n "
+            "FROM recommendation WHERE call_id = ANY(%s) GROUP BY call_id",
+            (call_ids,),
+        ):
+            out[str(r["call_id"])] = {
+                "title": r["title"],
+                "course_id": r["course_id"],
+                "offered": r["n"],
+                "spoken": r["spoken"],
+            }
+        return out
+
     def stories(self, call_ids: list) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
         if not call_ids:
@@ -109,7 +131,14 @@ def _district(values: dict) -> str | None:
     return "Area not found"
 
 
-def _row(settings: Settings, db: _Db, c: dict, answers: list[dict], stories: list[dict]) -> dict:
+def _row(
+    settings: Settings,
+    db: _Db,
+    c: dict,
+    answers: list[dict],
+    stories: list[dict],
+    chosen: dict | None = None,
+) -> dict:
     values = {a["step"]: a["value"] for a in answers}
     occupation, via = values.get("occupation"), "read-back"
     if not occupation:
@@ -129,6 +158,23 @@ def _row(settings: Settings, db: _Db, c: dict, answers: list[dict], stories: lis
         "human_flag": c["human_flag"],
         "keypad_only": c["keypad_only"],
         "live": _live(c),
+        "district_code": values.get("q_district")
+        if values.get("q_district") != "unknown"
+        else None,
+        "option": _option(values, chosen),
+    }
+
+
+def _option(values: dict, chosen: dict | None) -> dict | None:
+    """What happened with the training options: offered, and which one the caller chose."""
+    if not chosen:
+        return None
+    picked = values.get("interest")
+    return {
+        "offered": chosen["offered"],
+        "spoken": chosen["spoken"],
+        "chosen": chosen["title"] if picked and picked != "none" else None,
+        "declined": picked == "none",
     }
 
 
@@ -148,10 +194,17 @@ def build_router(
     def rows(conn, calls: list[dict]) -> list[dict]:
         db = _Db(conn)
         ids = [c["id"] for c in calls]
-        answers, stories = db.answers(ids), db.stories(ids)
+        answers, stories, chosen = db.answers(ids), db.stories(ids), db.chosen(ids)
         s = get_settings()
         return [
-            _row(s, db, c, answers.get(str(c["id"]), []), stories.get(str(c["id"]), []))
+            _row(
+                s,
+                db,
+                c,
+                answers.get(str(c["id"]), []),
+                stories.get(str(c["id"]), []),
+                chosen.get(str(c["id"])),
+            )
             for c in calls
         ]
 
@@ -194,7 +247,8 @@ def build_router(
             db = _Db(conn)
             answers = db.answers([c["id"]]).get(str(c["id"]), [])
             stories = db.stories([c["id"]]).get(str(c["id"]), [])
-            out = _row(get_settings(), db, c, answers, stories)
+            chosen = db.chosen([c["id"]]).get(str(c["id"]))
+            out = _row(get_settings(), db, c, answers, stories, chosen)
             out["answer_log"] = [
                 {
                     "step": a["step"],
@@ -279,12 +333,12 @@ def build_router(
             calls = list(reversed(_calls(conn, max(1, min(limit, 5000)))))
             db = _Db(conn)
             ids = [c["id"] for c in calls]
-            answers, stories = db.answers(ids), db.stories(ids)
+            answers, stories, chosen = db.answers(ids), db.stories(ids), db.chosen(ids)
             s = get_settings()
             by_person: dict[str, dict] = {}
             for c in calls:  # oldest first, so later answers overwrite earlier ones
                 cid = str(c["id"])
-                row = _row(s, db, c, answers.get(cid, []), stories.get(cid, []))
+                row = _row(s, db, c, answers.get(cid, []), stories.get(cid, []), chosen.get(cid))
                 p = by_person.setdefault(
                     c["phone_hash"],
                     {"id": c["phone_hash"][:12], "calls": 0, "answers": {}, "occupation": None},
@@ -296,7 +350,124 @@ def build_router(
                 p["answers"].update({k: v for k, v in row["answers"].items() if v})
                 p["occupation"] = row["occupation"] or p["occupation"]
                 p["human_flag"] = p.get("human_flag") or row["human_flag"]
+                p["district_code"] = row["district_code"] or p.get("district_code")
+                p["option"] = row["option"] or p.get("option")
         return sorted(by_person.values(), key=lambda p: p["last_call"] or "", reverse=True)
+
+    @router.get("/calls.csv")
+    def calls_csv(limit: int = 5000):
+        """Every call as a spreadsheet (numbers show only the last four digits)."""
+        with store.connect(get_settings().database_url) as conn:
+            data = rows(conn, _calls(conn, max(1, min(limit, 20000))))
+        out = io.StringIO()
+        w = csv.writer(out)
+        steps = list(STEPS)
+        w.writerow(
+            [
+                "when",
+                "number",
+                "status",
+                "language",
+                "duration_s",
+                *steps,
+                "occupation",
+                "occupation_nco",
+                "found_via",
+                "options_offered",
+                "option_chosen",
+                "wants_human",
+                "keypad_only",
+                "call_id",
+            ]
+        )
+        for r in data:
+            o, opt = r["occupation"], r["option"] or {}
+            w.writerow(
+                [
+                    r["when"],
+                    r["number"],
+                    r["status"],
+                    r["language"],
+                    r["duration"],
+                    *[r["answers"].get(s) for s in steps],
+                    o["title_en"] if o else None,
+                    o["code"] if o else None,
+                    r["occupation_via"],
+                    opt.get("offered"),
+                    opt.get("chosen") or ("none" if opt.get("declined") else None),
+                    r["human_flag"],
+                    r["keypad_only"],
+                    r["id"],
+                ]
+            )
+        stamp = utcnow().astimezone(IST).strftime("%Y%m%d-%H%M")
+        return Response(
+            out.getvalue().encode("utf-8-sig"),  # the BOM lets Excel read Hindi and Marathi
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="hunarvaani-calls-{stamp}.csv"'},
+        )
+
+    @router.get("/dataset")
+    def dataset():
+        """The sample recommendation dataset, for the console's Sample data page."""
+        data = sample_data.load()
+        titles = {o.nco_code: o.title_en for o in data.occupations.values()}
+        districts = {
+            r["district_code"]: f"{r['district_en']}, {r['state']}" for r in geo.table().values()
+        }
+        return {
+            "courses": [
+                {
+                    "id": c.course_id,
+                    "kind": c.kind,
+                    "title": c.title_en,
+                    "for": ["any trade"]
+                    if c.nco_codes == ("*",)
+                    else [titles.get(n, n) for n in c.nco_codes],
+                    "sector": c.sector,
+                    "nsqf_level": c.nsqf_level,
+                    "hours": c.hours,
+                    "min_education": c.min_education,
+                    "ages": f"{c.min_age}-{c.max_age}",
+                    "fee_inr": c.fee_inr,
+                    "placement": c.placement,
+                    "heavy_work": c.heavy_work,
+                    "skills": list(c.skills),
+                    "scheme": data.schemes[c.scheme].name_en,
+                }
+                for c in data.courses
+            ],
+            "centres": [
+                {
+                    "id": c.centre_id,
+                    "name": c.name_en,
+                    "type": c.type,
+                    "district_code": c.district_code,
+                    "district": districts.get(c.district_code, c.district_code),
+                    "distance_km": c.distance_km,
+                    "hostel": c.hostel,
+                    "women_batches": c.women_batches,
+                    "sectors": [
+                        data.sectors[s].title_en if s in data.sectors else s for s in c.sectors
+                    ],
+                }
+                for c in data.centres
+            ],
+            "schemes": [
+                {
+                    "id": s.scheme,
+                    "name": s.name_en,
+                    "name_hi": s.name_hi,
+                    "kind": s.kind,
+                    "benefit": s.benefit_en,
+                    "eligibility": s.eligibility_en,
+                }
+                for s in data.schemes.values()
+            ],
+            "districts": [
+                {"code": k, "name": v} for k, v in sorted(districts.items(), key=lambda kv: kv[1])
+            ],
+        }
 
     @router.get("/occupations")
     def occupations():

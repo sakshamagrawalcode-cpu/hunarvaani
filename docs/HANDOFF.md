@@ -104,7 +104,7 @@ has its own README.
 | `backend/core/sample_data.py`, `recommend.py` | Loads the sample dataset; picks the top 3 training / livelihood options with reasons and skill gap (A9) |
 | `backend/core/interview_store.py`, `store.py` | Database writes (incl. 9 = delete everything, recordings too) |
 | `backend/core/callbacks.py`, `dialers.py` | Missed-call → callback queue, Exotel / Plivo dialers |
-| `backend/tests/` | 327 tests (unit + real-Postgres/Redis integration) |
+| `backend/tests/` | 328 tests (unit + real-Postgres/Redis integration) |
 | `frontend/` | **Team console**: Vite + React + TypeScript + Tailwind; pages in `src/pages/` |
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
@@ -238,6 +238,8 @@ The console shows both tries.
 | A9 | **Recommendation engine** `core/recommend.py`: filters (age, education, heavy work if physical difficulty, no business course for job seekers, centre within the daily travel or a hostel in the state) → score 0.35 fit + 0.20 demand + 0.20 reach + 0.15 wish + 0.10 step-up (+0.03 women-only batch) → top 3 with reasons and skill gap; farther centres only fill in, marked "farther"; every occupation × district × travel × wish gets ≥ 1 option (tested); `scripts/recommend.py` shows options for any profile; ideas from SkillCall `engine.py` | see git log |
 | A10 | **Options said on the call** (3 languages): after the occupation, `Offer` → recommender → P34 "रास्ता 1: … 3 महीने, मुफ़्त, 8 किलोमीटर दूर …" → key 1–3 or none → P33 goodbye; saved in `recommendation` (schema 08: rank, course, centre, score, reasons, skill gap, spoken, chosen) and as answer `interest`; P17 plays while P34 is made; no option / no voice → summary as before; `core/dialogue/options.py` speaks only dataset facts | see git log |
 | A11 (part) | Call page: **"Training and livelihood options"** card (what, NSQF level, hours, fee, placement, centre + km, farther badge, scheme, loan, reasons, skill gap, "caller chose"), labelled sample; live log shows "3 options found" and "caller chose option N" | see git log |
+| A11 | **Console v2 done**: **Sample data** page (courses / centres / schemes, search, district filter, "sample" banner); **Download CSV** of all calls (answers, district, occupation, options offered, option chosen; last 4 digits only; opens in Excel with Hindi/Marathi); **district filter** on Calls and People; **Option / Chosen option** column on Calls and People | see git log |
+| Fix | One-language setup: the call's language was never saved (no menu → no "language" answer); now saved at the start | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -246,7 +248,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 327 automated tests pass (1 skipped where ffmpeg is missing).
+- 328 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -278,7 +280,7 @@ hours, the rest is testing on real calls.
 | A8 | **Sample dataset** (clearly labelled "sample, for demonstration") | `database/sample/`: for each of the 59 occupations: NSQF courses (QP code, name, NSQF level, hours, min education, age range, free/fee, scheme: PMKVY / DDU-GKY / PM-AJAY GIA), skills each course teaches (for the skill gap), heavy-work flag; training centres per district (distance, hostel yes/no, women-only batches); local demand per district (openings, typical wage); self-employment routes (tool kit, loan: PMEGP / Mudra / PM-AJAY GIA income generation) | Claude | 1 day | ✅ see §5 |
 | A9 | **Recommendation engine** | score = occupation fit (same trade upskill or a near trade) + eligibility (age, education) + reach (centre within travel limit, or hostel) + wish (job → placement-linked; own work → entrepreneurship + loan) + physical (no heavy work if difficulty) + local demand; returns top 3 with plain-language reasons and the skill gap; port ideas from SkillCall `engine.py`; many tests | Claude | 1 day | ✅ see §5 |
 | A10 | **Say the options on the call** | after P15: "आपके लिए दो अच्छे रास्ते हैं: 1) … 2) …; जानकारी चाहिए तो उसका नंबर दबाइए" → choice saved as "interested"; in all 3 languages | Claude | 0.5–1 day | ✅ see §5 |
-| A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ◐ options on the call page done; dataset pages, translation, CSV, filter left |
+| A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ✅ see §5 (English translation in brackets left out: the console shows no translation, by decision) |
 | A12 | Step 11 checklist on real calls | every row of the checklist below, fix what breaks | You + Claude | 0.5 day | ☐ |
 | A13 | Deploy to India (Step 12) | 4 vCPU / 8 GB VM in Mumbai/Hyderabad, Docker Compose, Caddy HTTPS, `api.hunarvaani.co.in`; ends the changing tunnel URL | You + Claude | 0.5–1 day | ☐ |
 | A14 | Measure 30 calls (Step 13) | 10 Hindi + 10 Marathi + 10 English with consenting people; `scripts/measure.py`: word error rate, wait time p50/p90, completion rate, correct occupation rate → `docs/measurements.md` | You + Claude | 1 day | ☐ |

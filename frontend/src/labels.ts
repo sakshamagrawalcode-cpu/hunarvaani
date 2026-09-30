@@ -1,7 +1,7 @@
 // Readable names for the values the interview stores. English first, the caller's words in
 // brackets where that helps.
 
-import type { Occupation } from "./api";
+import type { Occupation, OptionOutcome } from "./api";
 
 export const LANGUAGE: Record<string, string> = {
   "hi-IN": "Hindi (हिंदी)",
@@ -104,4 +104,11 @@ export function when(iso: string | null | undefined): string {
 export function seconds(s: number | null | undefined): string {
   if (s === null || s === undefined) return "—";
   return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}
+
+export function optionText(o: OptionOutcome | null | undefined): string {
+  if (!o) return "—";
+  if (o.chosen) return o.chosen;
+  if (o.declined) return "none of the options";
+  return o.spoken ? `${o.offered} offered, no choice` : `${o.offered} found, not said`;
 }
