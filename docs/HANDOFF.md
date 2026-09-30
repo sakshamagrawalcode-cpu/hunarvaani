@@ -110,7 +110,7 @@ has its own README.
 | `database/schema/*.sql` | Tables (applied by `scripts/init_db.py`) |
 | `database/seed/nco_seed.csv` | **59 occupations** with English, Hindi, Marathi names and words callers use |
 | `database/sample/` | Sample data (A7, A8): PIN → district, occupations, courses, centres, demand, sectors, schemes |
-| `scripts/` | `recommend` (options for a profile), `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `calibrate_search`, `exotel_call_me`, `init_db` |
+| `scripts/` | `recommend` (options for a profile), `gen_secrets`, `render_prompts`, `seed_nco`, `set_public_url`, `simulate_call`, `show_call`, `measure` (slide numbers from saved calls), `calibrate_search`, `exotel_call_me`, `init_db` |
 
 ---
 
@@ -248,6 +248,7 @@ The console shows both tries.
 | Options v2 | **Hear an option in detail**: P34 now says "press its number for all about it"; the number plays that option's details (what they learn, how long, free or fee, which centre and how far, hostel, job help after, what the scheme gives, loan help for own work), built in English only from the dataset, translated by Sarvam into the caller's language (short local fallback if translation fails), then P41 "choose 1 / hear the options again 2". All option sentences are made at the same time. **Recommender**: years of experience from the story (Hindi, Marathi, English number words; English translation first): under 2 years no RPL certificate, 2+ years the certificate ranks higher, 3+ years helps business training for "not sure" callers; **variety**: a second option of the same kind counts 0.05 less; new reason "N years of experience"; while the option sentences are made the caller hears P30 "stay on the line" every 8 s (never silence), and a Sarvam HTTP 429 is retried once | see git log |
 | LLM | **Sarvam LLM reads the work story** (India-hosted, `sarvam-105b-conversations`; never a foreign model): gets the transcript + English + our 59 occupations and returns occupations (codes from our list only), years, skills, job/own work and one clean first-person sentence in the caller's language; its occupations lead the read-back (and rescue stories the word search was unsure about), its sentence replaces the raw transcript in "आपने बताया: …", its years go to the recommender; every field is checked; any failure (slow, no credits, bad JSON) changes nothing; saved in `story.llm` (schema 09) and shown on the call page ("AI understood"); `LLM_ENABLED`, `SARVAM_LLM_MODEL`, `LLM_TIMEOUT_SECONDS` | see git log |
 | A13 kit | **Deploy kit**: `infra/docker-compose.prod.yml` (restart policies + Caddy HTTPS on `DOMAIN`), `infra/Caddyfile`, **`docs/DEPLOY.md`** step by step (Azure for Students recommended: USD 100, no card, Central India; Oracle Always Free as the free backup; DigitalOcean student credit ended 1 Aug 2026), DNS on Cloudflare, Exotel URL that never changes | see git log |
+| A14/A15 | **`scripts/measure.py`** (`core/measure.py`): slide numbers counted only from saved calls: how far calls got, calls ended early and why, STT/search time, caller's wait after the story, read-back confirmed rate, options offered/heard/chosen, prompt delay from the api log (`--log`); "no data" when nothing was saved. **`docs/SUBMISSION.md`**: final idea, differentiators with status, what changed since v4, honesty table, 3-min video script, slide changes, build plan | see git log |
 | Review | Consents in simple words: P06 only about recording (and "no" still works with keys), P07 says why we share, P08 = "use without name and number to train our AI and recommendation models"; console shows readable consent names; `CLAUDE.md` start file | see git log |
 
 **Measured so far:**
@@ -256,7 +257,7 @@ The console shows both tries.
 - Search: 58 test sentences across the 59 occupations in 3 languages map correctly (plus the
   earlier 19 Hindi, 12 English/Marathi); names, small talk and "I am studying" are refused.
 - Real e5 cosines (16-occupation set): correct ≈ 0.82–0.84, others ≈ 0.78–0.80, junk ≈ 0.74–0.78.
-- 349 automated tests pass (1 skipped where ffmpeg is missing).
+- 353 automated tests pass (1 skipped where ffmpeg is missing).
 
 ---
 
@@ -291,8 +292,8 @@ hours, the rest is testing on real calls.
 | A11 | **Console v2** | recommendations + reasons + skill gap on the call and people pages; dataset pages (courses, centres, schemes); **English translation in brackets** of Hindi/Marathi words (Sarvam Translate); CSV export; district filter | Claude | 1 day | ✅ see §5 (English translation in brackets left out: the console shows no translation, by decision) |
 | A12 | Step 11 checklist on real calls | every row of the checklist below, fix what breaks | You + Claude | 0.5 day | ☐ |
 | A13 | Deploy to India (Step 12) — kit ready: `docs/DEPLOY.md` | 4 vCPU / 8 GB VM in Mumbai/Hyderabad, Docker Compose, Caddy HTTPS, `api.hunarvaani.co.in`; ends the changing tunnel URL | You + Claude | 0.5–1 day | ☐ |
-| A14 | Measure 30 calls (Step 13) | 10 Hindi + 10 Marathi + 10 English with consenting people; `scripts/measure.py`: word error rate, wait time p50/p90, completion rate, correct occupation rate → `docs/measurements.md` | You + Claude | 1 day | ☐ |
-| A15 | Video, README, slides (Step 14) | 2-minute recording of a call beside the console; honesty table (real vs sample data); slides | You + Claude | 1 day | ☐ |
+| A14 | Measure our calls (Step 13) | `scripts/measure.py` built: counts from the calls already saved (no need for exactly 30; the slide says "measured on N real calls"): how far calls got, wait after the story p50/p90, read-back confirmed rate, options chosen, prompt delay from the api log. Word error rate = measurement plan | You + Claude | ½ day | 🟡 script done; run it on the laptop |
+| A15 | Video, README, slides (Step 14) | `docs/SUBMISSION.md`: final idea, what changed since v4, honesty table, 3-min video script, slide changes, build plan | You + Claude | 1 day | 🟡 text ready; record the video |
 
 **Suggested timeline:** Day 1: A6 + A7. Day 2: A8. Day 3: A9. Day 4: A10 + tests on calls.
 Day 5: A11. Day 6: A12 + A13. Day 7: A14. Day 8: A15. Day 9: buffer.
@@ -334,7 +335,7 @@ Ordered by value to the judges ÷ effort. Each is independent, so we can stop an
 | Spoken summary; console shows answers, words, occupation, timings | ✅ built; ⏳ confirm on a real call |
 | 4th missed call in a day → no callback; no callbacks in quiet hours | ✅ tests (needs callbacks live) |
 | Wrong token → refused | ✅ Exotel secret URL token (SIH-style `…/exotel` refused too, with a hint in the log); Plivo signatures |
-| `scripts/measure.py` → WER, latency for 30 calls | ☐ A14 |
+| `scripts/measure.py` → funnel, waits, read-back confirmed rate, options chosen, prompt delay | ✅ built (counts only saved calls); ☐ WER needs typed-out transcripts |
 
 ### English translation: part of understanding the story
 Every Hindi or Marathi story is translated to English (Sarvam translate) **before** the search, and
@@ -441,6 +442,7 @@ docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_n
 # team console: http://localhost:8000/console/  (user admin, password = CALLS_PAGE_PASSWORD)
 docker compose -f infra/docker-compose.yml logs -f api worker
 docker compose -f infra/docker-compose.yml exec api python scripts/show_call.py -n 3
+docker compose -f infra/docker-compose.yml exec api python scripts/measure.py      # slide numbers
 docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py   # no phone needed
 # listen to every rendered prompt: console → Voice prompts
 docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py

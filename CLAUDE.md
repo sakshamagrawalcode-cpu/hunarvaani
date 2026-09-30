@@ -42,8 +42,11 @@ options from a sample dataset and say them on the call.**
   **options v2**: press an option's number to hear it in detail (P41 choose / back); recommender
   uses years of experience from the story and varies the kinds of options · **LLM** (Sarvam,
   India-hosted) reads the story: occupations, years, skills, clean "you said" sentence (schema 09
-  → `init_db.py`) · **A13 deploy kit** ready (`docs/DEPLOY.md`, Azure for Students).
-- **Next:** A6 = the user tests on real calls (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
+  → `init_db.py`) · **A13 deploy kit** ready (`docs/DEPLOY.md`, Azure for Students) · **A14 script**
+  `scripts/measure.py` (slide numbers counted only from saved calls; no WER) · **A15 text**
+  `docs/SUBMISSION.md` (final idea, what changed since v4, honesty table, video script, plan).
+- **Next:** A6 = the user tests on real calls, then runs `measure.py` and records the video
+  (`docs/SUBMISSION.md` sections 5, 6, 9); A6 details: (run `render_prompts.py` first; needs Sarvam credits; rebuild, 3 calls,
   check `/console/`). Then **A13 deploy to an India VM** with `docs/DEPLOY.md` (the user makes an
   Azure for Students account first). Demo region used:
   Maharashtra + the Hindi-belt cities of the PIN table.
@@ -64,6 +67,8 @@ options from a sample dataset and say them on the call.**
 - Finish the prototype first (plan Phase A); extras (Phase B) only if time remains.
 - **After finishing any step: update `docs/HANDOFF.md` (sections 5 and 6) and this block.**
 - Only one Claude chat changes code at a time; `git pull` first.
+- Never invent measured numbers (calls, WER, latency): slides say "measured on N real calls" or
+  "measurement plan".
 
 ## Working in the Claude cloud sandbox (tested recipe)
 ```bash
