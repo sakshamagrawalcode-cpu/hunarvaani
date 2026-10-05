@@ -1,207 +1,192 @@
-# HunarVaani
+# HunarVaani prototype
 
-**Status, plan and how everything works: [`docs/HANDOFF.md`](docs/HANDOFF.md).**
-Missed call → free callback → voice/keypad interview → NSQF-based training and job options.
-Team Cognify.
+A voice livelihood counsellor for SIH26097 (PM-AJAY GIA). A person talks in Hindi, Marathi or English,
+on **any phone** (Exotel call) or at a **helper-run kiosk tablet**. HunarVaani then:
 
-## Run it locally (Windows, Docker Desktop running)
+1. asks warm, pre-recorded questions, and the person simply **speaks** every answer (name, age, studies,
+   travel, their story); only the PIN is typed, so nobody nearby hears it;
+2. turns their speech into text (IndicConformer);
+3. uses a **small local LLM** (Gemma 4 E4B through Ollama) to label facts, what they insist on, and their mood;
+4. from the very first answer keeps a shortlist, and asks the **follow-up question whose answer could
+   change it most** (plus the one the LLM suggests), checking the leading kind of work with the person;
+5. shows and reads back **everything it understood**, so any detail can be corrected;
+6. ranks NSQF options with the **gated personal ranker**, then speaks or shows the top 3–5, plus
+   skills worth learning when a small gap leads to better pay;
+7. gives a **HunarVaani ID + a PIN** they set, and saves a printable card with a QR code. District
+   officers see the record on a console, by district, name or ID.
+
+The location comes from the device: each kiosk sets its PIN code once, the phone line has its own.
+
+All models run on your laptop. No call audio or text goes to an outside API.
+
+```
+ phone (Exotel) ─┐                                   ┌─ spoken top 3–5 (pre-recorded pieces)
+                 ├─ engine ─ STT ─ LLM labels ─ ranker ┤
+ kiosk (browser) ┘     │                              └─ options + ID card on screen
+                       └─ SQLite: people, turns, options, audit ─ officer console
+```
+
+---
+
+## 1. Install everything (one time)
+
+You need Windows 10/11, an **NVIDIA GPU** (tested target: RTX 5050, 8 GB), about **25 GB of free
+disk**, and internet for the downloads. Put this folder somewhere simple, **not in OneDrive**, for
+example `C:\HunarVaani`.
+
+1. Double-click **`INSTALL.bat`**.
+2. When the browser opens Hugging Face: log in (or sign up free), click **Agree** on both model
+   pages, create a **Read** token, and paste it into the installer window (it stays hidden).
+3. Wait. The first run takes about 1–1.5 hours, mostly downloads and rendering the voice. Progress
+   and time left are shown. If anything stops, fix the message it prints and double-click
+   `INSTALL.bat` again: finished steps are skipped.
+
+What it sets up, all on your laptop:
+
+| Part | Model | Runs on | Size |
+|---|---|---|---|
+| Speech to text | AI4Bharat IndicConformer 600M (ONNX) | CPU, so the GPU stays free for the LLM | ~2.5 GB |
+| Labels, emphasis, mood | Gemma 4 E4B (QAT, 4-bit) in Ollama; `gemma4:e2b-it-qat` on GPUs under 7.5 GB | GPU | ~6 GB |
+| Voice | AI4Bharat Indic Parler-TTS, every line rendered once (Hindi Divya, Marathi Sunita, English Mary) | GPU, only while rendering | ~4 GB |
+
+The voice uses PyTorch built for CUDA 12.8, which RTX 50-series cards need.
+
+## 2. Run it
+
+Double-click **`RUN.bat`**. Wait until the window says **models warmed up** (about a minute), then:
+
+- **Kiosk:** open http://localhost:8000/kiosk in Chrome. The first time, set **this kiosk's PIN code**
+  on the start screen (once per device; everyone at this kiosk gets that location, nobody is asked).
+  Press **Start**. The person just talks: after each question the kiosk listens by itself and stops
+  when they pause. Buttons are there too, for quick yes/no or choices. Use a headset.
+- **Officer console:** http://localhost:8000/officer. The user is `officer`; the password is
+  `OFFICER_PASSWORD` in the `.env` file (the installer made a random one).
+- If port 8000 is busy, it uses the next free port and prints it.
+
+What happens in one session (everything is spoken except the PIN, which is typed so nobody hears it):
+
+```
+name (spoken) -> "tell us about yourself" (the first real answer)
+   -> IndicConformer (text) -> Gemma labels: work, wishes, limits, what they insist on, mood, and any
+      detail they mention (age, studies, travel), so it is not asked again
+   -> a shortlist is ranked straight away, and every next question is chosen because its answer could
+      change that shortlist (simulated with the ranker), plus the question the LLM suggests;
+      follow-ups alternate with the required details (age, gender, studies, travel), so the call
+      builds on what they said: "you do tailoring: grow in it, or learn something new?",
+      "from what you told us, this work could suit you: does that sound right?"
+   -> wording follows the mood (softer if worried or upset, fewer questions when upset)
+   -> review: everything understood is shown and read back; "no" -> which one -> say it again
+   -> gated ranking -> top 3-5 options, spoken and on screen -> skills worth learning
+   -> HunarVaani ID read out, PIN set twice (typed), card file with QR saved (cards\<id>.svg / .html)
+```
+
+Short answers ("पैंतीस साल", "दसवीं पास", "दस किलोमीटर", "हाँ") are read by simple rules in a
+millisecond; longer answers go to the LLM. If an answer is not understood twice, that one question
+falls back to buttons / the keypad.
+
+**After updating to a new version:** record the new voice lines (only new or changed ones are made):
+`.\install.ps1 -OnlyVoices -Langs hi` (about 5-10 minutes; close games first).
+
+`.\run.ps1 -Fake` starts without any models, to test screens only. The terminal version is
+`.venv\Scripts\python.exe scripts\chat.py`.
+
+**Check the models any time:** `.venv\Scripts\python.exe scripts\check_models.py`. It shows how long
+the LLM and speech-to-text take; the speech check transcribes one of the rendered Hindi questions,
+so it tests the voice and speech-to-text together.
+
+**Change a spoken line:** edit its text in `hv\prompts.py`, then run `.\install.ps1 -OnlyVoices`. Only
+changed lines are rendered again.
+
+## 3. Kiosk on a tablet
+
+A browser lets a page use the microphone only over **https** (or on `localhost`). Start a free
+tunnel on the laptop and open the https address on the tablet:
 
 ```powershell
-copy .env.example .env          # first time only, then fill in your keys
-python scripts\gen_secrets.py   # fills PHONE_HASH_SECRET and PHONE_ENC_KEY in .env
-docker compose -f infra/docker-compose.yml up -d --build
-curl.exe http://localhost:8000/health   # {"ok":true}
-curl.exe http://localhost:8000/ready    # db, pgvector and redis all true
-docker compose -f infra/docker-compose.yml logs worker
-docker compose -f infra/docker-compose.yml down
+winget install --id Cloudflare.cloudflared
+cloudflared tunnel --url http://localhost:8000
 ```
 
-`.env` holds secrets and is never committed.
+Open `https://<the-address-it-prints>/kiosk` on the tablet (Chrome) and allow the microphone. Use a
+headset. The helper types the name; the person sets the PIN on the screen keypad themselves.
 
-## Database and occupation data (Step 4)
+## 4. Phone line (Exotel)
 
-A brand-new database applies `database/schema/*.sql` on first start. If the `pgdata` volume already exists,
-apply them yourself (safe to repeat), then load the 59 seed occupations with embeddings:
-
-```powershell
-docker compose -f infra/docker-compose.yml build worker
-docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py
-docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
-curl.exe http://localhost:8000/ready    # nco_rows should be 59
+With the tunnel from step 3 running, set this as the **Voicebot** applet's URL in your Exotel flow:
 ```
-
-The first `seed_nco.py` run downloads the multilingual-e5-base model (about 1 GB) into a
-Docker volume, so later runs are fast. The api service needs a restart only for code changes.
-
-## Try the recommender (no phone needed)
-
-```powershell
-python scripts\recommend.py --occupation 7531 --age 26_35 --gender female --education upto_8th --travel 10km --lean own_work --pin 411001
+wss://<the-address-it-prints>/exotel/ws/<EXOTEL_WS_TOKEN from .env>
 ```
+Call your ExoPhone. Callers answer with the keypad or speak after the beep. Key **0** asks for an
+officer; **9** twice deletes the caller's data. The missed-call callback still needs Exotel KYC or a
+government 1600 number. Until then, callers dial in.
 
-## Numbers for the slides (from saved calls)
+The tunnel address changes each time cloudflared restarts, so update the Exotel URL each time. For a
+demo, a server in India is better than a laptop and tunnel.
 
-```powershell
-docker compose -f infra/docker-compose.yml exec api python scripts/measure.py
-```
+## 5. How it works (where to look)
 
-`docs/SUBMISSION.md`: the final idea, the honesty table, the video script and the build plan.
+| File | What it does |
+|---|---|
+| `hv/engine.py` | The conversation, written once for every channel: code picks the next question from what is missing |
+| `hv/labels.py` | What the LLM must return (JSON schema), and the checks: job codes must be in our list; an emphasis label is kept only if its quote is really in the transcript |
+| `hv/policy.py`, `hv/emphasis.py`, `hv/learn.py` | The policy file, evidence → multiplier, and learning from choices and outcomes (section 5b) |
+| `hv/ranker.py` | **Score = G × Σ w·m·f.** Gates: work capacity (age + health vs the job's physical load), distance (radius from what they insist on; no hostel if they cannot leave home), eligibility (age, education, RPL only for skills already held). w = officer weights, m = emphasis multiplier from evidence (0.5–3), f = fit on six factors |
+| `hv/questions.py` | The question bank and the choice of the next question: value = how much the answer could change the top 3 (simulated), plus the LLM's suggestion; required details alternate with follow-ups |
+| `hv/understand.py` | Rules that read short spoken answers (numbers in Hindi/Marathi/English, age, studies, travel in km or minutes, yes/no, choices, names) |
+| `hv/engine.py` → `guided()`, `review()`, `variant()` | The guided talk, the review/correction step, and wording for the mood |
+| `hv/skills.py` | Skills worth learning: courses the person can take whose gap is small (same trade) or moderate (a neighbouring trade), at most 12 weeks, that pay more or reach a higher NSQF level |
+| `hv/card.py` | The card file (`cards\<id>.svg` and a print page). The QR holds only `HUNARVAANI:<id>` |
+| `hv/prompts.py` | Every spoken line in 3 languages, as pieces; numbers, job titles and districts are pieces too |
+| `hv/channels/exotel.py` | Phone: 8 kHz audio, keypad, a key cuts a prompt short, simple voice-activity detection |
+| `hv/channels/kiosk.py`, `web/kiosk.html` | Tablet: buttons, keypad, mic (16 kHz), typing, options and ID card with QR, print |
+| `hv/store.py`, `web/officer.html` | SQLite records; officers search by district, name or ID, see the quotes behind every label, approve or refer; every action is in the audit log |
+| `data/*.csv` | **Sample** data (59 jobs, 115 courses, 124 centres, 31 districts). Replace with NQR, NCO, SIDH and NCS exports |
 
-## Server in India
+## 5b. Dynamic ranking: nothing important is hard-coded
 
-`docs/DEPLOY.md`: which account to make, the VM, the domain, and the commands.
+Every number the ranker uses lives in one **policy file** (`config/policy.json`). The defaults and
+their meaning are in `config/policy.example.json`. The policy changes in three ways, at three speeds:
 
-## Tests
+| Level | What changes | How |
+|---|---|---|
+| **The person, during the call** | How much each factor counts for *this* person | Emphasis is a running score built from evidence, not one fixed label. Each piece adds to it: the LLM's label (insists / prefers / neutral / doesnt_care), times how forcefully it was said (`intensity` 0–1), plus a bonus for words like "only", "never", "सिर्फ", "फक्त", plus every repeat mention. The score becomes a smooth multiplier between `min` and `max` (neutral = 1). The daily travel radius shrinks smoothly as the access score grows. If the top two options pull in opposite directions (one closer, one better paid), the call **asks a trade-off question**, and the answer is strong evidence |
+| **The district, by officers** | Base weights, gate strength, age bands, radius rule, trade-off settings, how many follow-up questions and how much an answer must matter to be asked (`questions`) | Officer console → *Ranking policy*, for all districts or one. Or `POST /api/policy/ahp` with a pairwise survey: it returns weights and a consistency ratio, and refuses to save if the ratio is above 0.1. Every save is a new version in `config/history/` plus an audit line |
+| **Real use, over time** | Base weights and gate strength | `python scripts\learn.py` fits weights to the options people actually chose (conditional logit, pulled towards the current weights, limited to ±10 points a round). It fits gate strength to verified outcomes that officers record with `POST /api/person/<id>/outcome`. A proposal is blocked if it widens the gender gap in better-paid options. It goes live only when an officer activates it |
 
-```powershell
-pip install -r backend/requirements-dev.txt
-pytest
-ruff check .
-```
+Every value is checked against safe bounds before use (for example, work gate 0.01–0.95, multiplier
+0.2–5). The LLM's labels only ever move a person's multipliers within those bounds. Caste-linked work
+(sanitation, tanning, cobbling) is never suggested unless the person brings it up themselves
+(`consent_only_codes`).
 
-## Layout
+## 6. Privacy rules built in
 
-```
-frontend/            team console: React + TypeScript + Tailwind (served at /console/)
-backend/
-  apps/voice/        FastAPI: the live call (Exotel WebSocket), prompts audio, /calls, console API
-  apps/worker/       story understanding (speech-to-text, search, read-back audio), callbacks
-  core/              interview state machine, prompts (3 languages), search, storage, speech
-  tests/             unit and integration tests
-  requirements*.txt  Python packages
-database/
-  schema/            SQL tables (applied by scripts/init_db.py)
-  seed/              59 occupations (nco_seed.csv)
-  sample/            sample data (A7, A8): PIN -> district, courses, centres, demand, schemes
-scripts/             run from the laptop or inside a container: secrets, prompts, seeding, tests calls
-audio/               rendered prompts per language (hi/, en/, mr/; not in git)
-infra/               Dockerfile, docker-compose.yml
-docs/                HANDOFF.md (status and plan), PROBLEM_STATEMENT.md
-```
+- Caste is never asked. No Aadhaar number is stored. The PIN is kept only as a salted hash and locks
+  after 3 wrong tries.
+- Consent comes first: record and share, plus a separate yes or no for AI training.
+- **9 twice** erases the person's profile, answers, options and card file. One audit line remains,
+  saying it was erased.
+- The card shows name, ID, district, the chosen option and skills to learn. Its QR holds only the ID.
+  The PIN is never printed or stored in plain text.
+- The kiosk clears the screen 60 seconds after a session ends.
 
-## Voice prompts (Step 5)
+## 7. If something fails
 
-The prompts (P01–P30, in Hindi, English and Marathi) live in `backend/core/dialogue/prompts.py`. Render them on your laptop (needs
-ffmpeg on PATH and `SARVAM_API_KEY` in `.env`; `SARVAM_SPEAKER` is optional):
+| Problem | Fix |
+|---|---|
+| `.\install.ps1` "is not recognized" | You are in the wrong folder. Double-click `INSTALL.bat` inside the folder instead |
+| Hugging Face `401` / `GatedRepoError` | Log in on huggingface.co, click **Agree** on both model pages, run `INSTALL.bat` again and paste a **Read** token |
+| `PyTorch cannot use the GPU` while installing the voice | Update the NVIDIA driver (nvidia.com/drivers), then `.\install.ps1 -OnlyVoices` |
+| `pull failed` for the LLM | Update Ollama (the installer tries this), or pick a smaller model: `.\install.ps1 -Model gemma4:e2b-it-qat` |
+| LLM check says SLOW (over 8 s) | Set `LLM_MODEL=gemma4:e2b-it-qat` in `.env`, run `ollama pull gemma4:e2b-it-qat`, restart. Close games or apps that use the GPU |
+| The kiosk says the same thing back / does not understand speech | Check the RUN window: each answer logs `STT ... : <text>` and `LLM labelled ...`. If the text is empty, speak closer to the mic or raise the volume |
+| Kiosk only speaks numbers, or speaks with the browser voice | The voice is not rendered: `.\install.ps1 -OnlyVoices` |
+| Kiosk mic does not work | Open the kiosk on `localhost` or over the https tunnel, not `http://192.168...`, and allow the microphone |
+| `[Errno 10048]` / port in use | `RUN.bat` picks the next free port and prints it; or `.\run.ps1 -Port 8010` |
+| Phone call silent | Render the voice; check that `audio\hi\greet.wav` exists |
+| Background noise cut in as speech (phone) | Raise `VAD_THRESHOLD` in `.env` (for example to 800) |
 
-```powershell
-python scripts\render_prompts.py --dry-run    # prints the text, no API calls
-python scripts\render_prompts.py --only P01   # renders one prompt as a test
-python scripts\render_prompts.py              # renders every missing or changed prompt (27 per language)
-docker compose -f infra/docker-compose.yml up -d --build
-curl.exe -o test.wav http://localhost:8000/audio/hi/P01.wav
-```
+## 8. Not built yet
 
-P13 and P15 contain placeholders and are rendered during the call (Steps 9 and 10).
-Files land in `audio/hi/` and are served at `/audio/hi/<id>.wav`.
-
-## Public address for Plivo (Step 6)
-
-Plivo must reach your api over HTTPS. A free Cloudflare quick tunnel does this for testing
-(real callers are served only from the server in Step 12):
-
-```powershell
-docker compose -f infra/docker-compose.yml --profile tunnel up -d tunnel
-python scripts\set_public_url.py --from-tunnel    # writes PUBLIC_BASE_URL into .env, checks /health
-docker compose -f infra/docker-compose.yml up -d api worker
-```
-
-Open `<that address>/audio/hi/P01.wav` on your phone with Wi-Fi off. The address changes every
-time the tunnel restarts, so repeat the last two commands after a restart.
-Stop it with `docker compose -f infra/docker-compose.yml --profile tunnel stop tunnel`.
-
-## Missed call and free callback (Step 7)
-
-Flow: someone dials the Plivo number → `POST /pv/answer` checks Plivo's V3 signature, rejects the
-call (so the caller pays nothing) and queues a callback → the worker dials back after
-`CALLBACK_DELAY_SECONDS` → Plivo fetches `/pv/ivr/start` (plays P01 for now; Step 8 adds the menus)
-→ `/pv/hangup` records the duration.
-
-Rules: Indian mobiles only; at most `MAX_TRIGGERS_PER_DAY` per number per IST day;
-`DAILY_CALL_BUDGET` callbacks per day in total; nothing is dialled during `QUIET_HOURS`
-(those callbacks wait until the window ends); blocked numbers are ignored; a repeated
-CallUUID is ignored. Numbers are stored only as an HMAC hash plus a Fernet-encrypted copy,
-and logs show only the last four digits.
-
-Setup once the Plivo account exists:
-
-1. In `.env` fill `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_NUMBER`.
-2. Apply the new column: `docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py`
-3. `docker compose -f infra/docker-compose.yml up -d --build api worker`
-4. In the Plivo console create an Application: Answer URL `POST <PUBLIC_BASE_URL>/pv/answer`,
-   Hangup URL `POST <PUBLIC_BASE_URL>/pv/hangup`, then attach the number to it.
-   The URL must match `PUBLIC_BASE_URL` exactly, or every signature check fails with 403.
-5. Give a missed call from a verified phone and watch
-   `docker compose -f infra/docker-compose.yml logs -f api worker`.
-
-Integration tests use a throwaway Postgres and Redis:
-`TEST_DATABASE_URL=... TEST_REDIS_URL=... pytest` (they wipe that database).
-
-## Interview over Exotel (Step 8)
-
-The keypad interview lives in `backend/core/dialogue/flow.py`, a provider-neutral state machine
-(opening → safe to talk → language → 3 consents → education, travel, preference → work story
-or trade list → end). Global keys: 9 deletes the caller's data (rows and story recordings) and
-blocks the number, 0 flags the call for a human (P19). Timeouts and wrong keys repeat once with
-P16, then skip.
-
-Exotel runs it through the **Voicebot** applet: one two-way WebSocket per call at
-`wss://<public address>/exotel/ws/<EXOTEL_WS_TOKEN>`. Callbacks use Exotel's
-"connect a number to a flow" API and report back to `/exotel/status/<EXOTEL_WS_TOKEN>`.
-
-Setup:
-
-1. `python scripts\gen_secrets.py` (adds `EXOTEL_WS_TOKEN`), then fill `EXOTEL_SID`,
-   `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN`, `EXOTEL_CALLER_ID` (your ExoPhone) and `EXOTEL_APP_ID`
-   (the number at the end of your flow's URL in App Bazaar). Use `api.in.exotel.com` for
-   `EXOTEL_SUBDOMAIN` if your dashboard is `my.in.exotel.com`.
-2. `python scripts\render_prompts.py` (renders the new P19).
-3. `docker compose -f infra/docker-compose.yml run --rm worker python scripts/init_db.py`
-4. `docker compose -f infra/docker-compose.yml up -d --build`
-5. Tunnel: `python scripts\set_public_url.py --from-tunnel` prints the Voicebot URL; paste it
-   into the Voicebot applet (Call Start), put a Hangup applet in Next, save.
-
-Try it without a phone: `docker compose -f infra/docker-compose.yml exec api python scripts/simulate_call.py`
-Try the callback: `python scripts\exotel_call_me.py 98XXXXXXXX`
-
-## Work story understanding and read-back (Step 9)
-
-After the beep the caller speaks; recording stops on #, 2.5 s of silence after speech, 12 s with
-no speech, or 60 s. The api plays P17 ("एक पल रुकिए") and queues the recording for the worker,
-which transcribes it with Sarvam Saaras (≤28 s pieces), translates it to English (Sarvam
-translate), searches the occupations with both wordings (alias + BM25 + multilingual-e5 cosine),
-and renders "you said…" (P21) and the read-back (P13) with Bulbul. The call waits for the answer:
-every 8 s the caller hears P30 ("please stay on the line"), for up to `STORY_MAX_WAIT_SECONDS`
-(90). If the best score is ≥ 0.35 the caller hears the 3 closest occupations and presses 1, 2 or 3
-(the next key = none of these). Unclear, too short, or "none" → tell it again in more detail, up
-to 3 tries, then the keypad trade list. Every read-back answer is stored as a labelled pair. The
-worker also saves the transcript itself, so nothing is lost if the caller hangs up.
-
-After pulling this step, re-seed the occupations (new Hindi aliases) and rebuild:
-
-```powershell
-docker compose -f infra/docker-compose.yml up -d --build
-docker compose -f infra/docker-compose.yml run --rm worker python scripts/seed_nco.py
-docker compose -f infra/docker-compose.yml exec worker python scripts/calibrate_search.py
-```
-
-## Closing summary and calls page (Step 10)
-
-Every completed interview ends with P15, rendered during the call from what was recorded
-("धन्यवाद। हमने लिखा है: दसवीं पास, मोबाइल मिस्त्री। … हुनरवाणी कभी पैसे या ओटीपी नहीं माँगता।"); if
-rendering fails the fixed P20 closing plays instead. Render P20 once with
-`python scripts\render_prompts.py`.
-
-The team's calls page is at `<PUBLIC_BASE_URL>/calls` (or `http://localhost:8000/calls`), behind
-basic auth with `CALLS_PAGE_USER` / `CALLS_PAGE_PASSWORD` from `.env`. It shows the latest 50 calls:
-answers, the caller's own words, the search's top two, the confirmed occupation, timings,
-consents and flags. Numbers show only their last four digits.
-
-## Team console (Step A5)
-
-A React web app (`frontend/`, Vite + TypeScript + Tailwind) at
-`http://localhost:8000/console/` (same user and password as `/calls`): overview, all calls with
-search, one call in detail (profile, the caller's words and recording, what was understood,
-consents, spoken summary, timeline), people, occupations, and **Voice prompts** (listen to every
-rendered prompt with its length, loudness and any problem). Docker builds it; for development
-run `npm install` and `npm run dev` in `frontend/` and open `http://localhost:5173/console/`.
+WhatsApp voice notes · missed-call callback · follow-up calls at 1, 3 and 6 months with outcome checks ·
+live TTS for free text (FastPitch) ·
+a richer learned ranker (LightGBM, neural network) once thousands of outcomes exist · real government data.

@@ -1,0 +1,7 @@
+# Server (needed in every mode)
+starlette>=0.37
+uvicorn[standard]>=0.29
+httpx>=0.27
+numpy>=1.26
+scipy>=1.11
+segno>=1.6

@@ -1,0 +1,7 @@
+# Voice rendering venv (.venv-tts): Indic Parler-TTS on the GPU. install.ps1 first installs
+# torch 2.7.1 + torchaudio from the CUDA 12.8 index (needed for RTX 50-series cards).
+# parler-tts pulls descript-audiotools from GitHub, so Git must be installed.
+parler-tts @ https://github.com/huggingface/parler-tts/archive/refs/heads/main.zip
+numpy>=1.26
+scipy>=1.11
+huggingface_hub>=0.24

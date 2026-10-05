@@ -1,8 +1,11 @@
 .env
 .venv/
+.venv-tts/
 __pycache__/
-*.pyc
-recordings/
-.pytest_cache/
-.ruff_cache/
-audio/dyn/
+*.db
+audio/
+*.wav
+config/policy.json
+config/history/
+config/proposed/
+cards/

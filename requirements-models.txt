@@ -1,0 +1,6 @@
+# Real mode, main venv (.venv): speech-to-text (IndicConformer runs on ONNX Runtime, on the CPU).
+# PyTorch is installed first by install.ps1 from the CPU index; the LLM runs in Ollama, not here.
+transformers>=4.44,<5
+onnxruntime==1.20.1
+onnx
+huggingface_hub>=0.24

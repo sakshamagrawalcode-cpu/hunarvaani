@@ -1,0 +1,111 @@
+{
+ "version": "default-1",
+ "base_weights": {
+  "aspiration": 25.0,
+  "skill": 20.0,
+  "demand": 20.0,
+  "access": 15.0,
+  "completion": 10.0,
+  "income": 10.0
+ },
+ "emphasis": {
+  "label_logit": {
+   "insists": 2.0,
+   "prefers": 0.6,
+   "neutral": 0.0,
+   "doesnt_care": -1.2,
+   "tradeoff_win": 1.5,
+   "tradeoff_lose": -0.75
+  },
+  "intensifier_bonus": 0.5,
+  "max_belief": 4.0,
+  "scale": 2.0,
+  "min": 0.5,
+  "max": 3.0
+ },
+ "gates": {
+  "capacity_by_age": [
+   [
+    18,
+    5
+   ],
+   [
+    35,
+    5
+   ],
+   [
+    45,
+    4
+   ],
+   [
+    55,
+    3
+   ],
+   [
+    65,
+    2
+   ]
+  ],
+  "health_penalty": {
+   "none": 0,
+   "some": 1,
+   "severe": 2
+  },
+  "work_base": 0.2,
+  "default_radius_km": 25,
+  "radius_exponent": 0.55,
+  "min_radius_km": 5,
+  "distance_halflife": 1.0,
+  "residential_km": 30,
+  "drop_below": 0.05,
+  "rejected_factor": 0.1,
+  "unrelated_factor": 0.5
+ },
+ "tradeoff": {
+  "enabled": true,
+  "max_questions": 1,
+  "min_pull": 0.03,
+  "max_score_gap": 0.12
+ },
+ "questions": {
+  "max_followups": 4,
+  "min_value": 0.15,
+  "llm_hint_bonus": 0.2,
+  "top_n": 3,
+  "lead_after": 2
+ },
+ "sector_load": {
+  "construction": 5,
+  "agriculture": 4,
+  "metal": 4,
+  "logistics": 4,
+  "livestock": 3,
+  "automotive": 3,
+  "electrical": 3,
+  "food": 3,
+  "care": 3,
+  "facility": 3,
+  "apparel": 2,
+  "handicraft": 2,
+  "beauty": 2,
+  "retail": 2,
+  "electronics": 2,
+  "vishwakarma": 2,
+  "rpl": 2,
+  "entrepreneurship": 1,
+  "it_ites": 1
+ },
+ "consent_only_codes": [
+  9613,
+  7535,
+  7536
+ ],
+ "learning": {
+  "min_choices": 200,
+  "min_outcomes": 300,
+  "l2": 0.5,
+  "max_weight_change": 10,
+  "max_gender_gap": 0.05
+ },
+ "district_overrides": {}
+}

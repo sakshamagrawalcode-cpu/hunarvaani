@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HunarVaani Kiosk</title>
+<style>
+  :root {
+    --ink: #1f1d4f; --muted: #5b5a7a; --bg: #f5f6fb; --card: #ffffff; --line: #dcdcec;
+    --indigo: #2b2766; --green: #2f8a57; --green-tint: #e6f3ec; --orange: #c2610c; --red: #b42318;
+    --amber-tint: #fdf0e1;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Noto Sans", "Noto Sans Devanagari", Arial, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--indigo); color: #fff; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .3px; }
+  header small { opacity: .8; margin-left: 10px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #999; display: inline-block; margin-right: 6px; }
+  .dot.on { background: #4ade80; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 16px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  #prompt { font-size: 26px; line-height: 1.45; min-height: 110px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; border: 0; border-radius: 12px; cursor: pointer; }
+  .choice { background: var(--indigo); color: #fff; font-size: 22px; padding: 16px 22px; min-width: 120px; text-align: left; }
+  .choice b { display: inline-block; background: rgba(255,255,255,.2); border-radius: 8px; padding: 0 8px; margin-right: 8px; }
+  .choice.alt { background: #e9e8f5; color: var(--ink); font-size: 16px; padding: 10px 14px; min-width: 0; }
+  .quick { background: #fff; color: var(--indigo); border: 2px solid var(--indigo); font-size: 20px; padding: 12px 18px; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 84px); gap: 10px; }
+  .keypad button { height: 70px; font-size: 28px; background: #e9e8f5; color: var(--ink); }
+  .keypad button.ok { background: var(--green); color: #fff; }
+  .entry { font-size: 34px; letter-spacing: 8px; min-height: 52px; margin-bottom: 12px; font-variant-numeric: tabular-nums; }
+  .listen { display: flex; align-items: center; gap: 22px; margin: 6px 0 14px; }
+  #mic { width: 132px; height: 132px; border-radius: 50%; background: var(--green); color: #fff; font-size: 18px; flex: none; }
+  #mic.rec { background: var(--red); animation: pulse 1.2s infinite; }
+  #mic.wait { background: #9a99b8; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(180,35,24,.45); } 50% { box-shadow: 0 0 0 18px rgba(180,35,24,0); } }
+  .meter { height: 10px; width: 220px; background: #e9e8f5; border-radius: 6px; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--green); transition: width .08s; }
+  .listen-text { font-size: 20px; }
+  input[type=text] { font: inherit; font-size: 20px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; flex: 1; min-width: 200px; }
+  .send { background: var(--indigo); color: #fff; padding: 12px 18px; font-size: 18px; }
+  .link { background: none; color: var(--muted); text-decoration: underline; font-size: 14px; padding: 4px; }
+  .hint { color: var(--muted); font-size: 15px; margin-top: 10px; }
+  h2 { font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--green); margin: 0 0 10px; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 10px; font-size: 16px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .kv.big { font-size: 20px; }
+  .kv b.n { display: inline-block; background: var(--indigo); color: #fff; border-radius: 6px; padding: 0 7px; font-size: 13px; margin-right: 6px; }
+  .missing { color: var(--orange); }
+  .chip { display: inline-block; background: var(--amber-tint); color: var(--orange); border-radius: 999px; padding: 2px 10px; margin: 2px 4px 2px 0; font-size: 13px; }
+  .opt { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .opt.pick { border: 2px solid var(--green); background: var(--green-tint); }
+  .opt h3 { margin: 0 0 4px; font-size: 17px; }
+  .opt .meta { color: var(--muted); font-size: 14px; }
+  .badge { font-size: 12px; font-weight: 700; background: var(--indigo); color: #fff; border-radius: 6px; padding: 1px 7px; margin-right: 6px; }
+  .why { font-size: 14px; margin-top: 6px; }
+  .gap { font-size: 13px; color: var(--orange); }
+  #reviewBox { border: 2px solid var(--green); }
+  #idcard { display: none; border: 2px solid var(--indigo); border-radius: 14px; padding: 16px; background: #fff; }
+  #cardSvg svg { width: 100%; height: auto; display: block; }
+  #idcard .num { font-size: 30px; font-weight: 700; letter-spacing: 2px; }
+  #idcard .brand { color: var(--green); font-weight: 700; }
+  #start { padding: 32px; text-align: center; }
+  #start .go { background: var(--green); color: #fff; font-size: 28px; padding: 22px 48px; }
+  #device { margin-top: 22px; font-size: 16px; color: var(--muted); }
+  #deviceSetup { margin-top: 14px; display: none; justify-content: center; }
+  .hidden { display: none !important; }
+  @media print { body * { visibility: hidden; } #idcard, #idcard * { visibility: visible; } #idcard { position: fixed; top: 0; left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>HunarVaani <small>हुनरवाणी · kiosk</small></h1>
+  <div><span id="dot" class="dot"></span><span id="status">ready</span></div>
+</header>
+<main>
+  <section>
+    <div id="start" class="panel">
+      <p style="font-size:20px">Helper: tap Start when the person is ready. Use the headset for privacy.<br>
+        The person just talks: the kiosk listens after each question and stops when they pause.</p>
+      <button id="startBtn" class="go">Start / शुरू करें</button>
+      <div id="device"></div>
+      <div id="deviceSetup" class="row">
+        <div style="text-align:left">
+          <div style="margin-bottom:8px">This kiosk's PIN code (set once, used for everyone here):</div>
+          <div class="entry" id="pinEntry">______</div>
+          <div class="keypad" id="pinPad"></div>
+          <div class="hint" id="pinMsg"></div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:14px">
+        <label class="hint"><input type="checkbox" id="autoListen" checked> Listen by itself after each question</label>
+      </div>
+    </div>
+    <div id="talk" class="panel hidden">
+      <div id="prompt"></div>
+      <div id="input" style="margin-top:14px"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <div class="panel hidden" id="reviewBox" style="margin-top:16px"><h2 id="reviewTitle">Please check</h2><div id="review"></div></div>
+  </section>
+  <aside>
+    <div id="idcard" style="margin-bottom:16px">
+      <div id="cardSvg"></div>
+      <div id="cardPlain">
+        <div class="brand">HunarVaani · हुनरवाणी</div>
+        <div id="cardName" style="font-size:20px;margin-top:6px"></div>
+        <div id="cardDistrict" style="color:#5b5a7a"></div>
+        <div class="row" style="margin-top:10px;align-items:flex-start">
+          <div><div style="font-size:12px;color:#5b5a7a">HunarVaani ID</div><div class="num" id="cardId"></div>
+            <div style="font-size:12px;color:#5b5a7a;max-width:220px">Keep your PIN secret. HunarVaani never asks for money or OTP.</div></div>
+          <div id="qr" style="margin-left:auto"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="send" onclick="window.print()">Print card</button></div>
+    </div>
+    <div class="panel" id="profileBox" style="margin-bottom:16px; display:none"><h2 id="profileTitle">What we understood</h2><div id="profile"></div></div>
+    <div class="panel" id="optionsBox" style="margin-bottom:16px; display:none"><h2>Options</h2><div id="options"></div></div>
+    <div class="panel" id="skillsBox" style="margin-bottom:16px; display:none"><h2>Skills worth learning</h2><div id="skills"></div></div>
+  </aside>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// Button labels for keypad-style questions (spoken questions bring their own labels from the server).
+const L = {
+  ask_gender: {hi: ["महिला", "पुरुष", "नहीं बताना"], mr: ["महिला", "पुरुष", "सांगायचं नाही"], en: ["Woman", "Man", "Prefer not to say"]},
+  ask_education: {hi: ["पढ़ाई नहीं", "5वीं तक", "8वीं तक", "10वीं", "12वीं", "उससे ज़्यादा"], mr: ["शिक्षण नाही", "5वी पर्यंत", "8वी पर्यंत", "10वी", "12वी", "त्यापेक्षा जास्त"], en: ["No schooling", "Up to 5", "Up to 8", "Class 10", "Class 12", "More"]},
+  ask_travel: {hi: ["5 किमी तक", "15 किमी तक", "30 किमी तक", "हॉस्टल ठीक"], mr: ["5 किमी पर्यंत", "15 किमी पर्यंत", "30 किमी पर्यंत", "वसतिगृह चालेल"], en: ["Up to 5 km", "Up to 15 km", "Up to 30 km", "Hostel is fine"]},
+  ask_health: {hi: ["कोई नहीं", "थोड़ी", "ज़्यादा"], mr: ["नाही", "थोडा", "जास्त"], en: ["None", "A little", "A lot"]},
+  ask_lean: {hi: ["नौकरी", "अपना काम", "दोनों ठीक"], mr: ["नोकरी", "स्वतःचं काम", "दोन्ही चालेल"], en: ["Job", "Own work", "Either"]},
+  review_which: {hi: ["नाम", "उम्र", "पढ़ाई", "दूरी", "काम", "महिला/पुरुष", "शारीरिक तकलीफ़"], mr: ["नाव", "वय", "शिक्षण", "अंतर", "काम", "महिला/पुरुष", "शारीरिक त्रास"], en: ["Name", "Age", "Studies", "Travel", "Work", "Woman/man", "Health"]},
+};
+const YES_NO = {hi: ["हाँ", "नहीं"], mr: ["हो", "नाही"], en: ["Yes", "No"]};
+["consent", "consent_ai", "returning", "review_ok", "confirm_choice"].forEach((k) => L[k] = YES_NO);
+const LANG_BTN = {"1": "हिंदी", "2": "मराठी", "3": "English"};
+const EXTRA = {hi: ["अधिकारी से बात (0)", "मेरी जानकारी मिटाएँ (9)"], mr: ["अधिकाऱ्याशी बोला (0)", "माझी माहिती पुसा (9)"], en: ["Talk to an officer (0)", "Delete my data (9)"]};
+const TXT = {
+  hi: {listen: "सुन रहे हैं… बोलिए", wait: "सवाल सुनिए…", tap: "बोलने के लिए दबाएँ", done: "बस", type: "सहायक: लिखकर भेजें", send: "भेजें", or: "या चुनें:", thinking: "समझ रहे हैं…", understood: "हमने अब तक क्या समझा", check: "कृपया देखें: क्या यह सही है?",
+       f: ["नाम", "उम्र", "पढ़ाई", "काम", "करना चाहते हैं", "दूरी", "सबसे मिलता काम", "नहीं चाहिए"], yrs: "साल", km: "किमी तक", hostel: "हॉस्टल ठीक", home: "घर से दूर नहीं", kiosk: "यह कियोस्क"},
+  mr: {listen: "ऐकत आहोत… बोला", wait: "प्रश्न ऐका…", tap: "बोलण्यासाठी दाबा", done: "झालं", type: "मदतनीस: लिहून पाठवा", send: "पाठवा", or: "किंवा निवडा:", thinking: "समजून घेत आहोत…", understood: "आम्ही आत्तापर्यंत काय समजलो", check: "कृपया पाहा: हे बरोबर आहे का?",
+       f: ["नाव", "वय", "शिक्षण", "काम", "करायचं आहे", "अंतर", "सर्वात जुळणारं काम", "नको"], yrs: "वर्षं", km: "किमी पर्यंत", hostel: "वसतिगृह चालेल", home: "घरापासून दूर नाही", kiosk: "हे कियोस्क"},
+  en: {listen: "Listening… please speak", wait: "Listen to the question…", tap: "Tap to speak", done: "Done", type: "Helper: type instead", send: "Send", or: "or choose:", thinking: "Understanding…", understood: "What we understood so far", check: "Please check: is this right?",
+       f: ["Name", "Age", "Studies", "Work", "Wants", "Travel", "Best-matching work", "Not wanted"], yrs: "yrs", km: "km", hostel: "hostel ok", home: "not away from home", kiosk: "this kiosk"},
+};
+const VOICE = {hi: "hi-IN", mr: "mr-IN", en: "en-IN"};
+const store = {  // per-device settings; the page still works if the browser blocks storage
+  get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } },
+};
+
+let ws, lang = "hi", queue = [], playing = false, mic = null, options = [], pendingTalk = null, devicePin = store.get("hv_device_pin");
+const $ = (id) => document.getElementById(id);
+const t = (k) => (TXT[lang] || TXT.en)[k];
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+function setStatus(text, on) { $("status").textContent = text; $("dot").className = "dot" + (on ? " on" : ""); }
+
+// ---- this kiosk's location (set once; every person here gets it, nobody is asked for a PIN code)
+async function showDevice() {
+  if (!devicePin) { $("device").innerHTML = "This kiosk has no PIN code yet. Set it once below (or each person will be asked)."; openSetup(); return; }
+  let place = "";
+  try { const r = await fetch("/api/pincode/" + devicePin); if (r.ok) { const d = await r.json(); place = ` · ${esc(d.district)}, ${esc(d.state)}`; } } catch (e) { }
+  $("device").innerHTML = `Kiosk location: PIN ${esc(devicePin)}${place} <button class="link" id="changePin">change</button>`;
+  $("changePin").onclick = openSetup;
+}
+function openSetup() {
+  let value = "";
+  $("deviceSetup").style.display = "flex"; $("pinPad").innerHTML = ""; $("pinMsg").textContent = "";
+  const draw = () => { $("pinEntry").textContent = value + "_".repeat(6 - value.length); };
+  for (const k of ["1","2","3","4","5","6","7","8","9","⌫","0","✓"]) {
+    const b = document.createElement("button"); b.textContent = k; if (k === "✓") b.className = "ok";
+    b.onclick = async () => {
+      if (k === "⌫") value = value.slice(0, -1);
+      else if (k === "✓") {
+        const r = await fetch("/api/pincode/" + value).catch(() => null);
+        if (!r || !r.ok) { $("pinMsg").textContent = "This PIN code is not in our list."; return; }
+        devicePin = value; store.set("hv_device_pin", value); $("deviceSetup").style.display = "none"; showDevice(); return;
+      } else if (value.length < 6) value += k;
+      draw();
+    };
+    $("pinPad").appendChild(b);
+  }
+  draw();
+}
+$("autoListen").checked = store.get("hv_auto_listen") !== "off";
+$("autoListen").onchange = () => store.set("hv_auto_listen", $("autoListen").checked ? "on" : "off");
+
+// ---- audio: play pre-recorded pieces in order; fall back to the browser voice if pieces are missing
+let currentAudio = null, audioGen = 0;
+function enqueue(msg) { queue.push(msg); if (!playing) playNext(); }
+function playNext() {
+  const msg = queue.shift();
+  if (!msg) { playing = false; currentAudio = null; afterAudio(); return; }
+  playing = true;
+  const gen = audioGen;
+  if (msg.audio && msg.audio.length && msg.complete_audio) {
+    const urls = msg.audio.slice();
+    const step = () => {
+      if (gen !== audioGen) return;  // stopped meanwhile
+      const u = urls.shift();
+      if (!u) return playNext();
+      const a = new Audio(u); currentAudio = a;
+      a.onended = step; a.onerror = step; a.play().catch(step);
+    };
+    step();
+  } else if ("speechSynthesis" in window && msg.text) {
+    const u = new SpeechSynthesisUtterance(msg.text); u.lang = VOICE[msg.lang] || "hi-IN";
+    u.onend = () => { if (gen === audioGen) playNext(); }; u.onerror = u.onend; speechSynthesis.speak(u);
+  } else { playNext(); }
+}
+function stopAudio() {
+  audioGen++; queue = []; playing = false;
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) { } currentAudio = null; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+}
+function audible() { return (currentAudio && !currentAudio.paused && !currentAudio.ended) || ("speechSynthesis" in window && speechSynthesis.speaking); }
+function afterAudio() {  // the question has been heard: start listening by itself
+  if (!pendingTalk || mic || micStarting) return;
+  if ($("autoListen").checked && !pendingTalk.noAuto) startMic();
+  else if ($("mic")) {
+    $("mic").classList.remove("wait"); $("mic").textContent = t("tap");
+    if ($("listenText")) $("listenText").textContent = t("tap");
+  }
+}
+// safety net: if the browser voice never reports that it finished, treat it as finished after 2 s of silence
+let quietFor = 0;
+setInterval(() => {
+  if (playing && pendingTalk && !audible()) quietFor += 500; else quietFor = 0;
+  if (quietFor >= 2000) { quietFor = 0; stopAudio(); afterAudio(); }
+}, 500);
+
+function showPrompt(text) { $("prompt").innerHTML = esc(text); }
+function answer(value) {
+  pendingTalk = null; stopMic(false); stopAudio();
+  ws.send(JSON.stringify({type: "answer", value: String(value)}));
+  $("input").innerHTML = ""; $("hint").textContent = "";
+}
+
+// ---- asks
+function extraButtons(box) {
+  const extra = document.createElement("div"); extra.className = "row"; extra.style.marginTop = "14px";
+  EXTRA[lang].forEach((txt, i) => { const b = document.createElement("button"); b.className = "choice alt"; b.textContent = txt; b.onclick = () => answer(i ? "9" : "0"); extra.appendChild(b); });
+  box.appendChild(extra);
+}
+function askKeys(msg) {
+  const box = $("input"); box.innerHTML = "";
+  const qkey = msg.keys[msg.keys.length - 1];
+  const isLang = msg.keys.includes("lang_hi");
+  const row = document.createElement("div"); row.className = "row";
+  for (const k of msg.allowed) {
+    if (k === "0" || k === "9") continue;
+    let label = isLang ? LANG_BTN[k] : (L[qkey] ? (L[qkey][lang] || [])[+k - 1] || "" : "");
+    if (qkey === "choose_prompt") label = k === "8" ? ({hi: "सब फिर से सुनें", mr: "सगळे पुन्हा ऐका", en: "Hear all again"}[lang]) : (options[+k - 1]?.course || "");
+    if (qkey === "tf_press_2") label = (msg.parts || []).filter((x) => x.key.startsWith("tf_") && !x.key.startsWith("tf_press"))[+k - 1]?.text || "";
+    const b = document.createElement("button"); b.className = "choice";
+    b.innerHTML = `<b>${k}</b>${esc(label)}`; b.onclick = () => answer(k); row.appendChild(b);
+  }
+  box.appendChild(row);
+  if (msg.allowed.includes("0")) extraButtons(box);
+}
+function askDigits(msg) {
+  let value = "";
+  const box = $("input"); box.innerHTML = `<div class="entry" id="entry"></div><div class="keypad" id="pad"></div>`;
+  const draw = () => { $("entry").textContent = (msg.secret ? "•".repeat(value.length) : value) + "_".repeat(Math.max(0, msg.count - value.length)); };
+  for (const k of ["1","2","3","4","5","6","7","8","9","⌫","0","✓"]) {
+    const b = document.createElement("button"); b.textContent = k; if (k === "✓") b.className = "ok";
+    b.onclick = () => {
+      if (k === "⌫") value = value.slice(0, -1);
+      else if (k === "✓") { if (value.length === msg.count) answer(value); return; }
+      else if (value.length < msg.count) value += k;
+      draw(); if (value.length === msg.count && !msg.secret) setTimeout(() => answer(value), 250);
+    };
+    $("pad").appendChild(b);
+  }
+  draw();
+  $("hint").textContent = msg.secret ? ({hi: "पिन किसी को न दिखाएँ, न बोलें।", mr: "पिन कोणालाही दाखवू नका, बोलू नका.", en: "Keep the PIN hidden; do not say it aloud."}[lang]) : "";
+}
+function askText(msg) {
+  $("input").innerHTML = `<div class="row"><input type="text" id="txt"><button class="send" id="sendTxt">${t("send")}</button></div>`;
+  $("sendTxt").onclick = () => answer($("txt").value.trim());
+}
+function askTalk(msg) {
+  // a spoken question: the person answers by talking; the buttons are a quick alternative
+  pendingTalk = msg;
+  const box = $("input");
+  const choices = (msg.allowed || "").split("").filter((k) => k !== "0" && k !== "9");
+  const labels = msg.labels || [];
+  box.innerHTML = `<div class="listen"><button id="mic" class="wait">${t("wait")}</button>
+      <div><div class="listen-text" id="listenText">${t("wait")}</div><div class="meter" style="margin-top:10px"><i id="level"></i></div></div></div>
+    ${labels.length ? `<div class="hint">${t("or")}</div><div class="row" id="quick"></div>` : ""}
+    <div style="margin-top:12px"><button class="link" id="typeToggle">${t("type")}</button>
+      <div class="row hidden" id="typeRow" style="margin-top:6px"><input type="text" id="typed"><button class="send" id="sendTyped">${t("send")}</button></div></div>`;
+  if (labels.length) choices.forEach((k, i) => {
+    if (!labels[i]) return;
+    const b = document.createElement("button"); b.className = "quick"; b.textContent = labels[i]; b.onclick = () => answer(k); $("quick").appendChild(b);
+  });
+  $("mic").onclick = () => mic ? stopMic(true) : (stopAudio(), startMic());
+  $("typeToggle").onclick = () => {  // the helper types: stop listening for this question
+    $("typeRow").classList.toggle("hidden"); msg.noAuto = true; stopMic(false); $("typed").focus();
+    $("mic").className = ""; $("mic").textContent = t("tap"); $("listenText").textContent = t("type");
+  };
+  $("sendTyped").onclick = () => { const v = $("typed").value.trim(); if (v) answer(v); };
+  $("typed").onkeydown = (e) => { if (e.key === "Enter") { const v = $("typed").value.trim(); if (v) answer(v); } };
+  if (msg.allowed && msg.allowed.includes("0")) extraButtons(box);
+  if (!playing && !queue.length) afterAudio();
+}
+
+// ---- microphone: 16 kHz, 16-bit mono PCM. Only speech is sent (with a short lead-in); silence is not.
+let micStarting = false;
+async function startMic() {
+  if (mic || micStarting) return;
+  micStarting = true;
+  const forTalk = pendingTalk;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true}});
+    const AC = window.AudioContext || window.webkitAudioContext;
+    let ctx, src;
+    try { ctx = new AC({sampleRate: 16000}); src = ctx.createMediaStreamSource(stream); }
+    catch (e) { if (ctx) ctx.close(); ctx = new AC(); src = ctx.createMediaStreamSource(stream); }
+    const proc = ctx.createScriptProcessor(4096, 1, 1);
+    const ratio = ctx.sampleRate / 16000;
+    let heard = false, quietSince = 0, sent = 0;
+    const lead = [];  // the last ~0.5 s before speech starts, so the first word is not cut
+    const started = Date.now();
+    const me = {stream, ctx, proc, src};
+    proc.onaudioprocess = (e) => {
+      if (mic !== me || !ws || ws.readyState !== 1) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const n = Math.floor(input.length / ratio);
+      const out = new Int16Array(n);
+      let energy = 0;
+      for (let i = 0; i < n; i++) {
+        const a = Math.floor(i * ratio), b = Math.max(a + 1, Math.floor((i + 1) * ratio));
+        let s = 0; for (let j = a; j < b; j++) s += input[j]; s /= (b - a);
+        out[i] = Math.max(-1, Math.min(1, s)) * 32767; energy += s * s;
+      }
+      const level = Math.sqrt(energy / Math.max(1, n)), now = Date.now();
+      if ($("level")) $("level").style.width = Math.min(100, level * 900) + "%";
+      const loud = level > 0.015;
+      if (loud && !heard) { heard = true; lead.forEach((buf) => ws.send(buf)); lead.length = 0; }
+      if (heard) { ws.send(out.buffer); sent += n; }
+      else { lead.push(out.buffer); if (lead.length > 2) lead.shift(); }
+      if (loud) quietSince = 0; else if (heard && !quietSince) quietSince = now;
+      if (heard && quietSince && now - quietSince > 1800) stopMic(true);       // they paused: done
+      else if (!heard && now - started > 9000) stopMic(true);                  // nothing said
+      else if (now - started > 30000) stopMic(true);                          // long answer: enough
+    };
+    src.connect(proc); proc.connect(ctx.destination);
+    micStarting = false;
+    if (pendingTalk !== forTalk || !pendingTalk) {  // answered meanwhile (button / typing): do not record
+      try { proc.disconnect(); src.disconnect(); stream.getTracks().forEach((tr) => tr.stop()); ctx.close(); } catch (e) { }
+      return;
+    }
+    mic = me;
+    if ($("mic")) { $("mic").className = "rec"; $("mic").textContent = t("done"); }
+    if ($("listenText")) $("listenText").textContent = t("listen");
+  } catch (err) {
+    micStarting = false;
+    $("hint").textContent = "Microphone not available (" + err.name + "). Open the kiosk on localhost or over https, or use the buttons.";
+  }
+}
+function stopMic(send) {
+  if (!mic) return;
+  const m = mic; mic = null;
+  try { m.proc.disconnect(); m.src.disconnect(); m.stream.getTracks().forEach((tr) => tr.stop()); m.ctx.close(); } catch (e) { }
+  if (send) {
+    pendingTalk = null;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: "speech_end"}));
+    $("input").innerHTML = `<div class="listen-text">${t("thinking")}</div>`;
+  }
+}
+
+// ---- side panels
+const ROW = (label, value, n) => `<span>${n ? `<b class="n">${n}</b>` : ""}${esc(label)}</span><span>${value === "" || value == null ? `<span class="missing">—</span>` : esc(value)}</span>`;
+function showProfile(d) {
+  $("profileBox").style.display = "block"; $("profileTitle").textContent = t("understood");
+  const f = t("f");
+  const emph = Object.entries(d.emphasis || {}).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(v)}</span>`).join("");
+  const quotes = (d.evidence || []).slice(-4).map((e) => `<div class="hint">“${esc(e.quote)}” → ${esc(e.field)} ${esc(e.strength || "")}</div>`).join("");
+  $("profile").innerHTML = `<div class="kv">${ROW(f[0], d.name)}${ROW(f[1], d.age)}${ROW(f[2], d.education_label || "")}
+    ${ROW(f[3], (d.work || []).join(", ") + (d.years ? ` · ${d.years} ${t("yrs")}` : ""))}${ROW(f[4], (d.wants || []).join(", "))}
+    ${ROW(f[5], d.radius_km ? `${d.radius_km} ${t("km")}` + (d.cannot_leave_home ? " · " + t("home") : "") : "")}
+    ${ROW(f[6], d.lead_label || "")}${(d.rejected || []).length ? ROW(f[7], d.rejected.join(", ")) : ""}</div>
+    <div style="margin-top:8px">${emph}</div>${quotes}`;
+}
+function showReview(d) {
+  $("reviewBox").classList.remove("hidden"); $("reviewTitle").textContent = t("check");
+  const lb = d.labels || {};
+  const travel = d.travel_km ? `${d.travel_km} ${t("km")}` + (d.hostel_ok && !d.cannot_leave_home ? " · " + t("hostel") : "") + (d.cannot_leave_home ? " · " + t("home") : "") : "";
+  const work = (d.work || []).join(", ") + (d.years ? ` · ${d.years} ${t("yrs")}` : "") + ((d.wants || []).length ? " → " + d.wants.join(", ") : "");
+  $("review").innerHTML = `<div class="kv big">${ROW(lb.name || "Name", d.name, 1)}${ROW(lb.age || "Age", d.age, 2)}
+    ${ROW(lb.education || "Studies", d.education, 3)}${ROW(lb.travel || "Travel", travel, 4)}
+    ${ROW(lb.work || "Work", work, 5)}${ROW(lb.gender || "Woman/man", d.gender, 6)}${ROW(lb.health || "Health", d.health, 7)}</div>
+    <div class="hint" style="margin-top:8px">${esc(d.district || "")}${d.location_from === "device" ? ` (${t("kiosk")})` : ""}</div>`;
+}
+function showOptions(items, pick) {
+  options = items; $("optionsBox").style.display = "block"; $("reviewBox").classList.add("hidden");
+  $("options").innerHTML = items.map((o, i) => `<div class="opt ${pick === i + 1 || o.chosen ? "pick" : ""}">
+    <h3><span class="badge">${i + 1}</span>${esc(o.course)}</h3>
+    <div class="meta">${esc(o.centre)} · ${o.distance_km} km · ${weeks(o.hours)} · ${o.fee_inr ? "₹" + o.fee_inr : "free"} · ${esc(o.scheme)}</div>
+    <div class="why">Why: ${esc((o.reasons || []).join("; "))}</div>
+    ${o.skill_gap && o.skill_gap.length ? `<div class="gap">You will learn: ${esc(o.skill_gap.join(", "))}</div>` : ""}
+    <div class="meta" style="font-size:12px">score ${o.score} (plain ${o.raw})</div></div>`).join("");
+}
+function weeks(h) { const w = Math.max(1, Math.round(h / 40)); return h < 40 ? "under a week" : `${w} week${w > 1 ? "s" : ""}`; }
+function money(r) { return r ? `₹${(r[0] / 1000).toFixed(0)}–${(r[1] / 1000).toFixed(0)}k a month` : "—"; }
+function showSkills(items) {
+  $("skillsBox").style.display = "block";
+  $("skills").innerHTML = items.map((a) => `<div class="opt"><h3>${esc(a.skills.join(", "))}</h3>
+    <div class="meta">For: ${esc(a.course)} · about ${a.weeks} weeks · ${esc(a.centre)}, ${a.distance_km} km</div>
+    <div class="why">${a.gap === "small" ? "A step up in your own trade" : "A neighbouring trade"} · ${a.pay_gain > 0 ? `pay ${money(a.pay_now)} → ${money(a.pay_after)}` : `same pay range (${money(a.pay_after)}), higher skill level`}${a.nsqf_level ? " · NSQF level " + a.nsqf_level : ""}</div></div>`).join("");
+}
+function showCard(d) {
+  $("idcard").style.display = "block";
+  $("cardSvg").innerHTML = d.svg || ""; $("cardPlain").style.display = d.svg ? "none" : "block";
+  $("cardName").textContent = d.name || ""; $("cardDistrict").textContent = d.district || ""; $("cardId").textContent = d.hv_id;
+  $("qr").innerHTML = "";
+  if (!d.svg && window.QRCode) new QRCode($("qr"), {text: "HUNARVAANI:" + d.raw_id, width: 110, height: 110});
+}
+const PANELS = ["profileBox", "optionsBox", "skillsBox", "idcard"];
+function clearScreen() { PANELS.forEach((id) => $(id).style.display = "none"); $("reviewBox").classList.add("hidden"); $("prompt").innerHTML = ""; $("input").innerHTML = ""; }
+
+// ---- connection
+let clearTimer = null;
+function connect() {
+  if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
+  $("start").classList.add("hidden"); $("talk").classList.remove("hidden");
+  clearScreen();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/kiosk`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => { setStatus("connected", true); ws.send(JSON.stringify({type: "hello", device_pin: devicePin})); };
+  ws.onclose = () => { setStatus("ended", false); stopMic(false); pendingTalk = null; $("start").classList.remove("hidden"); };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.lang) { lang = msg.lang; document.documentElement.lang = lang; }
+    if (msg.type === "say") { showPrompt(msg.text); enqueue(msg); }
+    else if (msg.type === "ask") {
+      showPrompt(msg.text); enqueue(msg);
+      ({keys: askKeys, digits: askDigits, text: askText, talk: askTalk})[msg.mode](msg);
+    } else if (msg.type === "show") {
+      const d = msg.data;
+      if (msg.kind === "profile") showProfile(d);
+      else if (msg.kind === "review") showReview(d);
+      else if (msg.kind === "options") showOptions(d.items);
+      else if (msg.kind === "detail") showOptions(options, d.rank);
+      else if (msg.kind === "card") showCard(d);
+      else if (msg.kind === "skills") showSkills(d.items || []);
+      else if (msg.kind === "person") { showCard({...d, raw_id: d.hv_id.replace(/-/g, "")}); showOptions(d.options || []); }
+    } else if (msg.type === "end") {
+      $("input").innerHTML = ""; $("hint").textContent = "Session ended: " + msg.reason + ". The screen clears in 60 seconds.";
+      clearTimer = setTimeout(clearScreen, 60000);  // the next person must not see this person's details
+    }
+  };
+}
+$("startBtn").onclick = connect;
+showDevice();
+</script>
+</body>
+</html>
