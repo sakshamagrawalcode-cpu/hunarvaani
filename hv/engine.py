@@ -17,8 +17,10 @@ so people are not asked for it. The LLM only labels and suggests; code decides a
 import asyncio
 import itertools
 import logging
+import time
 from typing import Protocol
 
+from . import explain
 from .card import card_svg, delete_card, save_card
 from .config import settings
 from .data import Data
@@ -84,6 +86,9 @@ class Channel(Protocol):
 
     async def show(self, kind: str, payload: dict) -> None: ...
 
+    # optional: a channel with `async def trace(step: dict)` (the officer console's live call) gets a
+    # plain-language note of every decision; `label` names the channel in the records ("phone-demo")
+
 
 class Conversation:
     def __init__(self, ch: Channel, data: Data, llm: LLM, stt: STT, store: Store):
@@ -108,10 +113,13 @@ class Conversation:
         self.last_kind = "slot"
         self.followups = 0
         self.plan_log: list[dict] = []
+        self.stt_ms = 0
+        self.tracer = getattr(ch, "trace", None)
+        self.channel_label = getattr(ch, "label", ch.name)
 
     # ------------------------------------------------------------------------------------------
     async def run(self) -> str:
-        self.sid = self.store.start_session(self.ch.name)
+        self.sid = self.store.start_session(self.channel_label)
         reason = "completed"
         try:
             await self._run()
@@ -154,6 +162,11 @@ class Conversation:
         if settings.log_turns:
             self.store.turn(self.sid, kind, question, answer, labels)
 
+    async def trace(self, step: str, title: str, lines: list[str] | tuple = (), **data) -> None:
+        """A plain-language note for the officer console's live call (no-op on every other channel)."""
+        if self.tracer:
+            await self.tracer({"step": step, "title": title, "lines": list(lines), "data": data})
+
     async def ack(self) -> None:
         await self.say([f"ack_{next(self._acks)}"])
 
@@ -167,8 +180,11 @@ class Conversation:
             key = await self.ch.keys(prefix + parts, self.lang, allowed + extra, settings.key_timeout)
             if key and len(key) == 1 and key in allowed:
                 self.log("key", parts[0].key, key)
+                await self.trace("key", f"Pressed {key}", [f"Key {key} for “{explain.question_name(parts[0].key)}”"],
+                                 question=parts[0].key, key=key)
                 return key
             if key == "0":
+                await self.trace("officer", "Asked for an officer", ["Key 0: flagged for a call back"])
                 await self.officer_flag(parts[0].key)
                 prefix = self.parts(["human_flag"])
                 continue
@@ -208,14 +224,17 @@ class Conversation:
     # speaking and listening -------------------------------------------------------------------
     async def transcribe(self, pcm: bytes) -> str:
         """Speech to text while a short "one moment" plays, so the line is never silent."""
+        t0 = time.time()
         job = asyncio.create_task(asyncio.to_thread(self.stt.transcribe, pcm, self.lang))
         if self.stt.real:
             await self.say(["one_moment"])
         try:
-            return (await job).strip()
+            text = (await job).strip()
         except Exception:  # never end the call because speech-to-text failed: ask again / use keys
             log.exception("speech-to-text failed")
-            return ""
+            text = ""
+        self.stt_ms = round((time.time() - t0) * 1000)
+        return text
 
     async def talk(self, parts: list[Part], choices: str = "", labels_key: str | None = None,
                    labels: list[str] | None = None, optional: bool = False,
@@ -231,8 +250,12 @@ class Conversation:
             if kind == "key":
                 if got and len(got) == 1 and got in choices:
                     self.log("key", name, got)
+                    shown_label = shown[choices.index(got)] if choices.index(got) < len(shown) else ""
+                    await self.trace("key", f"Pressed {got}" + (f": {shown_label}" if shown_label else ""),
+                                     [f"Key {got} for “{explain.question_name(name)}”"], question=name, key=got)
                     return "key", got
                 if got == "0":
+                    await self.trace("officer", "Asked for an officer", ["Key 0: flagged for a call back"])
                     await self.officer_flag(name)
                     prefix = self.parts(["human_flag"])
                     continue
@@ -244,7 +267,15 @@ class Conversation:
                 continue
             text = await self.transcribe(got) if kind == "audio" else (got or "").strip() if kind == "text" else ""
             if text:
+                if kind == "audio":
+                    await self.trace("heard", "Heard (speech to text)", [text], question=name, text=text,
+                                     source="speech-to-text", ms=self.stt_ms, seconds=round(len(got) / 32000, 1))
+                else:
+                    await self.trace("heard", "Heard (typed)", [text], question=name, text=text, source="typed")
                 return "text", text
+            if kind == "audio":
+                await self.trace("heard", "Nothing understood", ["Speech to text found no words; asking again"],
+                                 question=name, source="speech-to-text", ms=self.stt_ms)
             prefix = self.parts(["didnt_hear"])
         return None, ""
 
@@ -299,7 +330,8 @@ class Conversation:
 
     async def understand(self, question: str, transcript: str, as_aspiration: bool = False,
                          as_family: bool = False) -> Labels:
-        labels = await asyncio.to_thread(self.llm.label, transcript, question, self.llm_context(question))
+        info: dict = {}
+        labels = await asyncio.to_thread(self.llm.label, transcript, question, self.llm_context(question), info)
         if as_aspiration and not labels.aspiration_codes:
             labels.aspiration_codes, labels.occupation_codes = labels.occupation_codes, []
         if as_family:
@@ -309,6 +341,11 @@ class Conversation:
         if labels.follow_up in BANK and labels.follow_up not in self.asked:
             self.llm_hint = labels.follow_up
         self.log("speech", question, transcript, labels.__dict__)
+        lines = explain.labels(labels, self.data)
+        if info.get("error"):
+            lines.append(f"The LLM did not answer ({info['error']}); the call goes on without its labels")
+        await self.trace("llm", "LLM labels (checked by code)", lines, question=question, model=info.get("model"),
+                         ms=info.get("ms"), raw=info.get("raw"), rejected=labels.rejected, mood=labels.mood)
         await self.respond(labels)
         return labels
 
@@ -342,7 +379,7 @@ class Conversation:
         person = self.store.person(hv_id)
         self.profile = Profile.from_dict(person["profile"])
         self.profile.language = self.lang
-        self.store.audit("caller", "returned", hv_id, self.ch.name)
+        self.store.audit("caller", "returned", hv_id, self.channel_label)
         saved = self.store.options(hv_id)
         await self.ch.show("person", {"hv_id": pretty(hv_id), "name": person["name"], "options": saved})
         await self.say(["welcome_back"])
@@ -370,11 +407,14 @@ class Conversation:
         await self.guided()
         await self.review()
         # saved now, so nothing is lost if the call drops while hearing the options
-        self.hv_id = self.store.create_person(pr.name, pr.district, self.lang, self.ch.name, self.record(),
+        self.hv_id = self.store.create_person(pr.name, pr.district, self.lang, self.channel_label, self.record(),
                                               self.consent)
         self.store.end_session(self.sid, "in progress", self.hv_id)
+        await self.trace("saved", f"Saved as {pretty(self.hv_id)}",
+                         ["The record is saved now, so nothing is lost if the call drops"], hv_id=self.hv_id)
         await self.say(["thinking"])
         self.options = await asyncio.to_thread(rank, self.data, pr, settings.max_options)
+        await self.trace_ranking("Ranking")
         await self.ask_tradeoff()
         if self.options:
             self.store.save_options(self.sid, self.hv_id, [o.summary() for o in self.options])
@@ -475,6 +515,11 @@ class Conversation:
             self.plan_log.append({"question": q.key, "score": round(plan.score, 3), "why": plan.why,
                                   "mood": self.mood(), "lead": self.lead_sector})
             self.log("plan", q.key, plan.why, {"scores": plan.scores, "mood": self.mood()})
+            if self.tracer:
+                short = await asyncio.to_thread(explain.shortlist, self.data, self.profile, self.policy())
+                info = explain.plan(q.key, plan.score, plan.why, plan.scores, self.lead_sector, self.data, short)
+                await self.trace("plan", f"Next question: {explain.question_name(q.key)}", info.pop("lines"),
+                                 mood=self.mood(), **info)
             if not q.required:
                 self.followups += 1
                 if not intro and q.kind == "probe":
@@ -513,6 +558,8 @@ class Conversation:
                 ok = q.from_text(self, got, None)
                 if ok:
                     self.log("speech", q.key, got, {"read_by": "rules"})
+                    await self.trace("rules", "Read by simple rules (no LLM needed)", [explain.slot(q.key, self.profile)],
+                                     question=q.key)
                     await self.ack()
             if not ok:
                 labels = await self.understand(q.key, got, as_aspiration=q.key == "ask_aspiration",
@@ -587,6 +634,8 @@ class Conversation:
             await self.ch.show("review", self.review_view())
             if await self.yes_no(self.review_parts() + self.parts(["review_ok"]), "review_ok", default=True):
                 self.log("review", "review_ok", "confirmed")
+                await self.trace("review", "Everything understood was confirmed",
+                                 [explain.slot(k, self.profile) for k in ("ask_name", "say_age", "say_education", "say_travel")])
                 return
             field = None
             for _ in range(2):
@@ -603,6 +652,8 @@ class Conversation:
             if not field:
                 continue  # read it back again
             self.log("review", "review_which", field)
+            await self.trace("review", f"Correcting: {field}", [f"The person said the {field} was wrong; asking again"],
+                             field=field)
             await self.correct(field)
 
     async def correct(self, field: str) -> None:
@@ -654,6 +705,10 @@ class Conversation:
             if not pair:
                 return
             fa, fb = pair
+            await self.trace("tradeoff", "Trade-off question",
+                             [f"The top two options are close and pull different ways: option 1 wins on "
+                              f"{explain.FACTOR_TEXT[fa]}, option 2 on {explain.FACTOR_TEXT[fb]}. Asking which matters more."],
+                             a=fa, b=fb)
             parts = self.parts(["tradeoff_q", f"tf_{fa}", "tf_press_1", f"tf_{fb}", "tf_press_2"])
             kind, got = await self.talk(parts, "12", labels=[parts[1].text, parts[3].text])
             pick = got if kind == "key" else None
@@ -665,11 +720,21 @@ class Conversation:
                     pick = str(n[0]) if n else None
             if pick is None:  # unclear: no evidence, keep the ranking as it is
                 self.log("tradeoff", f"{fa} vs {fb}", "unclear")
+                await self.trace("tradeoff", "Trade-off unclear", ["No clear answer: the ranking stays as it is"])
                 return
             win, lose = (fa, fb) if pick == "1" else (fb, fa)
             add_tradeoff(self.profile, win, lose, pick)
             self.log("tradeoff", f"{fa} vs {fb}", win)
             self.options = await asyncio.to_thread(rank, self.data, self.profile, settings.max_options)
+            await self.trace("tradeoff", "Trade-off answered",
+                             [f"{explain.FACTOR_LABEL[win]} matters more than {explain.FACTOR_LABEL[lose]}: "
+                              "their weights moved, so the list was ranked again"], win=win, lose=lose)
+            await self.trace_ranking("Ranking after the trade-off")
+
+    async def trace_ranking(self, title: str) -> None:
+        if self.tracer:
+            info = await asyncio.to_thread(explain.ranking, self.data, self.profile, self.policy(), self.options)
+            await self.trace("ranking", title, info.pop("lines"), **info)
 
     # options ------------------------------------------------------------------------------------
     def option_parts(self, rank_no: int, course, centre) -> list[Part]:
@@ -732,6 +797,8 @@ class Conversation:
             await self.ch.show("detail", {"rank": int(key), **o.summary()})
             if await self.yes_no(detail + self.parts(["confirm_choice"]), "confirm_choice", default=True):
                 await self.say(["chosen"])
+                await self.trace("choice", f"Chose option {key}", [explain.option(o.summary())["sentence"]],
+                                 rank=int(key), course=o.course.title_en)
                 return int(key)
             prompt = []
         return None
@@ -757,7 +824,7 @@ class Conversation:
         skills = self.advice[0]["skills"][:3] if self.advice else []
         svg = card_svg(self.hv_id, self.profile.name, d.name_en if d else "", chosen, skills)
         save_card(self.hv_id, svg)
-        self.store.audit("system", "card_created", self.hv_id, self.ch.name)
+        self.store.audit("system", "card_created", self.hv_id, self.channel_label)
         return svg
 
     async def give_id_and_pin(self) -> None:

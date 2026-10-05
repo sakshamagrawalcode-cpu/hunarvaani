@@ -59,8 +59,21 @@ Double-click **`RUN.bat`**. Wait until the window says **models warmed up** (abo
   on the start screen (once per device; everyone at this kiosk gets that location, nobody is asked).
   Press **Start**. The person just talks: after each question the kiosk listens by itself and stops
   when they pause. Buttons are there too, for quick yes/no or choices. Use a headset.
-- **Officer console:** http://localhost:8000/officer. The user is `officer`; the password is
-  `OFFICER_PASSWORD` in the `.env` file (the installer made a random one).
+- **Officer console:** http://localhost:8000/officer. Log in as `officer` with the password from
+  `OFFICER_PASSWORD` in the `.env` file (the installer made a random one). It has three tabs:
+  - **Live call:** a phone-line demo in the browser. Press the green key to call. Number keys answer
+    the menus. Type what the caller says in the box under the phone, or use **Speak** to answer with
+    the microphone. The PIN is typed on the keypad. On the right, each step appears as it happens:
+    what was heard, what the LLM labelled (and what the checks threw out), why the next question was
+    picked, the shortlist so far, and the final ranking (score = gates × fit), plus the work the gates
+    left out and why. The **Line PIN code** box sets the line's district, as `PHONE_PINCODE` does.
+    Records made here are marked `phone-demo`.
+  - **Profiles:** search by district, status, name or ID. A person's page explains the record in
+    plain words: why each option, why other work was left out, their weights and their own quotes.
+    From there an officer can approve, refer, edit with re-ranking, print the card, or erase. Erase
+    asks you to type the ID, and every action goes into the audit log.
+  - **Ranking policy:** base weights for all districts or one, the gates, learned proposals and the
+    version history.
 - If port 8000 is busy, it uses the next free port and prints it.
 
 What happens in one session (everything is spoken except the PIN, which is typed so nobody hears it):
@@ -139,7 +152,8 @@ demo, a server in India is better than a laptop and tunnel.
 | `hv/prompts.py` | Every spoken line in 3 languages, as pieces; numbers, job titles and districts are pieces too |
 | `hv/channels/exotel.py` | Phone: 8 kHz audio, keypad, a key cuts a prompt short, simple voice-activity detection |
 | `hv/channels/kiosk.py`, `web/kiosk.html` | Tablet: buttons, keypad, mic (16 kHz), typing, options and ID card with QR, print |
-| `hv/store.py`, `web/officer.html` | SQLite records; officers search by district, name or ID, see the quotes behind every label, approve or refer; every action is in the audit log |
+| `hv/store.py`, `web/officer.html`, `web/console.js` | SQLite records and the officer console (login, live call, profiles, policy); officers search by district, name or ID, see the quotes behind every label, approve, refer, edit or erase; every action is in the audit log |
+| `hv/explain.py`, `hv/channels/console.py` | Plain-language explanations of every decision (labels, next question, ranking, gates) and the console's live phone-demo call that streams them step by step |
 | `data/*.csv` | **Sample** data (59 jobs, 115 courses, 124 centres, 31 districts). Replace with NQR, NCO, SIDH and NCS exports |
 
 ## 5b. Dynamic ranking: nothing important is hard-coded

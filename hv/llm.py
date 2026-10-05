@@ -77,17 +77,23 @@ class LLM:
                              self._schema)
         return parse_json(content)
 
-    def label(self, transcript: str, question: str = "", context: dict | None = None) -> Labels:
-        """Labels for one answer; on any LLM failure the call goes on with empty labels."""
+    def label(self, transcript: str, question: str = "", context: dict | None = None,
+              info: dict | None = None) -> Labels:
+        """Labels for one answer; on any LLM failure the call goes on with empty labels.
+        `info`, if given, is filled with what the officer console shows: model, time taken, raw answer."""
         if not transcript.strip():
             return Labels()
         t0 = time.time()
+        error = ""
         try:
             raw = self.raw_labels(transcript, question, context)
         except Exception as exc:  # the call must never stop because the LLM is down
             log.warning("LLM failed (%s); continuing without labels. Is Ollama running?", exc)
-            raw = {}
+            raw, error = {}, str(exc)[:200]
         labels = validate(raw, transcript, self.data)
+        if info is not None:
+            info.update(model=settings.llm_model if self.real else "rule-based stand-in (fake mode)",
+                        ms=round((time.time() - t0) * 1000), raw=raw, error=error)
         if self.real:
             log.info("LLM labelled in %.1fs: codes=%s wants=%s emphasis=%s mood=%s next=%s rejected=%s",
                      time.time() - t0, labels.occupation_codes, labels.aspiration_codes,

@@ -3,139 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HunarVaani Officers</title>
-<style>
-  :root { --ink: #1f1d4f; --muted: #5b5a7a; --bg: #f5f6fb; --line: #dcdcec; --indigo: #2b2766; --green: #2f8a57; --orange: #c2610c; --red: #b42318; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Noto Sans", "Noto Sans Devanagari", Arial, sans-serif; background: var(--bg); color: var(--ink); }
-  header { padding: 12px 20px; background: var(--indigo); color: #fff; font-size: 18px; font-weight: 700; }
-  main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; padding: 16px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  select, input, textarea { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
-  button { font: inherit; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; background: var(--indigo); color: #fff; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
-  tr.row:hover { background: #f0effa; cursor: pointer; }
-  .tag { font-size: 12px; border-radius: 999px; padding: 2px 8px; background: #e9e8f5; }
-  .tag.approved { background: #e6f3ec; color: var(--green); } .tag.referred { background: #fdf0e1; color: var(--orange); }
-  h2 { margin: 0 0 6px; } h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--green); margin: 16px 0 6px; }
-  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; font-size: 14px; }
-  .kv span:nth-child(odd) { color: var(--muted); }
-  .opt { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: 14px; }
-  .opt.chosen { border: 2px solid var(--green); }
-  .muted { color: var(--muted); font-size: 13px; }
-  .quote { font-size: 13px; background: #fdf0e1; border-radius: 8px; padding: 4px 8px; margin: 4px 0; }
-</style>
+<title>HunarVaani Console</title>
+<link rel="stylesheet" href="/web/console.css">
 </head>
 <body>
-<header>HunarVaani · district officer console</header>
-<main>
-  <section class="panel">
-    <div class="filters">
-      <select id="district"><option value="">All districts</option></select>
-      <input id="name" placeholder="Name">
-      <input id="hvid" placeholder="HunarVaani ID">
-      <button id="search">Search</button>
-    </div>
-    <table><thead><tr><th>ID</th><th>Name</th><th>District</th><th>Via</th><th>Status</th><th>Date</th></tr></thead>
-      <tbody id="list"></tbody></table>
-  </section>
-  <section class="panel" id="detail"><p class="muted">Pick a person to see their record.</p></section>
-  <section class="panel" style="grid-column: 1 / -1">
-    <h3 style="margin-top:0">Ranking policy <span class="muted" id="polVersion"></span></h3>
-    <p class="muted">Base weights for the six factors (the ranker multiplies each by the person's own emphasis).
-      Leave the district empty to change it everywhere.</p>
-    <div class="filters" id="weights"></div>
-    <div class="filters"><select id="polDistrict"><option value="">All districts</option></select>
-      <input id="polNote" placeholder="Why (goes to the audit log)" style="flex:1">
-      <button id="savePolicy">Save weights</button></div>
-    <div id="polMsg" class="muted"></div>
-    <h3>Learned proposals (from scripts/learn.py)</h3><div id="proposals" class="muted">None yet.</div>
-  </section>
-</main>
-<script>
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-const pretty = (id) => id ? `${id.slice(0, 4)}-${id.slice(4, 8)}-${id.slice(8)}` : "";
-async function get(url) { const r = await fetch(url, {credentials: "same-origin"}); return r.json(); }
+<!-- The page holds no personal data: everything comes from the API after the officer logs in. -->
+<div id="login" class="login hidden">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <div class="brand big"><span class="logo">HV</span><span>HunarVaani<small>Officer console</small></span></div>
+    <label>User<input class="in" id="loginUser" name="username" autocomplete="username" value="officer" required></label>
+    <label>Password<input class="in" id="loginPw" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary wide" type="submit">Log in</button>
+    <p class="error" id="loginErr" role="alert"></p>
+    <p class="tiny">The password is <span class="mono">OFFICER_PASSWORD</span> in the <span class="mono">.env</span> file.
+      Every view, change and erase is written to the audit log.</p>
+  </form>
+</div>
 
-async function load() {
-  const q = new URLSearchParams({district: $("district").value, name: $("name").value, id: $("hvid").value.replace(/-/g, "")});
-  const rows = await get("/api/people?" + q);
-  $("list").innerHTML = rows.map((r) => `<tr class="row" data-id="${r.hv_id}"><td>${pretty(r.hv_id)}</td><td>${esc(r.name)}</td>
-    <td>${esc(r.district_name)}</td><td>${esc(r.channel)}</td><td><span class="tag ${esc(r.status)}">${esc(r.status)}</span></td><td>${esc((r.created || "").slice(0, 10))}</td></tr>`).join("")
-    || `<tr><td colspan="6" class="muted">No records yet.</td></tr>`;
-  document.querySelectorAll("tr.row").forEach((tr) => tr.onclick = () => show(tr.dataset.id));
-}
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="brand"><span class="logo">HV</span><span>HunarVaani<small>Officer console</small></span></div>
+    <nav class="tabs" id="tabs">
+      <a href="#live" data-tab="live"><i data-icon="phone"></i>Live call</a>
+      <a href="#people" data-tab="people"><i data-icon="users"></i>Profiles</a>
+      <a href="#policy" data-tab="policy"><i data-icon="sliders"></i>Ranking policy</a>
+    </nav>
+    <div class="who"><span class="pill" id="modePill"></span><span id="whoName"></span>
+      <button class="btn sm ghost" id="logout"><i data-icon="logout"></i>Log out</button></div>
+  </header>
+  <div class="warnbar hidden" id="pwWarn">The officer password is still <b>change-me</b>. Set <span class="mono">OFFICER_PASSWORD</span> in <span class="mono">.env</span> and restart.</div>
+  <main id="view"></main>
+</div>
 
-async function show(id) {
-  const p = await get("/api/person/" + id);
-  const pr = p.profile || {};
-  const emph = Object.entries(pr.emphasis || {}).map(([k, v]) => `${esc(k)}: <b>${esc(v)}</b>`).join(" · ");
-  $("detail").innerHTML = `<h2>${esc(p.name)} <span class="muted">${pretty(p.hv_id)}</span></h2>
-    <div class="muted">${esc(p.district_name)} · ${esc(p.language)} · via ${esc(p.channel)} · created ${esc((p.created || "").slice(0, 16))}</div>
-    <h3>Profile</h3><div class="kv">
-      <span>Age / gender</span><span>${esc(pr.age)} / ${esc(pr.gender)}</span>
-      <span>Education</span><span>${esc(pr.education)}</span>
-      <span>Work now</span><span>${esc((p.work || []).join(", "))}${pr.years ? " · " + pr.years + " yrs" : ""}</span>
-      <span>Wants</span><span>${esc((p.wants || []).join(", ") || pr.aspiration_sector || "")}</span>
-      <span>Travel</span><span>up to ${esc(pr.radius_km)} km · hostel ${pr.hostel_ok ? "ok" : "no"}${pr.cannot_leave_home ? " · cannot leave home" : ""}</span>
-      <span>Location</span><span>PIN ${esc(pr.pin)} (${pr.location_from === "device" ? "from the kiosk / phone line" : "asked"})</span>
-      <span>Not wanted</span><span>${esc([...(pr.rejected_sectors || []), ...(pr.rejected_kinds || [])].join(", ") || "—")}</span>
-      <span>Longest course</span><span>${pr.max_weeks ? esc(pr.max_weeks) + " weeks" : "any"}</span>
-      <span>Health</span><span>${esc(pr.health)}</span><span>Prefers</span><span>${esc(pr.lean)}</span>
-      <span>Emphasis</span><span>${emph || "—"}</span></div>
-    ${(pr.evidence || []).map((e) => `<div class="quote">“${esc(e.quote)}” → ${esc(e.field)} (${esc(e.strength)})</div>`).join("")}
-    <div class="filters" style="margin-top:8px"><button onclick="window.open('/api/person/${p.hv_id}/card')">Open card (print)</button></div>
-    <h3>Skills worth learning</h3>${(pr.skill_advice || []).map((a) => `<div class="opt"><b>${esc(a.skills.join(", "))}</b>
-      <div class="muted">for ${esc(a.course)} · ${a.gap} gap · about ${a.weeks} weeks · pay ${esc(JSON.stringify(a.pay_now))} → ${esc(JSON.stringify(a.pay_after))} · ${esc(a.centre)} ${a.distance_km} km</div></div>`).join("") || "<p class='muted'>None</p>"}
-    <h3>How the conversation was guided</h3>${(pr.question_plan || []).map((x) => `<div class="muted">${esc(x.question)} · ${esc(x.why)} · mood ${esc(x.mood)}${x.lead ? " · leading work " + esc(x.lead) : ""}</div>`).join("") || "<p class='muted'>—</p>"}
-    <h3>Options offered</h3>${(p.options || []).map((o) => `<div class="opt ${o.chosen ? "chosen" : ""}"><b>${o.rank}. ${esc(o.course)}</b> ${o.chosen ? "✓ chosen" : ""}
-      <div class="muted">${esc(o.centre)} · ${o.distance_km} km · score ${o.score} (plain ${o.raw}) · gates ${esc(JSON.stringify(o.gates))}</div>
-      <div class="muted">Why: ${esc((o.reasons || []).join("; "))}${o.skill_gap?.length ? " · gap: " + esc(o.skill_gap.join(", ")) : ""}</div></div>`).join("") || "<p class='muted'>None</p>"}
-    <h3>Decision</h3><div class="filters"><textarea id="note" rows="2" style="flex:1" placeholder="Note (optional)"></textarea></div>
-    <div class="filters"><button onclick="setStatus('${p.hv_id}','approved')">Approve</button>
-      <button onclick="setStatus('${p.hv_id}','referred')" style="background:#c2610c">Refer to centre</button>
-      <button onclick="setStatus('${p.hv_id}','needs_info')" style="background:#5b5a7a">Needs info</button></div>
-    <h3>Conversation</h3>${(p.turns || []).filter((t) => t.kind === "speech").map((t) => `<div class="muted"><b>${esc(t.question)}</b>: ${esc(t.answer)}</div>`).join("") || "<p class='muted'>—</p>"}
-    <h3>Audit log</h3>${(p.audit || []).map((a) => `<div class="muted">${esc(a.ts)} · ${esc(a.actor)} · ${esc(a.action)} ${esc(a.note || "")}</div>`).join("")}`;
-}
-
-async function setStatus(id, status) {
-  await fetch(`/api/person/${id}/status`, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({status, note: $("note").value})});
-  await load(); await show(id);
-}
-
-const FACTORS = ["aspiration", "skill", "demand", "access", "completion", "income"];
-async function loadPolicy() {
-  const p = await get("/api/policy");
-  $("polVersion").textContent = "active: " + p.active.version;
-  $("weights").innerHTML = FACTORS.map((f) => `<label class="muted">${f}<br><input type="number" min="1" max="100" step="1"
-    id="w_${f}" value="${p.active.base_weights[f]}" style="width:90px"></label>`).join("");
-  $("proposals").innerHTML = p.proposals.length ? p.proposals.map((x) => `<div class="opt">${esc(x.file)}
-    <div class="muted">${esc(JSON.stringify(x.report.changes))} · gender gap ${esc(JSON.stringify(x.report.gender_gap || {}))}</div>
-    <button onclick="activate('${esc(x.file)}')">Activate</button></div>`).join("") : "None yet.";
-}
-async function post(url, body) {
-  const r = await fetch(url, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
-  return r.json();
-}
-async function activate(file) { const r = await post("/api/policy/activate", {file}); $("polMsg").textContent = r.error || "Activated " + r.version; loadPolicy(); }
-$("savePolicy").onclick = async () => {
-  const w = Object.fromEntries(FACTORS.map((f) => [f, +$("w_" + f).value]));
-  const r = await post("/api/policy", {base_weights: w, district: $("polDistrict").value, note: $("polNote").value});
-  $("polMsg").textContent = r.error || "Saved as " + r.version; loadPolicy();
-};
-(async () => {
-  const ds = await get("/api/districts");
-  $("polDistrict").innerHTML += ds.map((d) => `<option value="${d.code}">${esc(d.name)}</option>`).join("");
-  loadPolicy();
-  $("district").innerHTML += ds.map((d) => `<option value="${d.code}">${esc(d.name)} (${esc(d.state)})</option>`).join("");
-  $("search").onclick = load; load();
-})();
-</script>
+<dialog id="dlg"></dialog>
+<div id="toasts" aria-live="polite"></div>
+<script src="/web/console.js"></script>
 </body>
 </html>

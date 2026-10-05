@@ -111,9 +111,12 @@ class Store:
         p["consent"] = json.loads(p.pop("consent_json") or "{}")
         return p
 
-    def find(self, district: str = "", name: str = "", hv_id: str = "", limit: int = 200) -> list[dict]:
+    def find(self, district: str = "", name: str = "", hv_id: str = "", limit: int = 200, status: str = "") -> list[dict]:
         sql = "SELECT hv_id, name, district, language, channel, status, created FROM persons WHERE 1=1"
         args: list = []
+        if status:
+            sql += " AND status=?"
+            args.append(status)
         if district:
             sql += " AND district=?"
             args.append(district)
@@ -127,14 +130,21 @@ class Store:
         args.append(limit)
         return [dict(r) for r in self._x(sql, tuple(args))]
 
-    def delete_person(self, hv_id: str, actor: str) -> None:
-        """Right to erase: profile, turns and options go; one audit line stays (who, when)."""
+    def edit_person(self, hv_id: str, name: str, district: str | None, profile: dict, actor: str, note: str) -> None:
+        """An officer's correction: name, district and profile; the audit line says what changed."""
+        self._x("UPDATE persons SET name=?, district=?, profile_json=?, updated=? WHERE hv_id=?",
+                (name, district, json.dumps(profile, ensure_ascii=False), now(), hv_id))
+        self.audit(actor, "edited", hv_id, note)
+
+    def delete_person(self, hv_id: str, actor: str, note: str = "person asked to delete their data") -> None:
+        """Right to erase: profile, turns, options and outcomes go; one audit line stays (who, when)."""
         sids = [r["id"] for r in self._x("SELECT id FROM sessions WHERE hv_id=?", (hv_id,))]
         for sid in sids:
             self._x("DELETE FROM turns WHERE session_id=?", (sid,))
         self._x("DELETE FROM options WHERE hv_id=?", (hv_id,))
+        self._x("DELETE FROM outcomes WHERE hv_id=?", (hv_id,))
         self._x("DELETE FROM persons WHERE hv_id=?", (hv_id,))
-        self.audit(actor, "erased", hv_id, "person asked to delete their data")
+        self.audit(actor, "erased", hv_id, note)
 
     # options ------------------------------------------------------------------------------------
     def save_options(self, sid: str, hv_id: str, options: list[dict]) -> None:
@@ -164,6 +174,14 @@ class Store:
     def audit(self, actor: str, action: str, hv_id: str, note: str = "") -> None:
         self._x("INSERT INTO audit(ts, actor, action, hv_id, note) VALUES (?,?,?,?,?)",
                 (now(), actor, action, hv_id, note))
+
+    def counts(self) -> dict:
+        """Records by status, and phone / kiosk / demo sessions today (for the console header)."""
+        by_status = {r["status"]: r["n"] for r in self._x("SELECT status, COUNT(*) n FROM persons GROUP BY status")}
+        today = now()[:10]
+        calls = {r["channel"]: r["n"] for r in self._x(
+            "SELECT channel, COUNT(*) n FROM sessions WHERE started >= ? GROUP BY channel", (today,))}
+        return {"people": sum(by_status.values()), "by_status": by_status, "sessions_today": calls}
 
     def audit_log(self, hv_id: str) -> list[dict]:
         return [dict(r) for r in self._x("SELECT ts, actor, action, note FROM audit WHERE hv_id=? ORDER BY id",
