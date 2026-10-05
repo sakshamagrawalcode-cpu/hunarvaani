@@ -171,6 +171,8 @@ async def api_login(request: Request) -> Response:
         await asyncio.sleep(0.4)
         return JSONResponse({"error": "Wrong user or password."}, status_code=401)
     FAILED.pop(where, None)
+    for old in [t for t, (_, until) in SESSIONS.items() if until <= time.time()]:  # forget expired logins
+        SESSIONS.pop(old, None)
     token = secrets.token_urlsafe(32)
     SESSIONS[token] = (user, time.time() + SESSION_SECONDS)
     STORE.audit(user, "login", "", where)
@@ -246,7 +248,9 @@ def _person_view(hv_id: str) -> dict | None:
     person["work"] = [DATA.occupations[c].title_en for c in prof.get("occupation_codes", []) if c in DATA.occupations]
     person["wants"] = [DATA.occupations[c].title_en for c in prof.get("aspiration_codes", []) if c in DATA.occupations]
     person["options"] = STORE.options(hv_id)
-    person["turns"] = STORE.turns(hv_id)
+    person["turns"] = [t | {"question_name": explain.question_name(t["question"])} for t in STORE.turns(hv_id)]
+    for step in prof.get("question_plan") or []:
+        step["name"] = explain.question_name(step.get("question", ""))
     person["audit"] = STORE.audit_log(hv_id)
     try:
         pol = POLICIES.active().for_district(person["district"])
@@ -441,8 +445,11 @@ async def api_policy(request: Request) -> Response:
             for k, v in changes.items():
                 raw[k] = {**raw[k], **v}
         pol = POLICIES.save(raw, officer, str(body.get("note", ""))[:300])
-    except (PolicyError, KeyError, TypeError) as exc:
+    except PolicyError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    except (KeyError, TypeError, AttributeError):
+        return JSONResponse({"error": "each section must be an object of values, e.g. {\"base_weights\": {\"access\": 20}}"},
+                            status_code=400)
     STORE.audit(officer, "policy_saved", "", f"{pol.version} {district or 'all districts'}")
     return JSONResponse({"ok": True, "version": pol.version})
 

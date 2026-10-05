@@ -370,6 +370,7 @@ class Conversation:
             if result == "ok":
                 break
             if result == "locked":
+                await self.trace("officer", "PIN locked", ["Three wrong PINs: an officer has to help"], hv_id=hv_id)
                 await self.say(["pin_locked"])
                 raise Hangup("PIN locked")
             await self.say(["pin_wrong"])
@@ -380,6 +381,8 @@ class Conversation:
         self.profile = Profile.from_dict(person["profile"])
         self.profile.language = self.lang
         self.store.audit("caller", "returned", hv_id, self.channel_label)
+        await self.trace("card", f"Returning caller: {pretty(hv_id)}", ["ID and PIN are right: reading back their options"],
+                         hv_id=hv_id)
         saved = self.store.options(hv_id)
         await self.ch.show("person", {"hv_id": pretty(hv_id), "name": person["name"], "options": saved})
         await self.say(["welcome_back"])
@@ -631,6 +634,7 @@ class Conversation:
 
     async def review(self) -> None:
         for _ in range(4):
+            await self.ch.show("profile", self.profile_view())  # after a correction too
             await self.ch.show("review", self.review_view())
             if await self.yes_no(self.review_parts() + self.parts(["review_ok"]), "review_ok", default=True):
                 self.log("review", "review_ok", "confirmed")

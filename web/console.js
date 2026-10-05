@@ -166,15 +166,20 @@ function showLive() {
         <label><input type="checkbox" id="autoMic"> Listen after each question</label></div>
       <p class="tiny">Green key calls. Number keys answer the menus; 0 asks for an officer, 9 twice erases. The PIN is typed on the keypad.</p>
     </section>
-    <section class="live-side">
-      <div class="now">
-        <section class="card"><header><span class="ic">${icon("user")}</span><h3>Understood so far</h3></header><div class="body" id="nowProfile"></div></section>
-        <section class="card"><header><span class="ic green">${icon("list")}</span><h3>Shortlist now</h3><span class="aside" id="slNote"></span></header><div class="body" id="nowList"></div></section>
+    <section class="call-main">
+      <section class="card callbar" id="callbar"></section>
+      <div class="call-grid">
+        <section class="card timeline-card">
+          <header><span class="ic violet">${icon("route")}</span><h3>Conversation and decisions</h3>
+            <label class="check"><input type="checkbox" id="onlyDecisions"> Decisions only</label></header>
+          <div class="timeline" id="steps"></div>
+        </section>
+        <aside class="call-aside">
+          <section class="card"><header><span class="ic">${icon("user")}</span><h3>Understood so far</h3><span class="aside" id="pfCount"></span></header><div class="body" id="nowProfile"></div></section>
+          <section class="card"><header><span class="ic green">${icon("list")}</span><h3>Shortlist</h3><span class="aside" id="slNote"></span></header><div class="body" id="nowList"></div></section>
+          <section class="card hidden" id="weightsCard"><header><span class="ic amber">${icon("sliders")}</span><h3>What counts for them</h3><span class="aside">w × m</span></header><div class="body" id="nowWeights"></div></section>
+        </aside>
       </div>
-      <section class="card"><div class="body">
-        <div class="steps-h"><span class="ic violet">${icon("route")}</span><h3>Step by step</h3>
-          <label class="check"><input type="checkbox" id="onlyDecisions"> Decisions only</label></div>
-        <div class="steps" id="steps" style="margin-top:12px"></div></div></section>
     </section>`;
   view.replaceChildren(liveEl);
   paintIcons(liveEl);
@@ -188,11 +193,19 @@ function showLive() {
   $("#autoMic").checked = store.get("hv_console_automic", "off") === "on";
   $("#autoMic").onchange = () => store.set("hv_console_automic", $("#autoMic").checked ? "on" : "off");
   $("#onlyDecisions").onchange = () => renderSteps();
+  $("#steps").addEventListener("scroll", (e) => {  // follow new messages unless the officer scrolled up to read
+    const b = e.target;
+    call.follow = b.scrollHeight - b.scrollTop - b.clientHeight < 80;
+  });
+  $("#steps").addEventListener("toggle", (e) => {  // keep a step's details open across re-renders
+    const el = e.target.closest?.("[data-i]");
+    if (el && e.target.tagName === "DETAILS") call.steps[+el.dataset.i].open = e.target.open;
+  }, true);
   $$(".pk", liveEl).forEach((b) => b.onclick = () => press(b.dataset.k));
   $("#sayBtn").onclick = sayTyped;
   $("#sayIn").onkeydown = (e) => { if (e.key === "Enter") sayTyped(); };
   $("#micBtn").onclick = () => call.mic ? stopMic(true) : startMic();
-  renderScreen(); renderNow(); renderSteps();
+  renderScreen(); renderBar(); renderNow(); renderSteps();
   setInterval(tick, 1000); tick();
 }
 
@@ -201,7 +214,7 @@ document.addEventListener("keydown", (e) => {
   if (!liveEl || !liveEl.isConnected || e.ctrlKey || e.metaKey || e.altKey) return;
   if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName) || $("#dlg").open) return;
   if (/^[0-9*#]$/.test(e.key)) { press(e.key); e.preventDefault(); }
-  else if (e.key === "Backspace") { press("softR"); e.preventDefault(); }
+  else if (e.key === "Backspace" && call.ask?.mode === "digits") { press("softR"); e.preventDefault(); }
   else if (e.key === "Enter") { press(call.ws ? "ok" : "call"); e.preventDefault(); }
   else if (e.key === "Escape" && call.ws) { press("end"); }
 });
@@ -229,8 +242,8 @@ function tick() {
   if (!liveEl) return;
   const now = new Date();
   $("#clock", liveEl).textContent = now.toTimeString().slice(0, 5);
-  const t = $("#tmr", liveEl);
-  if (t && call.started) t.textContent = dur(Date.now() - call.started);
+  const since = call.started ? dur(Date.now() - call.started) : "";
+  ["#tmr", "#barTimer"].forEach((id) => { const t = $(id, liveEl); if (t && since) t.textContent = since; });
 }
 const dur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
@@ -238,6 +251,7 @@ function setState(state, label) {
   call.state = state;
   const el = $("#cstate");
   if (el) { el.textContent = label; el.classList.toggle("on", state === "on"); }
+  renderBar();
 }
 
 // ---- the phone's screen ------------------------------------------------------------------------
@@ -269,6 +283,7 @@ function renderScreen() {
   }
   $("#softL").textContent = softL; $("#softR").textContent = softR;
   scr.innerHTML = html; paintIcons(scr);
+  renderBar();
 }
 function menu(a) {
   const keys = (a.allowed || "").split("").filter((k) => k !== "0" && k !== "9");
@@ -327,14 +342,15 @@ function answer(value, shown, isEntry) {
   if (!call.ws || call.ws.readyState !== 1) return;
   stopMic(false); stopAudio();
   call.ws.send(JSON.stringify({type: "answer", value: String(value)}));
-  if (isEntry) addBubble("me", `Typed ${shown}`);  // keys and speech come back as steps; typed digits are shown here
-  call.ask = null; call.entry = "";
-  renderScreen();
+  if (isEntry) addBubble("me", `Typed ${shown}`, "Caller · keypad");  // keys and speech come back as steps
+  call.ask = null; call.entry = ""; call.waiting = true;
+  renderScreen(); renderBar(); renderSteps();
 }
 
 // ---- the call itself ---------------------------------------------------------------------------
 function dial() {
-  call.steps = []; call.profile = null; call.shortlist = []; call.ask = null; call.entry = ""; call.reason = "";
+  Object.assign(call, {steps: [], profile: null, shortlist: [], ranks: {}, weights: null, ask: null, entry: "", reason: "",
+    stage: 0, now: null, waiting: true, fresh: {}, follow: true});
   renderNow(); renderSteps();
   setState("dialing", "Calling…"); renderScreen();
   const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/console`);
@@ -349,11 +365,11 @@ function dial() {
   ws.onclose = () => {
     if (call.ws !== ws) return;
     const opened = call.started;
-    call.ws = null; call.ask = null; stopMic(false);
+    call.ws = null; call.ask = null; call.waiting = false; stopMic(false);
     call.duration = opened ? dur(Date.now() - opened) : "";
     if (!call.reason) call.reason = opened ? "Line closed" : "Could not connect (log in again?)";
     call.started = 0;
-    setState("ended", "Ended"); renderScreen();
+    setState("ended", "Ended"); renderScreen(); renderSteps();
   };
 }
 function hangUp(quiet) {
@@ -363,111 +379,260 @@ function hangUp(quiet) {
   try { call.ws.close(); } catch (e) { }
 }
 
+// where the call is: the stage stepper above the conversation
+const STAGES = ["Consent", "Story", "Questions", "Check", "Options", "ID & PIN"];
+function stageOf(keys) {
+  const k = keys.join(" ");
+  if (/\b(your_id|set_pin|set_pin_again|pin_saved|card_ready|documents)\b/.test(k)) return 5;
+  if (/\b(tradeoff_q|options_intro|choose_prompt|confirm_choice|skill_tip_pre|no_options)\b/.test(k)) return 4;
+  if (/\b(review_intro|review_ok|review_which|review_work)\b/.test(k)) return 3;
+  if (/\b(ask_name|ask_story|ask_pincode)\b/.test(k)) return 1;
+  if (/\b(say_|q_|ask_aspiration|ask_family)/.test(k)) return 2;
+  return 0;
+}
+const QNAME = {lang_hi: "Language", consent: "Consent", consent_ai: "Consent for AI training", returning: "New or returning",
+  ask_id: "HunarVaani ID", ask_pin: "PIN", ask_name: "Name", ask_pincode: "PIN code", ask_story: "Their story",
+  say_age: "Age", say_gender: "Woman / man", say_education: "Studies", say_travel: "Daily travel", say_health: "Physical limits",
+  say_lean: "Job or own work", ask_aspiration: "Work they want", ask_family: "Family's work", q_goal: "Grow or learn new",
+  q_lead: "Check the best match", q_home: "From home or go out", q_duration: "Longest training", q_earn_soon: "Earn soon or learn first",
+  q_certificate: "Certificate for their skills", q_own_business: "Own business", q_years: "Years of experience",
+  review_ok: "Is all this right?", review_which: "What to correct", review_work: "Their work, again", tf_press_2: "Which matters more",
+  choose_prompt: "Pick an option", confirm_choice: "Confirm the option", set_pin: "Set a PIN", set_pin_again: "PIN again",
+  delete_confirm: "Erase, really?", ask_age: "Age (keypad)", ask_gender: "Woman / man (keypad)", ask_education: "Studies (keypad)",
+  ask_travel: "Daily travel (keypad)", ask_health: "Physical limits (keypad)", ask_lean: "Job or own work (keypad)"};
+const qOf = (keys) => [...keys].reverse().find((k) => QNAME[k]) || keys[keys.length - 1] || "";
+
 function onMessage(msg) {
+  call.waiting = false;
   if (msg.type === "say" || msg.type === "ask") {
+    if (msg.keys) call.stage = Math.max(call.stage || 0, stageOf(msg.keys));
     if (msg.text) addBubble("sys", msg.text);
     enqueue(msg);
-    if (msg.type === "ask") { call.ask = msg; call.entry = ""; }
-    renderScreen();
+    if (msg.type === "ask") {
+      call.ask = msg; call.entry = "";
+      const q = qOf(msg.keys);
+      call.now = {name: QNAME[q] || q.replace(/_/g, " "), text: msg.text, mode: msg.mode, count: msg.count, secret: msg.secret,
+        labels: msg.keys.includes("lang_hi") ? ["हिंदी", "मराठी", "English"] : msg.labels || [], allowed: msg.allowed || ""};
+    }
+    renderScreen(); renderBar();
   } else if (msg.type === "show") {
     onShow(msg.kind, msg.data || {});
   } else if (msg.type === "trace") {
     onTrace(msg);
   } else if (msg.type === "end") {
     call.reason = {completed: "Completed", "no answer": "No answer", "caller deleted their data": "Caller erased their data"}[msg.reason] || msg.reason;
+    call.now = null;
     addStep({step: "end", title: `Call ended: ${call.reason}`, lines: []});
+    renderBar();
   }
 }
 function onShow(kind, d) {
-  if (kind === "profile" || kind === "review") { call.profile = {...(call.profile || {}), ...d, _kind: kind}; renderNow(); }
-  else if (kind === "options") { call.shortlist = (d.items || []).map((o, i) => ({rank: i + 1, course: o.course, centre: o.centre, distance_km: o.distance_km, score: o.score})); renderNow("Offered to the caller"); }
+  if (kind === "profile") { setProfile(d); }  // the review screen repeats it in the caller's language
+  else if (kind === "options") { setShortlist((d.items || []).map((o, i) => ({rank: i + 1, course: o.course, centre: o.centre, distance_km: o.distance_km, score: o.score})), "Offered"); }
   else if (kind === "skills") addStep({step: "skills", title: "Skills worth learning", lines: (d.items || []).map((a) => `${a.skills.join(", ")}: for ${a.course}, about ${a.weeks} weeks (${a.gap} gap)`)});
   else if (kind === "card") addStep({step: "card", title: `Card ready: ${d.hv_id}`, lines: [`${d.name || ""} · ${d.district || ""}`], data: {hv_id: (d.raw_id || "")}});
-  else if (kind === "person") addStep({step: "card", title: `Returning caller: ${d.hv_id}`, lines: (d.options || []).map((o) => `${o.rank}. ${o.course}`), data: {hv_id: d.hv_id.replace(/-/g, "")}});
+  else if (kind === "person") { call.stage = 5; setShortlist((d.options || []).map((o) => ({...o, score: o.score ?? 0})), "Saved earlier"); renderBar(); }
 }
 function onTrace(t) {
-  if (t.step === "heard" && t.data.text) {
-    addBubble("me", t.data.text, t.data.source === "speech-to-text" ? `Caller · speech to text${t.data.ms ? ` · ${t.data.ms} ms` : ""}` : "Caller (typed)");
+  const d = t.data || {};
+  if (t.step === "heard" && d.text) {
+    addBubble("me", d.text, d.source === "speech-to-text" ? `Speech to text${d.ms ? ` · ${(d.ms / 1000).toFixed(1)} s` : ""}` : "Typed");
     return;
   }
-  if (t.step === "key") { addBubble("me", t.title, "Caller · key"); return; }
-  if (t.step === "plan" && t.data.shortlist?.length) { call.shortlist = t.data.shortlist; renderNow("If the call ended now"); }
-  if (t.step === "ranking") { call.shortlist = t.data.options; renderNow("Ranked"); }
-  if (t.step === "choice") { call.shortlist = call.shortlist.map((o) => ({...o, chosen: o.rank === t.data.rank})); renderNow("Chosen"); }
+  if (t.step === "key") { addBubble("me", t.title, "Key"); return; }
+  if (t.step === "plan" && d.shortlist?.length) setShortlist(d.shortlist, "If the call ended now");
+  if (t.step === "ranking") { setShortlist(d.options, "Ranked"); call.weights = d.weights; renderWeights(); }
+  if (t.step === "choice") setShortlist(call.shortlist.map((o) => ({...o, chosen: o.rank === d.rank})), "Chosen");
   addStep(t);
 }
 
-// ---- the right side: understood so far, shortlist, steps ------------------------------------------
-function renderNow(note) {
+// ---- the call bar: status, stage, what is being asked -----------------------------------------------
+function renderBar() {
+  const el = $("#callbar");
+  if (!el) return;
+  const st = call.state, n = call.now;
+  const status = st === "on" ? `<span class="live-dot"></span>On call <b class="mono" id="barTimer">${dur(Date.now() - call.started)}</b>`
+    : st === "dialing" ? `<span class="live-dot wait"></span>Calling…`
+    : st === "ended" ? `${icon("phoneOff")}Ended · ${esc(call.reason)}${call.duration ? ` · ${esc(call.duration)}` : ""}`
+    : `${icon("phone")}Ready`;
+  const stage = call.state === "idle" ? -1 : (call.stage || 0);
+  const done = call.state === "ended" && call.reason === "Completed";
+  const steps = STAGES.map((name, i) => `<li class="${done || i < stage ? "done" : i === stage ? "on" : ""}"><span>${done || i < stage ? icon("check") : i + 1}</span>${name}</li>`).join("");
+  let now;
+  if (st === "on" && n && call.ask) {
+    const how = n.mode === "digits" ? `${icon("keypad")}Type ${n.count} digits on the keypad${n.secret ? " (hidden)" : ""}`
+      : n.mode === "keys" ? `${icon("keypad")}Press a key`
+      : `${icon("message")}Type or speak the answer${n.labels.length ? ", or press a key" : ""}`;
+    const keys = n.allowed.split("").filter((k) => k !== "0" && k !== "9");
+    const opts = n.labels.length ? `<div class="now-keys">${keys.map((k, i) => n.labels[i] ? `<button class="keycap" data-key="${k}"><b>${k}</b>${esc(n.labels[i])}</button>` : "").join("")}</div>` : "";
+    now = `<div class="now-q"><span class="now-label">Now asking</span><b>${esc(n.name)}</b><span class="how">${how}</span></div>
+      <div class="now-text">${esc(n.text)}</div>${opts}`;
+  } else if (st === "on") {
+    now = `<div class="now-q"><span class="now-label">Now</span><b>${call.waiting ? "Working out the answer…" : call.playing ? "HunarVaani is speaking" : "Listening to the line"}</b></div>`;
+  } else if (st === "ended") {
+    const saved = [...call.steps].reverse().find((s) => s.step === "saved" || (s.step === "card" && s.data?.hv_id));
+    now = `<div class="now-q"><span class="now-label">Done</span><b>${saved ? "The record is saved." : "Nothing was saved."}</b>
+      ${saved ? `<a class="btn sm" href="#person/${esc(saved.data.hv_id)}">${icon("user")}Open the record</a>` : ""}
+      <button class="btn sm" id="again">${icon("phone")}Call again</button></div>`;
+  } else {
+    now = `<div class="now-q"><span class="now-label">Try it</span><b>Press the green key on the phone to call the helpline.</b></div>`;
+  }
+  el.innerHTML = `<div class="bar-top"><span class="bar-status ${esc(st)}">${status}</span><ol class="stepper">${steps}</ol></div>${now}`;
+  paintIcons(el);
+  $$(".keycap", el).forEach((b) => b.onclick = () => press(b.dataset.key));
+  const again = $("#again", el); if (again) again.onclick = () => press("call");
+}
+
+// ---- understood so far: a checklist that lights up as answers come in ---------------------------------
+const GENDER_SHORT = {female: "Woman", male: "Man", other: "Not said"};
+function profileRows(d) {
+  const travel = d.radius_km ?? d.travel_km;
+  return [["Name", d.name], ["Age", d.age], ["Woman / man", GENDER_SHORT[d.gender] || (typeof d.gender === "string" && !GENDER_SHORT[d.gender] ? d.gender : "")],
+    ["Studies", eduName(d.education) || d.education_label],
+    ["Work", (d.work || []).join(", ") + (d.years ? ` · ${d.years} yrs` : "")], ["Wants", (d.wants || []).join(", ")],
+    ["Daily travel", travel ? `${travel} km${d.cannot_leave_home ? " · not away from home" : ""}` : ""],
+    ["Health", d.health && d.health !== "none" ? ({some: "Some limits", severe: "Severe limits"}[d.health] || d.health) : d.health === "none" ? "" : d.health],
+    ["Best match", cat.sectors.find((x) => x.code === d.lead)?.title || d.lead_label || ""]];
+}
+function setProfile(d) {
+  const before = Object.fromEntries(call.profile ? profileRows(call.profile) : []);
+  call.profile = {...(call.profile || {}), ...d};
+  call.fresh = {};
+  profileRows(call.profile).forEach(([k, v]) => { if (v && v !== before[k]) call.fresh[k] = true; });
+  renderNow();
+}
+function setShortlist(list, note) {
+  const before = call.ranks || {};
+  call.shortlist = list || [];
+  call.ranks = Object.fromEntries(call.shortlist.map((o) => [o.course, o.rank]));
+  call.moves = Object.fromEntries(call.shortlist.map((o) => [o.course, before[o.course] === undefined ? (Object.keys(before).length ? "new" : "") : before[o.course] - o.rank]));
+  call.slNote = note;
+  renderNow();
+}
+function renderNow() {
   const pEl = $("#nowProfile"), lEl = $("#nowList");
   if (!pEl) return;
   const d = call.profile;
-  if (!d) pEl.innerHTML = `<p class="tiny">Fills in as the caller answers.</p>`;
+  if (!d) { pEl.innerHTML = `<p class="tiny">Fills in as the caller answers.</p>`; $("#pfCount").textContent = ""; }
   else {
-    const travel = d.radius_km ?? d.travel_km;
-    const rows = [["Name", d.name], ["Age", d.age], ["Studies", d.education_label || d.education], ["Work", (d.work || []).join(", ") + (d.years ? ` · ${d.years} yrs` : "")],
-      ["Wants", (d.wants || []).join(", ")], ["Travel", travel ? `${travel} km${d.cannot_leave_home ? " · cannot leave home" : ""}` : ""],
-      ["Health", d.health && d.health !== "none" ? d.health : ""], ["Best match", d.lead_label || ""], ["Said no", (d.rejected || []).join(", ")]]
-      .filter(([, v]) => v !== undefined && v !== null && v !== "");
-    const emph = Object.entries(d.emphasis || {}).map(([k, v]) => `<span class="chip warn">${esc(k)} ${esc(v)}</span>`).join(" ");
-    pEl.innerHTML = `<dl class="facts-list">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${emph ? `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">${emph}</div>` : ""}`;
+    const rows = profileRows(d);
+    const have = rows.filter(([, v]) => v !== undefined && v !== null && v !== "").length;
+    $("#pfCount").textContent = `${have} of ${rows.length}`;
+    const emph = Object.entries(d.emphasis || {}).map(([k, v]) => `<span class="chip warn">${esc(k)} ${esc(v)}</span>`).join("");
+    const no = (d.rejected || []).length ? `<div class="tiny" style="margin-top:6px">Said no to: ${esc(d.rejected.join(", "))}</div>` : "";
+    pEl.innerHTML = `<ul class="checklist">${rows.map(([k, v]) => {
+      const ok = v !== undefined && v !== null && v !== "";
+      return `<li class="${ok ? "ok" : ""} ${call.fresh?.[k] ? "fresh" : ""}"><span class="tick">${ok ? icon("check") : ""}</span><span class="k">${k}</span><span class="v">${ok ? esc(v) : "—"}</span></li>`;
+    }).join("")}</ul>${emph ? `<div class="chips">${emph}</div>` : ""}${no}`;
+    paintIcons(pEl);
   }
-  if (note !== undefined) $("#slNote").textContent = note;
-  lEl.innerHTML = call.shortlist.length ? call.shortlist.map((o) => `<div class="opt ${o.chosen ? "chosen" : ""}"><div class="opt-h"><span class="rank">${o.rank}</span><b>${esc(o.course)}</b><span class="score">${(+o.score).toFixed(2)}</span></div>
-      ${o.centre ? `<div class="why">${esc(o.centre)}${o.distance_km !== undefined ? ` · ${o.distance_km} km` : ""}</div>` : ""}</div>`).join("")
-    : `<p class="tiny">Appears after the caller's story.</p>`;
+  $("#slNote").textContent = call.shortlist.length ? (call.slNote || "") : "";
+  const top = Math.max(0.01, ...call.shortlist.map((o) => +o.score || 0));
+  lEl.innerHTML = call.shortlist.length ? call.shortlist.map((o) => {
+    const mv = call.moves?.[o.course];
+    const move = mv === "new" ? `<span class="move new">new</span>` : mv > 0 ? `<span class="move up">▲${mv}</span>` : mv < 0 ? `<span class="move down">▼${-mv}</span>` : "";
+    return `<div class="sl ${o.chosen ? "chosen" : ""}"><span class="rank">${o.rank}</span><div class="sl-main"><b>${esc(o.course)}</b>${move}
+      ${o.centre ? `<small>${esc(o.centre)}${o.distance_km !== undefined ? ` · ${o.distance_km} km` : ""}</small>` : ""}
+      <span class="track"><i style="width:${Math.max(3, 100 * (+o.score || 0) / top)}%"></i></span></div><span class="score">${(+o.score).toFixed(2)}</span>${o.chosen ? `<span class="chip good">${icon("check")}chosen</span>` : ""}</div>`;
+  }).join("") : `<p class="tiny">Appears after the caller's story, and changes with every answer.</p>`;
+  paintIcons(lEl);
+}
+function renderWeights() {
+  const card = $("#weightsCard");
+  if (!card || !call.weights) return;
+  card.classList.remove("hidden");
+  $("#nowWeights").innerHTML = bars(call.weights.map((w) => ({label: `${w.label} ×${w.m}`, v: w.share, text: pct(w.share), on: w.m > 1.25})), Math.max(...call.weights.map((w) => w.share)));
 }
 
-const STEP_ICON = {heard: ["message", ""], key: ["keypad", ""], llm: ["cpu", "violet"], rules: ["check", ""], plan: ["help", "amber"],
+// ---- the conversation: what was said, and each decision, in order ------------------------------------
+const STEP_ICON = {heard: ["message", ""], key: ["keypad", ""], llm: ["cpu", "violet"], rules: ["check", "blue"], plan: ["help", "amber"],
   ranking: ["list", "green"], tradeoff: ["scale", "amber"], choice: ["star", "green"], saved: ["save", "green"], review: ["eye", ""],
   officer: ["alert", "red"], end: ["phoneOff", "red"], skills: ["book", "green"], card: ["idcard", "green"]};
-function addBubble(who, text, label) { call.steps.push({bubble: who, text, label, at: Date.now()}); renderSteps(true); }
-function addStep(t) { call.steps.push({...t, at: Date.now()}); renderSteps(true); }
+const STEP_TITLE = {llm: "Understood", rules: "Read by rules", plan: "Next question", ranking: "Ranking"};
+function addBubble(who, text, label) {
+  const last = call.steps[call.steps.length - 1];
+  if (who === "sys" && last?.bubble === "sys" && Date.now() - last.at < 15000) last.text.push(text);  // one turn, one bubble
+  else call.steps.push({bubble: who, text: [text], label, at: Date.now()});
+  renderSteps();
+}
+function addStep(t) { call.steps.push({...t, at: Date.now()}); renderSteps(); }
 
-function renderSteps(append) {
+function renderSteps() {
   const box = $("#steps");
   if (!box) return;
   const only = $("#onlyDecisions")?.checked;
-  const items = call.steps.filter((s) => !only || (!s.bubble && !["key"].includes(s.step)));
-  if (!items.length) { box.innerHTML = `<p class="tiny">Press the green key to start a call. Each answer shows here with what the system understood and why it chose the next step.</p>`; return; }
   const start = call.steps[0]?.at || Date.now();
-  const html = (s) => s.bubble
-    ? `<div class="bubble ${s.bubble}"><small>${esc(s.label || (s.bubble === "sys" ? "HunarVaani" : "Caller"))}</small>${esc(s.text)}</div>`
-    : stepHtml(s, start);
-  if (append && box.children.length && box.firstElementChild.tagName !== "P" && items.length === box.children.length + 1) {
-    box.insertAdjacentHTML("beforeend", html(items[items.length - 1]));
-    paintIcons(box.lastElementChild);
-  } else { box.innerHTML = items.map(html).join(""); paintIcons(box); }
-  if (append) box.lastElementChild?.scrollIntoView({block: "nearest", behavior: "smooth"});
+  const items = call.steps.map((s, i) => [s, i]).filter(([s]) => !only || !s.bubble);
+  if (!items.length && call.state !== "dialing" && call.state !== "on") {
+    box.innerHTML = `<div class="empty-call"><div class="empty-ic">${icon("phone")}</div><h4>Play a call as the caller</h4>
+      <ol><li><b>Set the line PIN code</b> on the left: callers to this line get that district.</li>
+        <li><b>Press the green key</b> on the phone.</li>
+        <li><b>Answer like a caller:</b> number keys for menus, type (or speak) the rest. The PIN goes on the keypad.</li></ol>
+      <p class="tiny">Every answer shows here with what the system understood, why it asked the next question, and how the options were ranked.</p></div>`;
+    paintIcons(box); return;
+  }
+  box.innerHTML = items.map(([s, i]) => s.bubble ? bubbleHtml(s, i, start) : stepHtml(s, i, start)).join("")
+    + (call.waiting && call.ws ? `<div class="row-sys"><span class="av">HV</span><div class="bubble sys typing"><i></i><i></i><i></i></div></div>` : "");
+  paintIcons(box);
+  if (call.follow !== false) box.scrollTop = box.scrollHeight;
+}
+function bubbleHtml(s, i, start) {
+  const t = `<span class="t">${dur(s.at - start)}</span>`;
+  return s.bubble === "sys"
+    ? `<div class="row-sys" data-i="${i}"><span class="av">HV</span><div class="bubble sys">${s.text.map((x) => `<p>${esc(x)}</p>`).join("")}${t}</div></div>`
+    : `<div class="row-me" data-i="${i}"><div class="bubble me"><small>${esc(s.label || "Caller")}</small>${s.text.map((x) => `<p>${esc(x)}</p>`).join("")}${t}</div><span class="av me">${icon("user")}</span></div>`;
 }
 
 function bars(list, max) {
   const top = max || Math.max(0.0001, ...list.map((x) => x.v));
   return `<div class="bars-list">${list.map((x) => `<div class="bar ${x.on ? "picked" : ""}"><span title="${esc(x.label)}">${esc(x.label)}</span><span class="track"><i style="width:${Math.max(2, Math.min(100, 100 * x.v / top))}%"></i></span><span class="v">${x.text ?? x.v.toFixed(2)}</span></div>`).join("")}</div>`;
 }
+const details = (s, summary, body) => `<details ${s.open ? "open" : ""}><summary>${summary}</summary>${body}</details>`;
+function kvLines(lines) {
+  return `<dl class="kv-lines">${lines.map((l) => {
+    const at = l.indexOf(": ");
+    return at > 0 && at < 48 ? `<dt>${esc(l.slice(0, at))}</dt><dd>${esc(l.slice(at + 2))}</dd>` : `<dd class="wide">${esc(l)}</dd>`;
+  }).join("")}</dl>`;
+}
 
-function stepHtml(s, start) {
+function stepHtml(s, i, start) {
   const [ic, tone] = STEP_ICON[s.step] || ["route", ""];
   const d = s.data || {};
-  let extra = "";
-  if (s.step === "plan" && d.candidates?.length) {
-    extra = `<div class="tiny">Asked: “${esc(d.text)}”</div>` + bars(d.candidates.map((c) => ({label: c.name, v: c.value, on: c.picked})));
-  } else if (s.step === "llm") {
-    extra = `<details><summary>${esc(d.model || "LLM")}${d.ms !== undefined ? ` · ${d.ms} ms` : ""} · raw answer</summary><pre>${esc(JSON.stringify(d.raw || {}, null, 1))}</pre></details>`;
-  } else if (s.step === "ranking") {
-    extra = `<div class="tiny">This person's weights (officer weight w × their own emphasis m):</div>`
-      + bars((d.weights || []).map((w) => ({label: `${w.label} ×${w.m}`, v: w.share, text: pct(w.share)})), 1)
-      + (d.options || []).map((o) => `<div class="opt"><div class="opt-h"><span class="rank">${o.rank}</span><b>${esc(o.course)}</b><span class="score">${o.score.toFixed(2)}</span></div>
-          <div class="why">${esc(o.sentence)}</div></div>`).join("")
-      + (d.left_out?.length ? `<div class="tiny" style="margin-top:6px">Left out by the gates:</div><div class="left-out">${d.left_out.map((x) => `<div><b>${esc(x.course)}</b> <small>${esc(x.centre)} · fit ${x.fit.toFixed(2)}</small><br>${esc(x.because.join("; "))}</div>`).join("")}</div>` : "");
-  } else if (s.step === "card" && d.hv_id) {
-    extra = `<div><a class="btn sm" href="#person/${esc(d.hv_id)}">${icon("user")}Open the record</a></div>`;
-  } else if (s.step === "saved" && d.hv_id) {
-    extra = `<div><a class="btn sm" href="#person/${esc(d.hv_id)}">${icon("user")}Open the record</a></div>`;
+  const t = `<span class="t">${dur(s.at - start)}</span>`;
+  const head = (title, aside = "") => `<div class="step-h"><span class="ic ${tone}">${icon(ic)}</span><span class="st-title">${esc(title)}</span>${aside}${t}</div>`;
+  const open = (html) => `<div class="step ${esc(s.step)}" data-i="${i}">${html}</div>`;
+  const record = d.hv_id ? `<div><a class="btn sm" href="#person/${esc(d.hv_id)}">${icon("user")}Open the record</a></div>` : "";
+  if (s.step === "rules") {
+    return `<div class="step rules compact" data-i="${i}"><span class="ic ${tone}">${icon(ic)}</span><span class="st-title">Read by rules, no LLM needed</span><span class="pill-v">${esc((s.lines || [])[0] || "")}</span>${t}</div>`;
   }
-  const lines = (s.lines || []).filter((l) => !(s.step === "ranking" && /^Top:|^Left out:/.test(l)));
-  return `<div class="step ${esc(s.step)}"><div class="step-h"><span class="ic ${tone}">${icon(ic)}</span>${esc(s.title)}<span class="t">+${dur(s.at - start)}</span></div>
-    ${lines.length ? `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}${extra}</div>`;
+  if (s.step === "llm") {
+    const lines = s.lines || [];
+    return open(head("Understood (LLM, checked by code)", d.ms !== undefined ? `<span class="pill">${(d.ms / 1000).toFixed(1)} s</span>` : "")
+      + kvLines(lines) + details(s, `Raw answer from ${esc(d.model || "the LLM")}`, `<pre>${esc(JSON.stringify(d.raw || {}, null, 1))}</pre>`));
+  }
+  if (s.step === "plan") {
+    const why = (s.lines || [])[0] || "";
+    const cands = d.candidates || [];
+    return open(head(`Next question: ${s.title.replace(/^Next question: /, "")}`, `<span class="pill">value ${(+d.score || 0).toFixed(2)}</span>`)
+      + `<p class="step-p">${esc(why.replace(/^Picked “[^”]*”: /, "Why: "))}</p>`
+      + (cands.length ? bars(cands.slice(0, 4).map((c) => ({label: c.name, v: c.value, on: c.picked})), Math.max(0.01, ...cands.map((c) => c.value))) : "")
+      + details(s, "More: other questions, best match, shortlist", `<ul>${(s.lines || []).slice(1).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`
+        + (cands.length > 4 ? bars(cands.slice(4).map((c) => ({label: c.name, v: c.value})), Math.max(0.01, ...cands.map((c) => c.value))) : "")));
+  }
+  if (s.step === "ranking") {
+    const lines = (s.lines || []).filter((l) => !/^Top:|^Left out:/.test(l));
+    const top = Math.max(0.01, ...(d.options || []).map((o) => o.score));
+    return open(head(s.title, `<span class="pill">${(d.options || []).length} options</span>`)
+      + `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`
+      + (d.options || []).map((o) => `<div class="rk"><span class="rank">${o.rank}</span><div><b>${esc(o.course)}</b>
+          <div class="formula"><span>fit ${o.fit.toFixed(2)}</span>×<span>gates ${o.gate.toFixed(2)}</span>=<b>${o.score.toFixed(2)}</b></div>
+          <span class="track"><i style="width:${Math.max(3, 100 * o.score / top)}%"></i></span>
+          <small>${esc(o.sentence.replace(/^.*?Mostly because it means /, "Because it means "))}</small></div></div>`).join("")
+      + (d.left_out?.length ? details(s, `${d.left_out.length} strong options left out by the gates`,
+        `<div class="left-out">${d.left_out.map((x) => `<div><b>${esc(x.course)}</b> <small>${esc(x.centre)} · fit ${x.fit.toFixed(2)}</small><br>${esc(x.because.join("; "))}</div>`).join("")}</div>`) : ""));
+  }
+  const lines = s.lines || [];
+  return open(head(s.title) + (lines.length ? `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "") + record);
 }
 
 // ---- audio: the rendered voice pieces, or the browser voice if they are missing --------------------
@@ -673,9 +838,9 @@ function renderPerson(p) {
         <section class="card"><header><span class="ic amber">${icon("quote")}</span><h3>Their own words</h3></header><div class="body">
           ${evidence.length ? evidence.map((e) => `<p class="quote">“${esc(e.quote)}” <small>→ ${esc(e.factor || e.field)} · ${esc(e.strength)}${e.source ? ` · ${esc(e.source)}` : ""}</small></p>`).join("") : `<p class="tiny">No quotes.</p>`}</div></section>
         <section class="card"><header><span class="ic">${icon("help")}</span><h3>How the call was guided</h3></header><div class="body">
-          ${(pr.question_plan || []).length ? `<ul class="tl">${pr.question_plan.map((q) => `<li><b>${esc(q.question)}</b><small>${esc(q.why)} · mood ${esc(q.mood)}</small></li>`).join("")}</ul>` : `<p class="tiny">—</p>`}</div></section>
+          ${(pr.question_plan || []).length ? `<ul class="tl">${pr.question_plan.map((q) => `<li><b>${esc(q.name || q.question)}</b><small>${esc(q.why)} · mood ${esc(q.mood)}</small></li>`).join("")}</ul>` : `<p class="tiny">—</p>`}</div></section>
         <section class="card"><header><span class="ic">${icon("message")}</span><h3>Conversation</h3></header><div class="body">
-          ${(p.turns || []).filter((t) => ["speech", "key", "tradeoff", "review", "unclear"].includes(t.kind)).map((t) => `<div class="turn"><span>${esc(t.question)}</span><span>${esc(t.answer)}</span></div>`).join("") || `<p class="tiny">Turns are not logged (LOG_TURNS is off) or none yet.</p>`}</div></section>
+          ${(p.turns || []).filter((t) => ["speech", "key", "tradeoff", "review", "unclear"].includes(t.kind)).map((t) => `<div class="turn"><span>${esc(t.question_name || t.question)}</span><span>${esc(t.answer)}</span></div>`).join("") || `<p class="tiny">Turns are not logged (LOG_TURNS is off) or none yet.</p>`}</div></section>
         <section class="card"><header><span class="ic">${icon("clock")}</span><h3>Audit log</h3></header><div class="body">
           <ul class="tl">${(p.audit || []).slice().reverse().map((a) => `<li><b>${esc(a.action)}</b><small>${esc(when(a.ts))} · ${esc(a.actor)}${a.note ? ` · ${esc(a.note)}` : ""}</small></li>`).join("")}</ul></div></section>
       </div>
